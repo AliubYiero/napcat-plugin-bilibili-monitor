@@ -11,9 +11,9 @@ export const addLiveHandler = async (
     commands: string[],
 ) => {
     // 获取参数, 直播间号
-    const [roomId] = commands;
-    if (!roomId) {
-        ctx.logger.debug('未检测到直播间号');
+    const [uid] = commands;
+    if (!uid) {
+        ctx.logger.debug('未检测到主播UID');
         return;
     }
 
@@ -22,7 +22,7 @@ export const addLiveHandler = async (
     const groupId =
         message_type === 'group' ? String(group_id) : String(user_id);
 
-    await biliLiveStoreService.add(Number(roomId), {
+    await biliLiveStoreService.add(uid, {
         id: groupId,
         type: message_type,
     });

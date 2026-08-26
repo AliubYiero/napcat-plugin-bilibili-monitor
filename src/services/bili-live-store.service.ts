@@ -4,7 +4,9 @@ import {
 	BiliLiveStore,
 } from '../store/bili-live.store';
 import { sendReplyByToInfo } from '../handlers/message.handler';
-import { api_getRoomBaseInfo } from '../api/api_getRoomBaseInfo';
+import {
+	api_getStatusInfoByUids,
+} from '../api/api_getStatusInfoByUids';
 
 /**
  * Bilibili 直播变化监听器
@@ -19,29 +21,28 @@ class BiliLiveStoreService {
 	/**
 	 * 添加直播间推送
 	 */
-	async add( roomId: number, toInfo: BiliLiveMonitorToInfo ) {
+	async add( uid: string, toInfo: BiliLiveMonitorToInfo ) {
 		try {
-			// 检查房间号是否存在在存储中
-			const hasRoomId = this.biliLiveStore.has( roomId, toInfo );
-			if ( hasRoomId ) {
-				// 如果房间号在存储中, 直接返回
-				await sendReplyByToInfo( pluginState.ctx, toInfo, `直播间信息存在, 请勿重复添加: ${ roomId }` );
+			// 检查 UID 是否存在在存储中
+			const hasUid = this.biliLiveStore.has( uid, toInfo );
+			if ( hasUid ) {
+				// 如果 UID 在存储中, 直接返回
+				await sendReplyByToInfo( pluginState.ctx, toInfo, `主播存在, 请勿重复添加: ${ uid }` );
 				return;
 			}
-			// 如果房间号不存在在存储中, 检查当前房间号是否有效
-			const response = await api_getRoomBaseInfo( [ roomId ] );
-			// await sendReplyByToInfo( pluginState.ctx, toInfo, JSON.stringify(response) );
-			if ( Object.values(response.data.by_room_ids).length === 0 ) {
+			// 如果 UID 不存在在存储中, 检查当前房间号是否有效
+			const response = await api_getStatusInfoByUids( [ uid ] );
+			if ( Object.values(response.data).length === 0 ) {
 				pluginState.ctx.logger.error( response.code, response.message );
-				await sendReplyByToInfo( pluginState.ctx, toInfo, `直播间信息添加失败, 房间号不存在: ${roomId}` );
+				await sendReplyByToInfo( pluginState.ctx, toInfo, `主播存在添加失败, 不存在该主播: ${uid}` );
 				return;
 			}
 			
-			this.biliLiveStore.add( roomId, toInfo );
-			await sendReplyByToInfo( pluginState.ctx, toInfo, `直播间信息添加完成, 开始监听: ${ roomId }` );
+			this.biliLiveStore.add( uid, toInfo );
+			await sendReplyByToInfo( pluginState.ctx, toInfo, `主播添加完成, 开始监听: ${ uid }` );
 		}
 		catch ( _e ) {
-			const errorMessage = `直播间添加失败: ${ roomId }`;
+			const errorMessage = `主播 UID 添加失败: ${ uid }`;
 			pluginState.ctx.logger.error( errorMessage, _e );
 			await sendReplyByToInfo(
 				pluginState.ctx,
@@ -54,19 +55,19 @@ class BiliLiveStoreService {
 	/**
 	 * 删除直播间推送
 	 */
-	async remove( roomId: number, toInfo: BiliLiveMonitorToInfo ) {
+	async remove( uid: string, toInfo: BiliLiveMonitorToInfo ) {
 		try {
 			const isRemoved = this.biliLiveStore.remove(
-				roomId,
+				uid,
 				toInfo,
 			);
 			const message = isRemoved
-				? `直播间信息删除完毕, 已停止监听: ${ roomId }`
-				: `不存在该直播间的监听信息: ${ roomId }`;
+				? `主播信息删除完毕, 已停止监听: ${ uid }`
+				: `不存在该主播的监听信息: ${ uid }`;
 			await sendReplyByToInfo( pluginState.ctx, toInfo, message );
 		}
 		catch ( e ) {
-			const errorMessage = `直播间监听移除失败: ${ roomId }`;
+			const errorMessage = `主播监听移除失败: ${ uid }`;
 			pluginState.ctx.logger.error( errorMessage, e );
 			await sendReplyByToInfo(
 				pluginState.ctx,
