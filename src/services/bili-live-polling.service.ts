@@ -20,6 +20,10 @@ import {
     api_getStatusInfoByUids,
     type RoomStatusInfo,
 } from '../api/api_getStatusInfoByUids';
+import {
+    type OB11MessageDataType,
+    OB11PostSendMsg,
+} from 'napcat-types/napcat-onebot';
 import { sendReplyByToInfo } from '../handlers/message.handler';
 
 /** B站接口单次最大请求房间数 */
@@ -244,14 +248,16 @@ function mapToRoomInfo(
         area_name: room.area_v2_name || '',
         live_time: room.live_time || 0,
         uname: room.uname || '',
+        cover_from_user: room.cover_from_user || '',
+        keyframe: room.keyframe || '',
     };
 }
 
-/** 按事件类型渲染推送文本，无法渲染时返回 null */
+/** 按事件类型渲染推送消息（文本字符串或消息段数组），无法渲染时返回 null */
 function renderMessage(
     event: ChangeEvent,
     roomStore: BiliLiveRoomStore,
-): string | null {
+): OB11PostSendMsg['message'] | null {
     const latest = roomStore.get(event.uid);
     const old = event.oldRoomInfo;
     const time = formatTime(Date.now());
@@ -260,12 +266,19 @@ function renderMessage(
     switch (event.type) {
         case 'start_stream': {
             if (!latest) return null;
-            return [
+            const text = [
                 `[${time}] ${latest.uname} 开始了直播`,
                 `标题: ${latest.title}`,
                 `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
                 `链接: ${roomUrl(latest.room_id)}`,
             ].join('\n');
+            // 附带图片（放最后）：优先直播间封面，缺失时回退到关键帧
+            const imageUrl = latest.cover_from_user || latest.keyframe;
+            if (!imageUrl) return text;
+            return [
+                { type: 'text' as OB11MessageDataType.text, data: { text } },
+                { type: 'image' as OB11MessageDataType.image, data: { file: imageUrl } },
+            ];
         }
         case 'end_stream': {
             if (!old) return null;

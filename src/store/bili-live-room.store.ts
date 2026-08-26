@@ -13,6 +13,10 @@ export interface BiliLiveRoomInfo {
     area_name: string;
     live_time: number; // 开播时间戳（秒），未开播时为 0
     uname: string;
+    /** 直播间封面 url（主播设置，可能为空） */
+    cover_from_user?: string;
+    /** 直播间关键帧 url（直播画面截图，可能为空） */
+    keyframe?: string;
 }
 
 /** 变化类型枚举 */
