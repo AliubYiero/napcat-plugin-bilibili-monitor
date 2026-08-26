@@ -15,7 +15,8 @@ import type {
 	NapCatPluginContext,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { pluginState } from '../core/state';
-import { instructionHandler } from './instruction-handler';
+import { instructionHandler } from './instruction.handler';
+import { BiliLiveMonitorToInfo } from '../store/bili-live.store';
 
 // ==================== CD 冷却管理 ====================
 
@@ -74,6 +75,38 @@ export async function sendReply(
 			...( event.message_type === 'private' && event.user_id
 				? { user_id: String( event.user_id ) }
 				: {} ),
+		};
+		await ctx.actions.call( 'send_msg', params, ctx.adapterName, ctx.pluginManager.config );
+		return true;
+	}
+	catch ( error ) {
+		pluginState.logger.error( '发送消息失败:', error );
+		return false;
+	}
+}
+
+/**
+ * 发送消息（通用）
+ * 根据消息类型自动发送到群或私聊
+ *
+ * @param ctx 插件上下文
+ * @param toInfo 消息来源
+ * @param message 消息内容（支持字符串或消息段数组）
+ */
+export async function sendReplyByToInfo(
+	ctx: NapCatPluginContext,
+	toInfo: BiliLiveMonitorToInfo,
+	message: OB11PostSendMsg['message'],
+): Promise<boolean> {
+	try {
+		const id = toInfo.type === 'group'
+			? {group_id: toInfo.id}
+			: {user_id: toInfo.id}
+		
+		const params: OB11PostSendMsg = {
+			message,
+			message_type: toInfo.type,
+			...id,
 		};
 		await ctx.actions.call( 'send_msg', params, ctx.adapterName, ctx.pluginManager.config );
 		return true;
@@ -217,7 +250,7 @@ export async function handleMessage( ctx: NapCatPluginContext, event: OB11Messag
 		// 解析命令参数
 		const args = rawMessage.slice( prefix.length ).trim().split( /\s+/ );
 		
-		// TODO: 在这里实现你的命令处理逻辑
+		// 命令处理逻辑
 		instructionHandler( ctx, event, args );
 	}
 	catch ( error ) {

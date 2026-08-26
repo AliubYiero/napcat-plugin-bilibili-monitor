@@ -14,9 +14,9 @@ src/
 ├── core/
 │   └── state.ts          # [状态] 全局状态管理单例
 ├── handlers/             # [逻辑] 具体的业务逻辑处理
-│   └── message-handler.ts
+│   └── message.handler.ts
 ├── services/             # [服务] 外部服务接口或复杂功能封装
-│   └── api-service.ts
+│   └── api.service.ts
 └── webui/                # [前端] 插件的 WebUI 界面代码
 ```
 
@@ -57,7 +57,7 @@ export function doSomething() {
 ### 3. `handlers/` - 业务逻辑
 
 这里存放具体的事件处理函数。
-- `message-handler.ts`: 处理群消息、私聊消息。
+- `message.handler.ts`: 处理群消息、私聊消息。
 - `request-handler.ts`: 处理加群请求、好友请求。
 - `notice-handler.ts`: 处理群通知（如成员变动）。
 

@@ -247,7 +247,7 @@ export const plugin_init: PluginModule['plugin_init'] = async (ctx) => {
 
 **后端 (node)**:
 ```typescript
-// src/services/api-service.ts
+// src/services/api.service.ts
 import type { NapCatPluginContext } from "napcat-types";
 
 export function registerApiRoutes(ctx: NapCatPluginContext) {

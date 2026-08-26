@@ -80,13 +80,13 @@ block-beta
 
 | 文件 | 职责 |
 |------|------|
-| `src/services/api-service.ts` | WebUI API 路由注册（状态、配置、群管理接口） |
+| `src/services/api.service.ts` | WebUI API 路由注册（状态、配置、群管理接口） |
 
 ### 消息处理
 
 | 文件 | 职责 |
 |------|------|
-| `src/handlers/message-handler.ts` | 消息事件入口，命令解析、CD 冷却、消息发送工具（含合并转发消息）、权限检查 |
+| `src/handlers/message.handler.ts` | 消息事件入口，命令解析、CD 冷却、消息发送工具（含合并转发消息）、权限检查 |
 
 ### 前端 WebUI
 

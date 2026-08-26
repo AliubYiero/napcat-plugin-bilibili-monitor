@@ -13,9 +13,9 @@ napcat-plugin-template/
 │   ├── core/
 │   │   └── state.ts          # 全局状态管理单例
 │   ├── handlers/
-│   │   └── message-handler.ts # 消息处理器（命令解析、CD 冷却、消息工具）
+│   │   └── message.handler.ts # 消息处理器（命令解析、CD 冷却、消息工具）
 │   ├── services/
-│   │   └── api-service.ts    # WebUI API 路由（无认证模式）
+│   │   └── api.service.ts    # WebUI API 路由（无认证模式）
 │   └── webui/                # React SPA 前端（独立构建）
 │       ├── index.html
 │       ├── package.json
@@ -79,8 +79,8 @@ pnpm install
 ### 3. 开发你的功能
 
 - **添加配置项**: 编辑 `src/types.ts` 和 `src/config.ts`
-- **消息处理**: 编辑 `src/handlers/message-handler.ts`
-- **API 路由**: 编辑 `src/services/api-service.ts`
+- **消息处理**: 编辑 `src/handlers/message.handler.ts`
+- **API 路由**: 编辑 `src/services/api.service.ts`
 - **状态管理**: 编辑 `src/core/state.ts`
 - **WebUI 页面**: 编辑 `src/webui/src/pages/` 下的页面组件
 - **WebUI 类型**: 同步更新 `src/webui/src/types.ts` 中的前端类型

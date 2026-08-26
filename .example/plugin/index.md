@@ -37,7 +37,7 @@ napcat-plugin-template/
 │   ├── core/
 │   │   └── state.ts          # 全局状态管理
 │   ├── handlers/             # 业务逻辑处理模块
-│   │   └── message-handler.ts # 示例：消息处理器
+│   │   └── message.handler.ts # 示例：消息处理器
 │   ├── services/             # 服务层，API 路由等
 │   └── webui/                # (可选) 插件的 WebUI 前端代码
 ├── package.json              # 项目依赖及元数据
@@ -338,4 +338,3 @@ NapCat 插件模板内置了 GitHub Actions 工作流，可自动完成构建、
 - [热重载开发](./hot-reload.md) — 使用调试服务实现改代码即时生效，无需重启 NapCat
 - [NapCat 插件模板](https://github.com/NapNeko/napcat-plugin-template)
 - [NapCat 插件索引](https://github.com/NapNeko/napcat-plugin-index)
-

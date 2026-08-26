@@ -29,8 +29,8 @@ import { EventType } from 'napcat-types/napcat-onebot/event/index';
 
 import { buildConfigSchema } from './config';
 import { pluginState } from './core/state';
-import { handleMessage } from './handlers/message-handler';
-import { registerApiRoutes } from './services/api-service';
+import { handleMessage } from './handlers/message.handler';
+import { registerApiRoutes } from './services/api.service';
 import type { PluginConfig } from './types';
 
 // ==================== 配置 UI Schema ====================
@@ -55,7 +55,7 @@ export const plugin_init: PluginModule['plugin_init'] = async (ctx) => {
         plugin_config_ui = buildConfigSchema(ctx);
 
         // 3. 注册 WebUI 页面和静态资源
-        registerWebUI(ctx);
+        // registerWebUI(ctx);
 
         // 4. 注册 API 路由
         registerApiRoutes(ctx);
@@ -142,16 +142,16 @@ function registerWebUI(ctx: NapCatPluginContext): void {
 
     // 托管前端静态资源（构建产物在 webui/ 目录下）
     // 访问路径: /plugin/<plugin-id>/files/static/
-    // router.static('/static', 'webui');
+    router.static('/static', 'webui');
 
     // 注册仪表盘页面（显示在 NapCat WebUI 侧边栏）
     // 访问路径: /plugin/<plugin-id>/page/dashboard
-    // router.page({
-    //     path: 'dashboard',
-    //     title: '插件仪表盘',
-    //     htmlFile: 'webui/index.html',
-    //     description: '插件管理控制台',
-    // });
+    router.page({
+        path: 'dashboard',
+        title: '插件仪表盘',
+        htmlFile: 'webui/index.html',
+        description: '插件管理控制台',
+    });
 
     ctx.logger.debug('WebUI 路由注册完成');
 }
