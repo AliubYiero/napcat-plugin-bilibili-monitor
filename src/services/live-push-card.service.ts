@@ -152,6 +152,18 @@ export async function buildPushCardMessage(
     }
 }
 
+/**
+ * 构建推送消息：优先 SVG 卡片，渲染失败时回退纯文本。
+ * 供轮询推送与 add 立即推送等场景复用。
+ */
+export async function buildChangeMessage(
+    event: ChangeEvent,
+    roomStore: BiliLiveRoomStore,
+): Promise<OB11PostSendMsg['message'] | null> {
+    const imageMessage = await buildPushCardMessage(event, roomStore);
+    return imageMessage ?? renderTextMessage(event, roomStore);
+}
+
 /** 渲染推送消息第一行（事件描述），无法渲染时返回 null */
 export function renderFirstLine(
     event: ChangeEvent,
@@ -185,6 +197,90 @@ export function renderFirstLine(
         default:
             return null;
     }
+}
+
+/** 按事件类型渲染纯文本推送消息（字符串或消息段数组），无法渲染时返回 null */
+export function renderTextMessage(
+    event: ChangeEvent,
+    roomStore: BiliLiveRoomStore,
+): OB11PostSendMsg['message'] | null {
+    const latest = roomStore.get(event.uid);
+    const old = event.oldRoomInfo;
+    const time = formatTime(Date.now());
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    // 第一行统一由 renderFirstLine 生成, 保证与图片卡片一致
+    const firstLine = renderFirstLine(event, time, latest, old);
+    if (!firstLine) return null;
+
+    switch (event.type) {
+        case 'start_stream': {
+            if (!latest) return null;
+            const text = [
+                firstLine,
+                `标题: ${latest.title}`,
+                `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
+                `链接: ${roomUrl(latest.room_id)}`,
+            ].join('\n');
+            // 附带图片（放最后）：优先直播间封面，缺失时回退到关键帧
+            const imageUrl = latest.cover_from_user || latest.keyframe;
+            if (!imageUrl) return text;
+            return [
+                { type: 'text' as OB11MessageDataType.text, data: { text } },
+                { type: 'image' as OB11MessageDataType.image, data: { file: imageUrl } },
+            ];
+        }
+        case 'end_stream': {
+            if (!old) return null;
+            return [
+                firstLine,
+                durationLine(nowSec - old.live_time),
+                `标题: ${old.title}`,
+                `分区: ${formatArea(old.parent_area_name, old.area_name)}`,
+                `链接: ${roomUrl(old.room_id)}`,
+            ]
+                .filter((line): line is string => line !== null)
+                .join('\n');
+        }
+        case 'title_changed': {
+            if (!latest) return null;
+            return [
+                firstLine,
+                durationLine(nowSec - latest.live_time),
+                `标题: ${latest.title}`,
+                `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
+                `链接: ${roomUrl(latest.room_id)}`,
+            ]
+                .filter((line): line is string => line !== null)
+                .join('\n');
+        }
+        case 'area_changed': {
+            if (!latest) return null;
+            const oldArea = event.oldValue as
+                | { parent?: string; area?: string }
+                | undefined;
+            const newArea = event.newValue as
+                | { parent?: string; area?: string }
+                | undefined;
+            return [
+                firstLine,
+                durationLine(nowSec - latest.live_time),
+                `标题: ${latest.title}`,
+                `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
+                `链接: ${roomUrl(latest.room_id)}`,
+            ]
+                .filter((line): line is string => line !== null)
+                .join('\n');
+        }
+        default:
+            return null;
+    }
+}
+
+/** 时长行（非直播中或开播时间为 0 时返回 null，以便过滤掉） */
+function durationLine(durationSec: number): string | null {
+    if (durationSec <= 0) return null;
+    return `时长: ${formatDuration(durationSec)}`;
 }
 
 /** 收集卡片渲染所需的展示数据 */

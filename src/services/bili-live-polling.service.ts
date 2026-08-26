@@ -10,31 +10,23 @@
  * 因此这里使用惰性 getter，避免模块加载期过早初始化抛错。
  */
 import { pluginState } from '../core/state';
-import { BiliLiveStore } from '../store/bili-live.store';
+import {
+    BiliLiveStore,
+    type BiliLiveMonitorToInfo,
+} from '../store/bili-live.store';
 import {
     BiliLiveRoomStore,
-    type BiliLiveRoomInfo,
     type ChangeEvent,
+    mapToRoomInfo,
 } from '../store/bili-live-room.store';
-import {
-    api_getStatusInfoByUids,
-    type RoomStatusInfo,
-} from '../api/api_getStatusInfoByUids';
+import { api_getStatusInfoByUids } from '../api/api_getStatusInfoByUids';
+import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import {
     type OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
 import { sendReplyByToInfo } from '../handlers/message.handler';
-import {
-    buildPushCardMessage,
-    renderFirstLine,
-} from './live-push-card.service';
-import {
-    formatArea,
-    formatDuration,
-    formatTime,
-    roomUrl,
-} from '../utils/format';
+import { buildChangeMessage } from './live-push-card.service';
 
 /** B站接口单次最大请求房间数 */
 const MAX_ROOM_IDS_PER_REQUEST = 100;
@@ -216,13 +208,10 @@ export class BiliLivePollingService {
             }
 
             // 3. 渲染推送消息: 优先图片卡片, SVG 渲染失败时回退纯文本
-            const imageMessage = await buildPushCardMessage(
+            const message = await buildChangeMessage(
                 event,
                 this.roomStore,
             );
-            const message =
-                imageMessage ??
-                renderMessage(event, this.roomStore);
             if (!message) {
                 pluginState.logger.debug(
                     `事件 ${type} 无法渲染推送消息, 跳过 uid=${uid}`,
@@ -240,6 +229,23 @@ export class BiliLivePollingService {
                     toInfo,
                     message,
                 );
+
+                // 开播事件: 群目标存在开播 @ 订阅时, 按 10 人一组额外发送 @ 提醒
+                if (
+                    event.type === 'start_stream' &&
+                    toInfo.type === 'group'
+                ) {
+                    const mentionUsers = toInfo.mentionUsers ?? [];
+                    if (mentionUsers.length > 0) {
+                        const uname = monitor.uname || uid;
+                        await sendMentionMessages(
+                            pluginState.ctx,
+                            toInfo,
+                            mentionUsers,
+                            uname,
+                        );
+                    }
+                }
             }
         } catch (err) {
             pluginState.logger.error('处理直播间变化事件出错:', err);
@@ -247,109 +253,33 @@ export class BiliLivePollingService {
     }
 }
 
-// ==================== 映射与渲染工具 ====================
+// ==================== 开播 @ 订阅消息 ====================
 
-/** 将 B站接口返回的房间状态映射为内部 BiliLiveRoomInfo */
-function mapToRoomInfo(
-    room: RoomStatusInfo,
-): BiliLiveRoomInfo | null {
-    if (!room || typeof room.uid !== 'number') return null;
-    return {
-        room_id: room.room_id,
-        uid: room.uid,
-        // live_status: 0 未开播, 1 正在直播, 2 轮播中；仅 1 视为 streaming
-        live_status: room.live_status === 1 ? 'streaming' : 'offline',
-        title: room.title || '',
-        parent_area_name: room.area_v2_parent_name || '',
-        area_name: room.area_v2_name || '',
-        live_time: room.live_time || 0,
-        uname: room.uname || '',
-        avatar: room.face || '',
-        cover_from_user: room.cover_from_user || '',
-        keyframe: room.keyframe || '',
-    };
-}
+/** 每条 mention 消息最多 @ 的用户数 */
+const MENTION_GROUP_SIZE = 10;
 
-/** 按事件类型渲染推送消息（文本字符串或消息段数组），无法渲染时返回 null */
-function renderMessage(
-    event: ChangeEvent,
-    roomStore: BiliLiveRoomStore,
-): OB11PostSendMsg['message'] | null {
-    const latest = roomStore.get(event.uid);
-    const old = event.oldRoomInfo;
-    const time = formatTime(Date.now());
-    const nowSec = Math.floor(Date.now() / 1000);
-
-    // 第一行统一由 renderFirstLine 生成, 保证与图片卡片一致
-    const firstLine = renderFirstLine(event, time, latest, old);
-    if (!firstLine) return null;
-
-    switch (event.type) {
-        case 'start_stream': {
-            if (!latest) return null;
-            const text = [
-                firstLine,
-                `标题: ${latest.title}`,
-                `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
-                `链接: ${roomUrl(latest.room_id)}`,
-            ].join('\n');
-            // 附带图片（放最后）：优先直播间封面，缺失时回退到关键帧
-            const imageUrl = latest.cover_from_user || latest.keyframe;
-            if (!imageUrl) return text;
-            return [
-                { type: 'text' as OB11MessageDataType.text, data: { text } },
-                { type: 'image' as OB11MessageDataType.image, data: { file: imageUrl } },
-            ];
-        }
-        case 'end_stream': {
-            if (!old) return null;
-            return [
-                firstLine,
-                durationLine(nowSec - old.live_time),
-                `标题: ${old.title}`,
-                `分区: ${formatArea(old.parent_area_name, old.area_name)}`,
-                `链接: ${roomUrl(old.room_id)}`,
-            ]
-                .filter((line): line is string => line !== null)
-                .join('\n');
-        }
-        case 'title_changed': {
-            if (!latest) return null;
-            return [
-                firstLine,
-                durationLine(nowSec - latest.live_time),
-                `标题: ${latest.title}`,
-                `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
-                `链接: ${roomUrl(latest.room_id)}`,
-            ]
-                .filter((line): line is string => line !== null)
-                .join('\n');
-        }
-        case 'area_changed': {
-            if (!latest) return null;
-            const oldArea = event.oldValue as
-                | { parent?: string; area?: string }
-                | undefined;
-            const newArea = event.newValue as
-                | { parent?: string; area?: string }
-                | undefined;
-            return [
-                firstLine,
-                durationLine(nowSec - latest.live_time),
-                `标题: ${latest.title}`,
-                `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
-                `链接: ${roomUrl(latest.room_id)}`,
-            ]
-                .filter((line): line is string => line !== null)
-                .join('\n');
-        }
-        default:
-            return null;
+/**
+ * 向群目标按 10 人一组发送开播 @ 提醒消息
+ * 每条消息格式：第一行 @ 用户们，第二行「主播名」开始直播了
+ */
+async function sendMentionMessages(
+    ctx: NapCatPluginContext,
+    toInfo: BiliLiveMonitorToInfo,
+    mentionUsers: string[],
+    uname: string,
+): Promise<void> {
+    for (let i = 0; i < mentionUsers.length; i += MENTION_GROUP_SIZE) {
+        const chunk = mentionUsers.slice(i, i + MENTION_GROUP_SIZE);
+        const message: OB11PostSendMsg['message'] = [
+            ...chunk.map((qq) => ({
+                type: 'at' as OB11MessageDataType.at,
+                data: { qq },
+            })),
+            {
+                type: 'text' as OB11MessageDataType.text,
+                data: { text: `\n「${uname}」开始直播了` },
+            },
+        ];
+        await sendReplyByToInfo(ctx, toInfo, message);
     }
-}
-
-/** 时长行（非直播中或开播时间为 0 时返回 null，以便过滤掉） */
-function durationLine(durationSec: number): string | null {
-    if (durationSec <= 0) return null;
-    return `时长: ${formatDuration(durationSec)}`;
 }

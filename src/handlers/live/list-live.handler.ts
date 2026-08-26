@@ -30,7 +30,14 @@ export const listLiveHandler = async (
         const name = monitor.uname
             ? `${monitor.uname} (uid: ${monitor.uid})`
             : `uid: ${monitor.uid}`;
-        return `${index + 1}. ${name}`;
+        // 当前会话的推送目标上绑定的开播 @ 订阅人数
+        const target = monitor.to.find(
+            (t) => t.type === toInfo.type && t.id === toInfo.id,
+        );
+        const mentionCount = target?.mentionUsers?.length ?? 0;
+        const mentionSuffix =
+            mentionCount > 0 ? ` (${mentionCount} 人订阅开播 @)` : '';
+        return `${index + 1}. ${name}${mentionSuffix}`;
     });
     await sendReplyByToInfo(
         ctx,

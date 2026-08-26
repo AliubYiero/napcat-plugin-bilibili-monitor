@@ -4,6 +4,8 @@ import { addLiveHandler } from './live/add-live.handler';
 import { removeLiveHandler } from './live/remove-live.handler';
 import { listLiveHandler } from './live/list-live.handler';
 import { helpLiveHandler } from './live/help-live.handler';
+import { mentionLiveHandler } from './live/mention-live.handler';
+import { unmentionLiveHandler } from './live/unmention-live.handler';
 
 /**
  *
@@ -36,6 +38,14 @@ const instructionSetMapper: Record<
          * 查看指令帮助
          */
         help: helpLiveHandler,
+        /**
+         * 订阅开播 @ 提醒
+         */
+        mention: mentionLiveHandler,
+        /**
+         * 取消订阅开播 @ 提醒
+         */
+        unmention: unmentionLiveHandler,
     },
 };
 

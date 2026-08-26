@@ -14,6 +14,8 @@ export interface BiliLiveMonitor {
 export interface BiliLiveMonitorToInfo {
     id: string;
     type: 'private' | 'group';
+    /** 开播时希望被 @ 的用户 QQ 号列表（仅群聊目标有效） */
+    mentionUsers?: string[];
 }
 
 export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
@@ -96,18 +98,18 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
     remove(uid: string, toInfo: BiliLiveMonitorToInfo): boolean {
         const liveInfo = this.findItem((item) => item.uid === uid);
         if (!liveInfo) return false;
-        
+
         const originalLength = liveInfo.to.length;
         // 过滤掉匹配的目标
         liveInfo.to = liveInfo.to.filter(
             (t) => !(t.type === toInfo.type && t.id === toInfo.id)
         );
-        
+
         // 如果没有被移除，返回 false
         if (liveInfo.to.length === originalLength) {
             return false;
         }
-        
+
         // 如果该直播间已无任何目标，则整体删除该条记录
         if (liveInfo.to.length === 0) {
             this.removeItem((item) => item.uid === uid);
@@ -116,5 +118,64 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
             this.saveToFile();
         }
         return true;
+    }
+
+    // ========== 开播 @ 订阅 ==========
+
+    /**
+     * 为某主播的某个目标添加一个开播 @ 订阅用户
+     * @returns 是否新增（重复订阅返回 false）
+     */
+    addMention(
+        uid: string,
+        toInfo: BiliLiveMonitorToInfo,
+        qq: string,
+    ): boolean {
+        const target = this.findMentionTarget(uid, toInfo);
+        if (!target) return false;
+
+        const mentions = target.mentionUsers ?? [];
+        if (mentions.includes(qq)) return false;
+
+        target.mentionUsers = [...mentions, qq];
+        this.saveToFile();
+        return true;
+    }
+
+    /**
+     * 移除某主播某个目标的一个开播 @ 订阅用户
+     * @returns 是否移除成功（未订阅返回 false）
+     */
+    removeMention(
+        uid: string,
+        toInfo: BiliLiveMonitorToInfo,
+        qq: string,
+    ): boolean {
+        const target = this.findMentionTarget(uid, toInfo);
+        if (!target) return false;
+
+        const mentions = target.mentionUsers ?? [];
+        const next = mentions.filter((u) => u !== qq);
+        if (next.length === mentions.length) return false;
+
+        // 列表为空时清空字段，保持存储整洁
+        target.mentionUsers = next.length > 0 ? next : undefined;
+        this.saveToFile();
+        return true;
+    }
+
+    /** 获取某主播某个目标的开播 @ 订阅用户列表 */
+    getMentionUsers(uid: string, toInfo: BiliLiveMonitorToInfo): string[] {
+        return this.findMentionTarget(uid, toInfo)?.mentionUsers ?? [];
+    }
+
+    /** 查找某主播的某个推送目标（不存在返回 undefined） */
+    private findMentionTarget(
+        uid: string,
+        toInfo: BiliLiveMonitorToInfo,
+    ): BiliLiveMonitorToInfo | undefined {
+        return this.findItem((item) => item.uid === uid)?.to.find(
+            (t) => t.type === toInfo.type && t.id === toInfo.id,
+        );
     }
 }

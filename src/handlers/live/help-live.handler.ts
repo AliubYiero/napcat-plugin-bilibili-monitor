@@ -20,6 +20,8 @@ export const helpLiveHandler = async (
         '#bili live add <主播uid> 添加主播监听',
         '#bili live remove <主播uid> 移除主播监听',
         '#bili live list 查看当前监听的主播列表',
+        '#bili live mention <主播uid> 订阅主播开播 @ 提醒',
+        '#bili live unmention <主播uid> 取消订阅开播 @ 提醒',
         '#bili live help 查看指令帮助',
     ].join('\n');
     await sendReplyByToInfo(ctx, toInfo, helpText);

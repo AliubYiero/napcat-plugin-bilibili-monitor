@@ -1,7 +1,29 @@
 // BiliLiveRoomStore.ts
 import { pluginState } from '../core/state';
+import type { RoomStatusInfo } from '../api/api_getStatusInfoByUids';
 
 const ROOM_DATA_FILENAME = 'bilibiliLiveRoomData.json';
+
+/** 将 B站接口返回的房间状态映射为内部 BiliLiveRoomInfo */
+export function mapToRoomInfo(
+    room: RoomStatusInfo,
+): BiliLiveRoomInfo | null {
+    if (!room || typeof room.uid !== 'number') return null;
+    return {
+        room_id: room.room_id,
+        uid: room.uid,
+        // live_status: 0 未开播, 1 正在直播, 2 轮播中；仅 1 视为 streaming
+        live_status: room.live_status === 1 ? 'streaming' : 'offline',
+        title: room.title || '',
+        parent_area_name: room.area_v2_parent_name || '',
+        area_name: room.area_v2_name || '',
+        live_time: room.live_time || 0,
+        uname: room.uname || '',
+        avatar: room.face || '',
+        cover_from_user: room.cover_from_user || '',
+        keyframe: room.keyframe || '',
+    };
+}
 
 /** 直播间信息（与接口对齐） */
 export interface BiliLiveRoomInfo {
@@ -45,7 +67,8 @@ type ChangeListener = (event: ChangeEvent) => void;
  * Bilibili 直播间信息存储（单例）
  * - 内存存储为 Record<uid, BiliLiveRoomInfo>
  * - 自动持久化到文件
- * - 支持变化监听（开始/结束直播、标题修改、分区修改）
+ * - 支持变化监听（开始/结束直播、标题修改、分区修改），
+ *   标题/分区变化仅在同一直播会话内触发（见 docs/adr/0002）
  */
 export class BiliLiveRoomStore {
     private static instance: BiliLiveRoomStore | null = null;
@@ -164,6 +187,12 @@ export class BiliLiveRoomStore {
 
     /**
      * 比对新旧两个对象，返回变化数组
+     *
+     * 变化按"直播会话"界定边界：
+     * - 直播状态变化（开始/结束直播）始终触发
+     * - 标题/分区变化仅在会话进行中（前后状态均为 streaming）触发；
+     *   开播瞬间、结束瞬间与直播间隙的字段差异属于会话边界重置，
+     *   不产生变化事件（见 docs/adr/0002）
      */
     private detectChanges(
         oldInfo: BiliLiveRoomInfo,
@@ -175,20 +204,20 @@ export class BiliLiveRoomStore {
             newValue: any;
         }[] = [];
 
+        const oldStatus = oldInfo.live_status;
+        const newStatus = newInfo.live_status;
+
         // 1. 直播状态变化
-        if (oldInfo.live_status !== newInfo.live_status) {
-            if (
-                oldInfo.live_status === 'offline' &&
-                newInfo.live_status === 'streaming'
-            ) {
+        if (oldStatus !== newStatus) {
+            if (oldStatus === 'offline' && newStatus === 'streaming') {
                 changes.push({
                     type: 'start_stream',
                     oldValue: 'offline',
                     newValue: 'streaming',
                 });
             } else if (
-                oldInfo.live_status === 'streaming' &&
-                newInfo.live_status === 'offline'
+                oldStatus === 'streaming' &&
+                newStatus === 'offline'
             ) {
                 changes.push({
                     type: 'end_stream',
@@ -198,7 +227,12 @@ export class BiliLiveRoomStore {
             }
         }
 
-        // 2. 标题变化
+        // 状态变化（开播/结束）意味着会话边界，字段差异随新会话重置
+        if (oldStatus !== newStatus) {
+            return changes;
+        }
+
+        // 2. 标题变化（仅直播中）
         if (oldInfo.title !== newInfo.title) {
             changes.push({
                 type: 'title_changed',
@@ -207,7 +241,7 @@ export class BiliLiveRoomStore {
             });
         }
 
-        // 3. 分区变化（父分区或子分区任一变化视为分区变化）
+        // 3. 分区变化（父分区或子分区任一变化视为分区变化，仅直播中）
         if (
             oldInfo.parent_area_name !== newInfo.parent_area_name ||
             oldInfo.area_name !== newInfo.area_name
