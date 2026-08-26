@@ -10,10 +10,11 @@
  * 保持每个文件职责单一。
  */
 
-import type { OB11Message, OB11PostSendMsg } from 'napcat-types/napcat-onebot';
 import type {
-	NapCatPluginContext,
-} from 'napcat-types/napcat-onebot/network/plugin/types';
+    OB11Message,
+    OB11PostSendMsg,
+} from 'napcat-types/napcat-onebot';
+import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { pluginState } from '../core/state';
 import { instructionHandler } from './instruction.handler';
 import { BiliLiveMonitorToInfo } from '../store/bili-live.store';
@@ -27,27 +28,36 @@ const cooldownMap = new Map<string, number>();
  * 检查是否在 CD 中
  * @returns 剩余秒数，0 表示可用
  */
-function getCooldownRemaining( groupId: number | string, command: string ): number {
-	const cdSeconds = pluginState.config.cooldownSeconds ?? 60;
-	if ( cdSeconds <= 0 ) return 0;
-	
-	const key = `${ groupId }:${ command }`;
-	const expireTime = cooldownMap.get( key );
-	if ( !expireTime ) return 0;
-	
-	const remaining = Math.ceil( ( expireTime - Date.now() ) / 1000 );
-	if ( remaining <= 0 ) {
-		cooldownMap.delete( key );
-		return 0;
-	}
-	return remaining;
+function getCooldownRemaining(
+    groupId: number | string,
+    command: string,
+): number {
+    const cdSeconds = pluginState.config.cooldownSeconds ?? 60;
+    if (cdSeconds <= 0) return 0;
+
+    const key = `${groupId}:${command}`;
+    const expireTime = cooldownMap.get(key);
+    if (!expireTime) return 0;
+
+    const remaining = Math.ceil((expireTime - Date.now()) / 1000);
+    if (remaining <= 0) {
+        cooldownMap.delete(key);
+        return 0;
+    }
+    return remaining;
 }
 
 /** 设置 CD 冷却 */
-function setCooldown( groupId: number | string, command: string ): void {
-	const cdSeconds = pluginState.config.cooldownSeconds ?? 60;
-	if ( cdSeconds <= 0 ) return;
-	cooldownMap.set( `${ groupId }:${ command }`, Date.now() + cdSeconds * 1000 );
+function setCooldown(
+    groupId: number | string,
+    command: string,
+): void {
+    const cdSeconds = pluginState.config.cooldownSeconds ?? 60;
+    if (cdSeconds <= 0) return;
+    cooldownMap.set(
+        `${groupId}:${command}`,
+        Date.now() + cdSeconds * 1000,
+    );
 }
 
 // ==================== 消息发送工具 ====================
@@ -61,28 +71,32 @@ function setCooldown( groupId: number | string, command: string ): void {
  * @param message 消息内容（支持字符串或消息段数组）
  */
 export async function sendReply(
-	ctx: NapCatPluginContext,
-	event: OB11Message,
-	message: OB11PostSendMsg['message'],
+    ctx: NapCatPluginContext,
+    event: OB11Message,
+    message: OB11PostSendMsg['message'],
 ): Promise<boolean> {
-	try {
-		const params: OB11PostSendMsg = {
-			message,
-			message_type: event.message_type,
-			...( event.message_type === 'group' && event.group_id
-				? { group_id: String( event.group_id ) }
-				: {} ),
-			...( event.message_type === 'private' && event.user_id
-				? { user_id: String( event.user_id ) }
-				: {} ),
-		};
-		await ctx.actions.call( 'send_msg', params, ctx.adapterName, ctx.pluginManager.config );
-		return true;
-	}
-	catch ( error ) {
-		pluginState.logger.error( '发送消息失败:', error );
-		return false;
-	}
+    try {
+        const params: OB11PostSendMsg = {
+            message,
+            message_type: event.message_type,
+            ...(event.message_type === 'group' && event.group_id
+                ? { group_id: String(event.group_id) }
+                : {}),
+            ...(event.message_type === 'private' && event.user_id
+                ? { user_id: String(event.user_id) }
+                : {}),
+        };
+        await ctx.actions.call(
+            'send_msg',
+            params,
+            ctx.adapterName,
+            ctx.pluginManager.config,
+        );
+        return true;
+    } catch (error) {
+        pluginState.logger.error('发送消息失败:', error);
+        return false;
+    }
 }
 
 /**
@@ -94,85 +108,101 @@ export async function sendReply(
  * @param message 消息内容（支持字符串或消息段数组）
  */
 export async function sendReplyByToInfo(
-	ctx: NapCatPluginContext,
-	toInfo: BiliLiveMonitorToInfo,
-	message: OB11PostSendMsg['message'],
+    ctx: NapCatPluginContext,
+    toInfo: BiliLiveMonitorToInfo,
+    message: OB11PostSendMsg['message'],
 ): Promise<boolean> {
-	try {
-		const id = toInfo.type === 'group'
-			? {group_id: toInfo.id}
-			: {user_id: toInfo.id}
-		
-		const params: OB11PostSendMsg = {
-			message,
-			message_type: toInfo.type,
-			...id,
-		};
-		await ctx.actions.call( 'send_msg', params, ctx.adapterName, ctx.pluginManager.config );
-		return true;
-	}
-	catch ( error ) {
-		pluginState.logger.error( '发送消息失败:', error );
-		return false;
-	}
+    try {
+        const id =
+            toInfo.type === 'group'
+                ? { group_id: toInfo.id }
+                : { user_id: toInfo.id };
+
+        const params: OB11PostSendMsg = {
+            message,
+            message_type: toInfo.type,
+            ...id,
+        };
+        await ctx.actions.call(
+            'send_msg',
+            params,
+            ctx.adapterName,
+            ctx.pluginManager.config,
+        );
+        return true;
+    } catch (error) {
+        pluginState.logger.error('发送消息失败:', error);
+        return false;
+    }
 }
 
 /**
  * 发送群消息
  */
 export async function sendGroupMessage(
-	ctx: NapCatPluginContext,
-	groupId: number | string,
-	message: OB11PostSendMsg['message'],
+    ctx: NapCatPluginContext,
+    groupId: number | string,
+    message: OB11PostSendMsg['message'],
 ): Promise<boolean> {
-	try {
-		const params: OB11PostSendMsg = {
-			message,
-			message_type: 'group',
-			group_id: String( groupId ),
-		};
-		await ctx.actions.call( 'send_msg', params, ctx.adapterName, ctx.pluginManager.config );
-		return true;
-	}
-	catch ( error ) {
-		pluginState.logger.error( '发送群消息失败:', error );
-		return false;
-	}
+    try {
+        const params: OB11PostSendMsg = {
+            message,
+            message_type: 'group',
+            group_id: String(groupId),
+        };
+        await ctx.actions.call(
+            'send_msg',
+            params,
+            ctx.adapterName,
+            ctx.pluginManager.config,
+        );
+        return true;
+    } catch (error) {
+        pluginState.logger.error('发送群消息失败:', error);
+        return false;
+    }
 }
 
 /**
  * 发送私聊消息
  */
 export async function sendPrivateMessage(
-	ctx: NapCatPluginContext,
-	userId: number | string,
-	message: OB11PostSendMsg['message'],
+    ctx: NapCatPluginContext,
+    userId: number | string,
+    message: OB11PostSendMsg['message'],
 ): Promise<boolean> {
-	try {
-		const params: OB11PostSendMsg = {
-			message,
-			message_type: 'private',
-			user_id: String( userId ),
-		};
-		await ctx.actions.call( 'send_msg', params, ctx.adapterName, ctx.pluginManager.config );
-		return true;
-	}
-	catch ( error ) {
-		pluginState.logger.error( '发送私聊消息失败:', error );
-		return false;
-	}
+    try {
+        const params: OB11PostSendMsg = {
+            message,
+            message_type: 'private',
+            user_id: String(userId),
+        };
+        await ctx.actions.call(
+            'send_msg',
+            params,
+            ctx.adapterName,
+            ctx.pluginManager.config,
+        );
+        return true;
+    } catch (error) {
+        pluginState.logger.error('发送私聊消息失败:', error);
+        return false;
+    }
 }
 
 // ==================== 合并转发消息 ====================
 
 /** 合并转发消息节点 */
 export interface ForwardNode {
-	type: 'node';
-	data: {
-		nickname: string;
-		user_id?: string;
-		content: Array<{ type: string; data: Record<string, unknown> }>;
-	};
+    type: 'node';
+    data: {
+        nickname: string;
+        user_id?: string;
+        content: Array<{
+            type: string;
+            data: Record<string, unknown>;
+        }>;
+    };
 }
 
 /**
@@ -183,32 +213,32 @@ export interface ForwardNode {
  * @param nodes 合并转发节点列表
  */
 export async function sendForwardMsg(
-	ctx: NapCatPluginContext,
-	target: number | string,
-	isGroup: boolean,
-	nodes: ForwardNode[],
+    ctx: NapCatPluginContext,
+    target: number | string,
+    isGroup: boolean,
+    nodes: ForwardNode[],
 ): Promise<boolean> {
-	try {
-		const actionName = isGroup ? 'send_group_forward_msg' : 'send_private_forward_msg';
-		const params: Record<string, unknown> = { message: nodes };
-		if ( isGroup ) {
-			params.group_id = String( target );
-		}
-		else {
-			params.user_id = String( target );
-		}
-		await ctx.actions.call(
-			actionName as 'send_group_forward_msg',
-			params as never,
-			ctx.adapterName,
-			ctx.pluginManager.config,
-		);
-		return true;
-	}
-	catch ( error ) {
-		pluginState.logger.error( '发送合并转发消息失败:', error );
-		return false;
-	}
+    try {
+        const actionName = isGroup
+            ? 'send_group_forward_msg'
+            : 'send_private_forward_msg';
+        const params: Record<string, unknown> = { message: nodes };
+        if (isGroup) {
+            params.group_id = String(target);
+        } else {
+            params.user_id = String(target);
+        }
+        await ctx.actions.call(
+            actionName as 'send_group_forward_msg',
+            params as never,
+            ctx.adapterName,
+            ctx.pluginManager.config,
+        );
+        return true;
+    } catch (error) {
+        pluginState.logger.error('发送合并转发消息失败:', error);
+        return false;
+    }
 }
 
 // ==================== 权限检查 ====================
@@ -217,10 +247,10 @@ export async function sendForwardMsg(
  * 检查群聊中是否有管理员权限
  * 私聊消息默认返回 true
  */
-export function isAdmin( event: OB11Message ): boolean {
-	if ( event.message_type !== 'group' ) return true;
-	const role = ( event.sender as Record<string, unknown> )?.role;
-	return role === 'admin' || role === 'owner';
+export function isAdmin(event: OB11Message): boolean {
+    if (event.message_type !== 'group') return true;
+    const role = (event.sender as Record<string, unknown>)?.role;
+    return role === 'admin' || role === 'owner';
 }
 
 // ==================== 消息处理主函数 ====================
@@ -229,31 +259,38 @@ export function isAdmin( event: OB11Message ): boolean {
  * 消息处理主函数
  * 在这里实现你的命令处理逻辑
  */
-export async function handleMessage( ctx: NapCatPluginContext, event: OB11Message ): Promise<void> {
-	try {
-		const rawMessage = event.raw_message || '';
-		const messageType = event.message_type;
-		const groupId = event.group_id;
-		const userId = event.user_id;
-		
-		pluginState.ctx.logger.debug( `收到消息: ${ rawMessage } | 类型: ${ messageType }` );
-		
-		// 群消息：检查该群是否启用
-		if ( messageType === 'group' && groupId ) {
-			if ( !pluginState.isGroupEnabled( String( groupId ) ) ) return;
-		}
-		
-		// 检查命令前缀
-		const prefix = pluginState.config.commandPrefix || '#cmd';
-		if ( !rawMessage.startsWith( prefix ) ) return;
-		
-		// 解析命令参数
-		const args = rawMessage.slice( prefix.length ).trim().split( /\s+/ );
-		
-		// 命令处理逻辑
-		instructionHandler( ctx, event, args );
-	}
-	catch ( error ) {
-		pluginState.logger.error( '处理消息时出错:', error );
-	}
+export async function handleMessage(
+    ctx: NapCatPluginContext,
+    event: OB11Message,
+): Promise<void> {
+    try {
+        const rawMessage = event.raw_message || '';
+        const messageType = event.message_type;
+        const groupId = event.group_id;
+        const userId = event.user_id;
+
+        pluginState.ctx.logger.debug(
+            `收到消息: ${rawMessage} | 类型: ${messageType}`,
+        );
+
+        // 群消息：检查该群是否启用
+        if (messageType === 'group' && groupId) {
+            if (!pluginState.isGroupEnabled(String(groupId))) return;
+        }
+
+        // 检查命令前缀
+        const prefix = pluginState.config.commandPrefix || '#cmd';
+        if (!rawMessage.startsWith(prefix)) return;
+
+        // 解析命令参数
+        const args = rawMessage
+            .slice(prefix.length)
+            .trim()
+            .split(/\s+/);
+
+        // 命令处理逻辑
+        instructionHandler(ctx, event, args);
+    } catch (error) {
+        pluginState.logger.error('处理消息时出错:', error);
+    }
 }

@@ -2,8 +2,8 @@
 
 declare global {
     interface Window {
-        __PLUGIN_NAME__?: string
+        __PLUGIN_NAME__?: string;
     }
 }
 
-export { }
+export {};

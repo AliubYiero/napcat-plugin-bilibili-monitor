@@ -89,7 +89,9 @@ function copyAssetsPlugin() {
                 // 3. 生成精简的 package.json（只保留运行时必要字段）
                 const pkgPath = resolve(__dirname, 'package.json');
                 if (fs.existsSync(pkgPath)) {
-                    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+                    const pkg = JSON.parse(
+                        fs.readFileSync(pkgPath, 'utf-8'),
+                    );
                     const distPkg: Record<string, unknown> = {
                         name: pkg.name,
                         plugin: pkg.plugin,
@@ -105,56 +107,70 @@ function copyAssetsPlugin() {
                     }
                     fs.writeFileSync(
                         resolve(distDir, 'package.json'),
-                        JSON.stringify(distPkg, null, 2)
+                        JSON.stringify(distPkg, null, 2),
                     );
-                    console.log('[copy-assets] (o\'v\'o) 已生成精简 package.json');
+                    console.log(
+                        "[copy-assets] (o'v'o) 已生成精简 package.json",
+                    );
                 }
 
                 // 4. 复制 templates 目录（如果存在）
                 const templatesSrc = resolve(__dirname, 'templates');
                 if (fs.existsSync(templatesSrc)) {
-                    copyDirRecursive(templatesSrc, resolve(distDir, 'templates'));
-                    console.log('[copy-assets] (o\'v\'o) 已复制 templates 目录');
+                    copyDirRecursive(
+                        templatesSrc,
+                        resolve(distDir, 'templates'),
+                    );
+                    console.log(
+                        "[copy-assets] (o'v'o) 已复制 templates 目录",
+                    );
                 }
 
-                console.log('[copy-assets] (*\'v\'*) 资源复制完成！');
+                console.log("[copy-assets] (*'v'*) 资源复制完成！");
             } catch (error) {
-                console.error('[copy-assets] (;_;) 资源复制失败:', error);
+                console.error(
+                    '[copy-assets] (;_;) 资源复制失败:',
+                    error,
+                );
             }
         },
     };
 }
 
-export default defineConfig( ( { mode } ) => {
-    const env = loadEnv( mode, __dirname, '' );
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, __dirname, '');
     return {
         resolve: {
-            conditions: [ 'node', 'default' ],
+            conditions: ['node', 'default'],
         },
         build: {
             sourcemap: false,
             target: 'esnext',
             minify: false,
             lib: {
-                entry: resolve( __dirname, 'src/index.ts' ),
-                formats: [ 'es' ],
+                entry: resolve(__dirname, 'src/index.ts'),
+                formats: ['es'],
                 fileName: () => 'index.mjs',
             },
             rollupOptions: {
-                external: [ ...nodeModules, ...external ],
+                external: [...nodeModules, ...external],
                 output: {
                     inlineDynamicImports: true,
                 },
             },
             outDir: 'dist',
         },
-        plugins: [ nodeResolve(), copyAssetsPlugin(), napcatHmrPlugin( {
-            webui: {
-                distDir: './src/webui/dist',
-                targetDir: 'webui',
-            },
-            wsUrl: env.WS_URL,
-            token: env.TOKEN,
-        } ) ],
+        plugins: [
+            nodeResolve(),
+            copyAssetsPlugin(),
+            napcatHmrPlugin({
+                webui: {
+                    distDir: './src/webui/dist',
+                    targetDir: 'webui',
+                },
+                wsUrl: env.WS_URL,
+                token: env.TOKEN,
+            }),
+        ],
     };
-} );
+});

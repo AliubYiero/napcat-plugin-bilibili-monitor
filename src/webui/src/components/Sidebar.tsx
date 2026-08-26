@@ -1,18 +1,40 @@
-import type { PageId } from '../App'
-import { IconDashboard, IconSettings, IconGroup, IconGithub, IconPlugin, IconSun } from './icons'
+import type { PageId } from '../App';
+import {
+    IconDashboard,
+    IconSettings,
+    IconGroup,
+    IconGithub,
+    IconPlugin,
+    IconSun,
+} from './icons';
 
 interface SidebarProps {
-    currentPage: PageId
-    onPageChange: (page: PageId) => void
+    currentPage: PageId;
+    onPageChange: (page: PageId) => void;
 }
 
-const menuItems: { id: PageId; label: string; icon: React.ReactNode }[] = [
-    { id: 'status', label: '仪表盘', icon: <IconDashboard size={18} /> },
-    { id: 'config', label: '插件配置', icon: <IconSettings size={18} /> },
+const menuItems: {
+    id: PageId;
+    label: string;
+    icon: React.ReactNode;
+}[] = [
+    {
+        id: 'status',
+        label: '仪表盘',
+        icon: <IconDashboard size={18} />,
+    },
+    {
+        id: 'config',
+        label: '插件配置',
+        icon: <IconSettings size={18} />,
+    },
     { id: 'groups', label: '群管理', icon: <IconGroup size={18} /> },
-]
+];
 
-export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
+export default function Sidebar({
+    currentPage,
+    onPageChange,
+}: SidebarProps) {
     return (
         <aside className="w-60 flex-shrink-0 bg-white dark:bg-[#1a1b1d] border-r border-gray-200 dark:border-gray-800 flex flex-col">
             {/* Logo */}
@@ -21,8 +43,12 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                     <IconPlugin size={18} />
                 </div>
                 <div>
-                    <h1 className="font-bold text-sm leading-tight text-gray-900 dark:text-white">Plugin Template</h1>
-                    <p className="text-[10px] text-gray-400 font-medium tracking-wider">NAPCAT PLUGIN</p>
+                    <h1 className="font-bold text-sm leading-tight text-gray-900 dark:text-white">
+                        Plugin Template
+                    </h1>
+                    <p className="text-[10px] text-gray-400 font-medium tracking-wider">
+                        NAPCAT PLUGIN
+                    </p>
                 </div>
             </div>
 
@@ -34,7 +60,9 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                         className={`sidebar-item ${currentPage === item.id ? 'active' : ''}`}
                         onClick={() => onPageChange(item.id)}
                     >
-                        <span className="sidebar-icon">{item.icon}</span>
+                        <span className="sidebar-icon">
+                            {item.icon}
+                        </span>
                         <span>{item.label}</span>
                     </div>
                 ))}
@@ -60,5 +88,5 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
                 </div>
             </div>
         </aside>
-    )
+    );
 }

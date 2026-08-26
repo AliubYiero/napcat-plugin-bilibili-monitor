@@ -16,12 +16,6 @@
         "noUnusedLocals": false,
         "noUnusedParameters": false
     },
-    "include": [
-        "src/**/*.ts",
-        "src/**/*.json"
-    ],
-    "exclude": [
-        "node_modules",
-        "dist"
-    ]
+    "include": ["src/**/*.ts", "src/**/*.json"],
+    "exclude": ["node_modules", "dist"]
 }

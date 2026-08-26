@@ -1,56 +1,68 @@
-import { useState, useEffect, useCallback } from 'react'
-import { noAuthFetch } from '../utils/api'
-import { showToast } from '../hooks/useToast'
-import type { PluginConfig } from '../types'
-import { IconTerminal } from '../components/icons'
+import { useState, useEffect, useCallback } from 'react';
+import { noAuthFetch } from '../utils/api';
+import { showToast } from '../hooks/useToast';
+import type { PluginConfig } from '../types';
+import { IconTerminal } from '../components/icons';
 
 export default function ConfigPage() {
-    const [config, setConfig] = useState<PluginConfig | null>(null)
-    const [saving, setSaving] = useState(false)
+    const [config, setConfig] = useState<PluginConfig | null>(null);
+    const [saving, setSaving] = useState(false);
 
     const fetchConfig = useCallback(async () => {
         try {
-            const res = await noAuthFetch<PluginConfig>('/config')
-            if (res.code === 0 && res.data) setConfig(res.data)
-        } catch { showToast('获取配置失败', 'error') }
-    }, [])
-
-    useEffect(() => { fetchConfig() }, [fetchConfig])
-
-    const saveConfig = useCallback(async (update: Partial<PluginConfig>) => {
-        if (!config) return
-        setSaving(true)
-        try {
-            const newConfig = { ...config, ...update }
-            await noAuthFetch('/config', {
-                method: 'POST',
-                body: JSON.stringify(newConfig),
-            })
-            setConfig(newConfig)
-            showToast('配置已保存', 'success')
+            const res = await noAuthFetch<PluginConfig>('/config');
+            if (res.code === 0 && res.data) setConfig(res.data);
         } catch {
-            showToast('保存失败', 'error')
-        } finally {
-            setSaving(false)
+            showToast('获取配置失败', 'error');
         }
-    }, [config])
+    }, []);
 
-    const updateField = <K extends keyof PluginConfig>(key: K, value: PluginConfig[K]) => {
-        if (!config) return
-        const updated = { ...config, [key]: value }
-        setConfig(updated)
-        saveConfig({ [key]: value })
-    }
+    useEffect(() => {
+        fetchConfig();
+    }, [fetchConfig]);
+
+    const saveConfig = useCallback(
+        async (update: Partial<PluginConfig>) => {
+            if (!config) return;
+            setSaving(true);
+            try {
+                const newConfig = { ...config, ...update };
+                await noAuthFetch('/config', {
+                    method: 'POST',
+                    body: JSON.stringify(newConfig),
+                });
+                setConfig(newConfig);
+                showToast('配置已保存', 'success');
+            } catch {
+                showToast('保存失败', 'error');
+            } finally {
+                setSaving(false);
+            }
+        },
+        [config],
+    );
+
+    const updateField = <K extends keyof PluginConfig>(
+        key: K,
+        value: PluginConfig[K],
+    ) => {
+        if (!config) return;
+        const updated = { ...config, [key]: value };
+        setConfig(updated);
+        saveConfig({ [key]: value });
+    };
 
     if (!config) {
         return (
             <div className="flex items-center justify-center h-64 empty-state">
                 <div className="flex flex-col items-center gap-3">
                     <div className="loading-spinner text-primary" />
-                    <div className="text-gray-400 text-sm">加载配置中...</div>
+                    <div className="text-gray-400 text-sm">
+                        加载配置中...
+                    </div>
                 </div>
             </div>
-        )
+        );
     }
 
     return (
@@ -58,7 +70,10 @@ export default function ConfigPage() {
             {/* 基础配置 */}
             <div className="card p-5 hover-lift">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-5">
-                    <IconTerminal size={16} className="text-gray-400" />
+                    <IconTerminal
+                        size={16}
+                        className="text-gray-400"
+                    />
                     基础配置
                 </h3>
                 <div className="space-y-5">
@@ -78,14 +93,21 @@ export default function ConfigPage() {
                         label="命令前缀"
                         desc="触发命令的前缀"
                         value={config.commandPrefix}
-                        onChange={(v) => updateField('commandPrefix', v)}
+                        onChange={(v) =>
+                            updateField('commandPrefix', v)
+                        }
                     />
                     <InputRow
                         label="冷却时间 (秒)"
                         desc="同一命令请求冷却时间，0 表示不限制"
                         value={String(config.cooldownSeconds)}
                         type="number"
-                        onChange={(v) => updateField('cooldownSeconds', Number(v) || 0)}
+                        onChange={(v) =>
+                            updateField(
+                                'cooldownSeconds',
+                                Number(v) || 0,
+                            )
+                        }
                     />
                     {/* TODO: 在这里添加你的配置项 */}
                 </div>
@@ -98,41 +120,71 @@ export default function ConfigPage() {
                 </div>
             )}
         </div>
-    )
+    );
 }
 
 /* ---- 子组件 ---- */
 
-function ToggleRow({ label, desc, checked, onChange }: {
-    label: string; desc: string; checked: boolean; onChange: (v: boolean) => void
+function ToggleRow({
+    label,
+    desc,
+    checked,
+    onChange,
+}: {
+    label: string;
+    desc: string;
+    checked: boolean;
+    onChange: (v: boolean) => void;
 }) {
     return (
         <div className="flex items-center justify-between">
             <div>
-                <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{label}</div>
-                <div className="text-xs text-gray-400 mt-0.5">{desc}</div>
+                <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                    {label}
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                    {desc}
+                </div>
             </div>
             <label className="toggle">
-                <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+                <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => onChange(e.target.checked)}
+                />
                 <div className="slider" />
             </label>
         </div>
-    )
+    );
 }
 
-function InputRow({ label, desc, value, type = 'text', onChange }: {
-    label: string; desc: string; value: string; type?: string; onChange: (v: string) => void
+function InputRow({
+    label,
+    desc,
+    value,
+    type = 'text',
+    onChange,
+}: {
+    label: string;
+    desc: string;
+    value: string;
+    type?: string;
+    onChange: (v: string) => void;
 }) {
-    const [local, setLocal] = useState(value)
-    useEffect(() => { setLocal(value) }, [value])
+    const [local, setLocal] = useState(value);
+    useEffect(() => {
+        setLocal(value);
+    }, [value]);
 
     const handleBlur = () => {
-        if (local !== value) onChange(local)
-    }
+        if (local !== value) onChange(local);
+    };
 
     return (
         <div>
-            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">{label}</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                {label}
+            </div>
             <div className="text-xs text-gray-400 mb-2">{desc}</div>
             <input
                 className="input-field"
@@ -143,5 +195,5 @@ function InputRow({ label, desc, value, type = 'text', onChange }: {
                 onKeyDown={(e) => e.key === 'Enter' && handleBlur()}
             />
         </div>
-    )
+    );
 }

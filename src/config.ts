@@ -3,7 +3,10 @@
  * 定义默认配置值和 WebUI 配置 Schema
  */
 
-import type { NapCatPluginContext, PluginConfigSchema } from 'napcat-types/napcat-onebot/network/plugin/types';
+import type {
+    NapCatPluginContext,
+    PluginConfigSchema,
+} from 'napcat-types/napcat-onebot/network/plugin/types';
 import type { PluginConfig } from './types';
 
 /** 默认配置 */
@@ -30,7 +33,9 @@ export const DEFAULT_CONFIG: PluginConfig = {
  *   - plainText(content) → 纯文本说明
  *   - combine(...items)  → 组合多个配置项为 Schema
  */
-export function buildConfigSchema(ctx: NapCatPluginContext): PluginConfigSchema {
+export function buildConfigSchema(
+    ctx: NapCatPluginContext,
+): PluginConfigSchema {
     return ctx.NapCatConfig.combine(
         // 插件信息头部
         ctx.NapCatConfig.html(`
@@ -45,7 +50,7 @@ export function buildConfigSchema(ctx: NapCatPluginContext): PluginConfigSchema 
             'adminUser',
             '插件管理员',
             '',
-            '可私聊管理插件的超级管理员用户'
+            '可私聊管理插件的超级管理员用户',
         ),
     );
 }

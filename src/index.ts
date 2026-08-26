@@ -44,7 +44,9 @@ export let plugin_config_ui: PluginConfigSchema = [];
  * 插件初始化（必选）
  * 加载配置、注册 WebUI 路由和页面
  */
-export const plugin_init: PluginModule['plugin_init'] = async (ctx) => {
+export const plugin_init: PluginModule['plugin_init'] = async (
+    ctx,
+) => {
     try {
         // 1. 初始化全局状态（加载配置）
         pluginState.init(ctx);
@@ -70,20 +72,24 @@ export const plugin_init: PluginModule['plugin_init'] = async (ctx) => {
  * 消息/事件处理（可选）
  * 收到事件时调用，需通过 post_type 判断是否为消息事件
  */
-export const plugin_onmessage: PluginModule['plugin_onmessage'] = async (ctx, event) => {
-    // 仅处理消息事件
-    if (event.post_type !== EventType.MESSAGE) return;
-    // 检查插件是否启用
-    if (!pluginState.config.enabled) return;
-    // 委托给消息处理器
-    await handleMessage(ctx, event);
-};
+export const plugin_onmessage: PluginModule['plugin_onmessage'] =
+    async (ctx, event) => {
+        // 仅处理消息事件
+        if (event.post_type !== EventType.MESSAGE) return;
+        // 检查插件是否启用
+        if (!pluginState.config.enabled) return;
+        // 委托给消息处理器
+        await handleMessage(ctx, event);
+    };
 
 /**
  * 事件处理（可选）
  * 处理所有 OneBot 事件（通知、请求等）
  */
-export const plugin_onevent: PluginModule['plugin_onevent'] = async (ctx, event) => {
+export const plugin_onevent: PluginModule['plugin_onevent'] = async (
+    ctx,
+    event,
+) => {
     // TODO: 在这里处理通知、请求等非消息事件
     // 示例：
     // if (event.post_type === EventType.NOTICE) { ... }
@@ -94,7 +100,9 @@ export const plugin_onevent: PluginModule['plugin_onevent'] = async (ctx, event)
  * 插件卸载/重载（可选）
  * 必须清理定时器、关闭连接等资源
  */
-export const plugin_cleanup: PluginModule['plugin_cleanup'] = async (ctx) => {
+export const plugin_cleanup: PluginModule['plugin_cleanup'] = async (
+    ctx,
+) => {
     try {
         // TODO: 在这里清理你的资源（定时器、WebSocket 连接等）
         pluginState.cleanup();
@@ -107,30 +115,31 @@ export const plugin_cleanup: PluginModule['plugin_cleanup'] = async (ctx) => {
 // ==================== 配置管理钩子 ====================
 
 /** 获取当前配置 */
-export const plugin_get_config: PluginModule['plugin_get_config'] = async (ctx) => {
-    return pluginState.config;
-};
+export const plugin_get_config: PluginModule['plugin_get_config'] =
+    async (ctx) => {
+        return pluginState.config;
+    };
 
 /** 设置配置（完整替换，由 NapCat WebUI 调用） */
-export const plugin_set_config: PluginModule['plugin_set_config'] = async (ctx, config) => {
-    pluginState.replaceConfig(config as PluginConfig);
-    ctx.logger.info('配置已通过 WebUI 更新');
-};
+export const plugin_set_config: PluginModule['plugin_set_config'] =
+    async (ctx, config) => {
+        pluginState.replaceConfig(config as PluginConfig);
+        ctx.logger.info('配置已通过 WebUI 更新');
+    };
 
 /**
  * 配置变更回调
  * 当 WebUI 中修改单个配置项时触发（需配置项标记 reactive: true）
  */
-export const plugin_on_config_change: PluginModule['plugin_on_config_change'] = async (
-    ctx, ui, key, value, currentConfig
-) => {
-    try {
-        pluginState.updateConfig({ [key]: value });
-        ctx.logger.debug(`配置项 ${key} 已更新`);
-    } catch (err) {
-        ctx.logger.error(`更新配置项 ${key} 失败:`, err);
-    }
-};
+export const plugin_on_config_change: PluginModule['plugin_on_config_change'] =
+    async (ctx, ui, key, value, currentConfig) => {
+        try {
+            pluginState.updateConfig({ [key]: value });
+            ctx.logger.debug(`配置项 ${key} 已更新`);
+        } catch (err) {
+            ctx.logger.error(`更新配置项 ${key} 失败:`, err);
+        }
+    };
 
 // ==================== 内部函数 ====================
 

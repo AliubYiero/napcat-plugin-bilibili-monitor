@@ -12,7 +12,10 @@
 
 import fs from 'fs';
 import path from 'path';
-import type { NapCatPluginContext, PluginLogger } from 'napcat-types/napcat-onebot/network/plugin/types';
+import type {
+    NapCatPluginContext,
+    PluginLogger,
+} from 'napcat-types/napcat-onebot/network/plugin/types';
 import { DEFAULT_CONFIG } from '../config';
 import type { PluginConfig, GroupConfig } from '../types';
 
@@ -27,21 +30,27 @@ function isObject(v: unknown): v is Record<string, unknown> {
  * 确保从文件读取的配置符合预期类型，防止运行时错误
  */
 function sanitizeConfig(raw: unknown): PluginConfig {
-    if (!isObject(raw)) return { ...DEFAULT_CONFIG, groupConfigs: {} };
+    if (!isObject(raw))
+        return { ...DEFAULT_CONFIG, groupConfigs: {} };
 
     const out: PluginConfig = { ...DEFAULT_CONFIG, groupConfigs: {} };
 
     if (typeof raw.enabled === 'boolean') out.enabled = raw.enabled;
     if (typeof raw.debug === 'boolean') out.debug = raw.debug;
-    if (typeof raw.commandPrefix === 'string') out.commandPrefix = raw.commandPrefix;
-    if (typeof raw.cooldownSeconds === 'number') out.cooldownSeconds = raw.cooldownSeconds;
+    if (typeof raw.commandPrefix === 'string')
+        out.commandPrefix = raw.commandPrefix;
+    if (typeof raw.cooldownSeconds === 'number')
+        out.cooldownSeconds = raw.cooldownSeconds;
 
     // 群配置清洗
     if (isObject(raw.groupConfigs)) {
-        for (const [groupId, groupConfig] of Object.entries(raw.groupConfigs)) {
+        for (const [groupId, groupConfig] of Object.entries(
+            raw.groupConfigs,
+        )) {
             if (isObject(groupConfig)) {
                 const cfg: GroupConfig = {};
-                if (typeof groupConfig.enabled === 'boolean') cfg.enabled = groupConfig.enabled;
+                if (typeof groupConfig.enabled === 'boolean')
+                    cfg.enabled = groupConfig.enabled;
                 // TODO: 在这里添加你的群配置项清洗
                 out.groupConfigs[groupId] = cfg;
             }
@@ -80,7 +89,10 @@ class PluginState {
 
     /** 获取上下文（确保已初始化） */
     get ctx(): NapCatPluginContext {
-        if (!this._ctx) throw new Error('PluginState 尚未初始化，请先调用 init()');
+        if (!this._ctx)
+            throw new Error(
+                'PluginState 尚未初始化，请先调用 init()',
+            );
         return this._ctx;
     }
 
@@ -107,15 +119,20 @@ class PluginState {
      */
     private async fetchSelfId(): Promise<void> {
         try {
-            const res = await this.ctx.actions.call(
-                'get_login_info', {}, this.ctx.adapterName, this.ctx.pluginManager.config
-            ) as { user_id?: number | string };
+            const res = (await this.ctx.actions.call(
+                'get_login_info',
+                {},
+                this.ctx.adapterName,
+                this.ctx.pluginManager.config,
+            )) as { user_id?: number | string };
             if (res?.user_id) {
                 this.selfId = String(res.user_id);
-                this.logger.debug("(｡·ω·｡) 机器人 QQ: " + this.selfId);
+                this.logger.debug(
+                    '(｡·ω·｡) 机器人 QQ: ' + this.selfId,
+                );
             }
         } catch (e) {
-            this.logger.warn("(；′⌒`) 获取机器人 QQ 号失败:", e);
+            this.logger.warn('(；′⌒`) 获取机器人 QQ 号失败:', e);
         }
     }
 
@@ -163,7 +180,10 @@ class PluginState {
                 return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
             }
         } catch (e) {
-            this.logger.warn("(；′⌒`) 读取数据文件 " + filename + " 失败:", e);
+            this.logger.warn(
+                '(；′⌒`) 读取数据文件 ' + filename + ' 失败:',
+                e,
+            );
         }
         return defaultValue;
     }
@@ -176,9 +196,16 @@ class PluginState {
     saveDataFile<T>(filename: string, data: T): void {
         const filePath = this.getDataFilePath(filename);
         try {
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+            fs.writeFileSync(
+                filePath,
+                JSON.stringify(data, null, 2),
+                'utf-8',
+            );
         } catch (e) {
-            this.logger.error("(╥﹏╥) 保存数据文件 " + filename + " 失败:", e);
+            this.logger.error(
+                '(╥﹏╥) 保存数据文件 ' + filename + ' 失败:',
+                e,
+            );
         }
     }
 
@@ -191,7 +218,9 @@ class PluginState {
         const configPath = this.ctx.configPath;
         try {
             if (configPath && fs.existsSync(configPath)) {
-                const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+                const raw = JSON.parse(
+                    fs.readFileSync(configPath, 'utf-8'),
+                );
                 this.config = sanitizeConfig(raw);
                 // 加载统计信息
                 if (isObject(raw) && isObject(raw.stats)) {
@@ -201,10 +230,15 @@ class PluginState {
             } else {
                 this.config = { ...DEFAULT_CONFIG, groupConfigs: {} };
                 this.saveConfig();
-                this.ctx.logger.debug('配置文件不存在，已创建默认配置');
+                this.ctx.logger.debug(
+                    '配置文件不存在，已创建默认配置',
+                );
             }
         } catch (error) {
-            this.ctx.logger.error('加载配置失败，使用默认配置:', error);
+            this.ctx.logger.error(
+                '加载配置失败，使用默认配置:',
+                error,
+            );
             this.config = { ...DEFAULT_CONFIG, groupConfigs: {} };
         }
     }
@@ -221,7 +255,11 @@ class PluginState {
                 fs.mkdirSync(configDir, { recursive: true });
             }
             const data = { ...this.config, stats: this.stats };
-            fs.writeFileSync(configPath, JSON.stringify(data, null, 2), 'utf-8');
+            fs.writeFileSync(
+                configPath,
+                JSON.stringify(data, null, 2),
+                'utf-8',
+            );
         } catch (error) {
             this._ctx.logger.error('保存配置失败:', error);
         }
@@ -246,7 +284,10 @@ class PluginState {
     /**
      * 更新指定群的配置
      */
-    updateGroupConfig(groupId: string, config: Partial<GroupConfig>): void {
+    updateGroupConfig(
+        groupId: string,
+        config: Partial<GroupConfig>,
+    ): void {
         this.config.groupConfigs[groupId] = {
             ...this.config.groupConfigs[groupId],
             ...config,
