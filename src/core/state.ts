@@ -16,7 +16,7 @@ import type {
     NapCatPluginContext,
     PluginLogger,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
-import { DEFAULT_CONFIG } from '../config';
+import { DEFAULT_CONFIG, VALID_PUSH_TYPES } from '../config';
 import type { PluginConfig, GroupConfig } from '../types';
 
 // ==================== 配置清洗工具 ====================
@@ -41,6 +41,20 @@ function sanitizeConfig(raw: unknown): PluginConfig {
         out.commandPrefix = raw.commandPrefix;
     if (typeof raw.cooldownSeconds === 'number')
         out.cooldownSeconds = raw.cooldownSeconds;
+    if (
+        typeof raw.pollIntervalSeconds === 'number' &&
+        raw.pollIntervalSeconds > 0
+    ) {
+        out.pollIntervalSeconds = raw.pollIntervalSeconds;
+    }
+    if (Array.isArray(raw.pushTypes)) {
+        // 空数组表示"不推送任何类型"，应尊重用户选择而非回退默认
+        const validPushTypes = new Set<string>(VALID_PUSH_TYPES);
+        const filtered = raw.pushTypes.filter(
+            (t) => typeof t === 'string' && validPushTypes.has(t),
+        );
+        out.pushTypes = filtered as PluginConfig['pushTypes'];
+    }
 
     // 群配置清洗
     if (isObject(raw.groupConfigs)) {

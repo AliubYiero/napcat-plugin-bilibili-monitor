@@ -9,6 +9,8 @@
 
 // ==================== 插件配置 ====================
 
+import type { ChangeType } from './store/bili-live-room.store';
+
 /**
  * 插件主配置接口
  * 在此定义你的插件所需的所有配置项
@@ -24,6 +26,10 @@ export interface PluginConfig {
     cooldownSeconds: number;
     /** 按群的单独配置 */
     groupConfigs: Record<string, GroupConfig>;
+    /** 轮询间隔（秒），多久拉取一次 B站直播间状态 */
+    pollIntervalSeconds: number;
+    /** 要推送的变化类型（多选），未选中的类型不推送 */
+    pushTypes: ChangeType[];
     // TODO: 在这里添加你的插件配置项
     adminUser: string;
 }

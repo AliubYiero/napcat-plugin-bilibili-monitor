@@ -7,7 +7,16 @@ import type {
     NapCatPluginContext,
     PluginConfigSchema,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
+import type { ChangeType } from './store/bili-live-room.store';
 import type { PluginConfig } from './types';
+
+/** 有效的推送类型列表 */
+export const VALID_PUSH_TYPES: ChangeType[] = [
+    'start_stream',
+    'end_stream',
+    'title_changed',
+    'area_changed',
+];
 
 /** 默认配置 */
 export const DEFAULT_CONFIG: PluginConfig = {
@@ -16,6 +25,10 @@ export const DEFAULT_CONFIG: PluginConfig = {
     commandPrefix: '#bili',
     cooldownSeconds: 0,
     groupConfigs: {},
+    // 轮询默认每 60 秒拉取一次直播间状态
+    pollIntervalSeconds: 60,
+    // 默认推送全部变化类型
+    pushTypes: [...VALID_PUSH_TYPES],
     // TODO: 在这里添加你的默认配置值
     adminUser: '',
 };
@@ -51,6 +64,26 @@ export function buildConfigSchema(
             '插件管理员',
             '',
             '可私聊管理插件的超级管理员用户',
+        ),
+        // 轮询间隔
+        ctx.NapCatConfig.number(
+            'pollIntervalSeconds',
+            '轮询间隔(秒)',
+            60,
+            '多久拉取一次 B站 直播间状态, 修改后下一轮生效',
+        ),
+        // 推送类型
+        ctx.NapCatConfig.multiSelect(
+            'pushTypes',
+            '推送类型',
+            [
+                { value: 'start_stream', label: '开始直播' },
+                { value: 'end_stream', label: '结束直播' },
+                { value: 'title_changed', label: '修改标题' },
+                { value: 'area_changed', label: '修改分区' },
+            ],
+            VALID_PUSH_TYPES,
+            '选择需要推送的变化类型',
         ),
     );
 }

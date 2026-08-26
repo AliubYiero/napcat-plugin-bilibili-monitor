@@ -31,6 +31,7 @@ import { buildConfigSchema } from './config';
 import { pluginState } from './core/state';
 import { handleMessage } from './handlers/message.handler';
 import { registerApiRoutes } from './services/api.service';
+import { BiliLivePollingService } from './services/bili-live-polling.service';
 import type { PluginConfig } from './types';
 
 // ==================== 配置 UI Schema ====================
@@ -61,6 +62,9 @@ export const plugin_init: PluginModule['plugin_init'] = async (
 
         // 4. 注册 API 路由
         registerApiRoutes(ctx);
+
+        // 5. 启动轮询服务（监听直播间状态变化并推送）
+        BiliLivePollingService.getInstance().start();
 
         ctx.logger.info('插件初始化完成');
     } catch (error) {
@@ -104,6 +108,8 @@ export const plugin_cleanup: PluginModule['plugin_cleanup'] = async (
     ctx,
 ) => {
     try {
+        // 先停止轮询，再清理全局状态
+        BiliLivePollingService.getInstance().stop();
         // TODO: 在这里清理你的资源（定时器、WebSocket 连接等）
         pluginState.cleanup();
         ctx.logger.info('插件已卸载');
