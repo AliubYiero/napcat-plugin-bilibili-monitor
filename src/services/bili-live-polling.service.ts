@@ -25,6 +25,16 @@ import {
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
 import { sendReplyByToInfo } from '../handlers/message.handler';
+import {
+    buildPushCardMessage,
+    renderFirstLine,
+} from './live-push-card.service';
+import {
+    formatArea,
+    formatDuration,
+    formatTime,
+    roomUrl,
+} from '../utils/format';
 
 /** B站接口单次最大请求房间数 */
 const MAX_ROOM_IDS_PER_REQUEST = 100;
@@ -205,11 +215,17 @@ export class BiliLivePollingService {
                 return;
             }
 
-            // 3. 渲染推送文本
-            const message = renderMessage(event, this.roomStore);
+            // 3. 渲染推送消息: 优先图片卡片, SVG 渲染失败时回退纯文本
+            const imageMessage = await buildPushCardMessage(
+                event,
+                this.roomStore,
+            );
+            const message =
+                imageMessage ??
+                renderMessage(event, this.roomStore);
             if (!message) {
                 pluginState.logger.debug(
-                    `事件 ${type} 无法渲染推送文本, 跳过 uid=${uid}`,
+                    `事件 ${type} 无法渲染推送消息, 跳过 uid=${uid}`,
                 );
                 return;
             }
@@ -248,6 +264,7 @@ function mapToRoomInfo(
         area_name: room.area_v2_name || '',
         live_time: room.live_time || 0,
         uname: room.uname || '',
+        avatar: room.face || '',
         cover_from_user: room.cover_from_user || '',
         keyframe: room.keyframe || '',
     };
@@ -263,11 +280,15 @@ function renderMessage(
     const time = formatTime(Date.now());
     const nowSec = Math.floor(Date.now() / 1000);
 
+    // 第一行统一由 renderFirstLine 生成, 保证与图片卡片一致
+    const firstLine = renderFirstLine(event, time, latest, old);
+    if (!firstLine) return null;
+
     switch (event.type) {
         case 'start_stream': {
             if (!latest) return null;
             const text = [
-                `[${time}] ${latest.uname} 开始了直播`,
+                firstLine,
                 `标题: ${latest.title}`,
                 `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
                 `链接: ${roomUrl(latest.room_id)}`,
@@ -283,7 +304,7 @@ function renderMessage(
         case 'end_stream': {
             if (!old) return null;
             return [
-                `[${time}] ${old.uname} 结束了直播`,
+                firstLine,
                 durationLine(nowSec - old.live_time),
                 `标题: ${old.title}`,
                 `分区: ${formatArea(old.parent_area_name, old.area_name)}`,
@@ -295,7 +316,7 @@ function renderMessage(
         case 'title_changed': {
             if (!latest) return null;
             return [
-                `[${time}] ${latest.uname} 修改了直播标题 「${event.oldValue ?? ''}」->「${event.newValue ?? ''}」`,
+                firstLine,
                 durationLine(nowSec - latest.live_time),
                 `标题: ${latest.title}`,
                 `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
@@ -313,7 +334,7 @@ function renderMessage(
                 | { parent?: string; area?: string }
                 | undefined;
             return [
-                `[${time}] ${latest.uname} 修改了直播分区 「${formatArea(oldArea?.parent, oldArea?.area)}」->「${formatArea(newArea?.parent, newArea?.area)}」`,
+                firstLine,
                 durationLine(nowSec - latest.live_time),
                 `标题: ${latest.title}`,
                 `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
@@ -331,35 +352,4 @@ function renderMessage(
 function durationLine(durationSec: number): string | null {
     if (durationSec <= 0) return null;
     return `时长: ${formatDuration(durationSec)}`;
-}
-
-/** 格式化时间: YYYY/M/D HH:mm:ss */
-function formatTime(timestamp: number): string {
-    const d = new Date(timestamp);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-/** 格式化时长: H:MM:SS */
-function formatDuration(seconds: number): string {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${h}:${pad(m)}:${pad(s)}`;
-}
-
-/** 复合分区文本: 父-子；父为空或等于子只显示子；都为空显示"未知分区" */
-function formatArea(parent?: string, area?: string): string {
-    const parentName = parent?.trim() || '';
-    const areaName = area?.trim() || '';
-    if (!parentName && !areaName) return '未知分区';
-    if (!parentName || parentName === areaName)
-        return areaName || parentName;
-    return `${parentName}-${areaName}`;
-}
-
-/** 直播间链接 */
-function roomUrl(roomId?: number): string {
-    return roomId ? `https://live.bilibili.com/${roomId}` : '';
 }
