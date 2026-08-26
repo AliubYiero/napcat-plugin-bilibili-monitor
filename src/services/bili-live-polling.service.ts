@@ -26,28 +26,18 @@ import { sendReplyByToInfo } from '../handlers/message.handler';
 const MAX_ROOM_IDS_PER_REQUEST = 100;
 
 /** 默认轮询间隔（秒），配置缺失时兜底 */
-const DEFAULT_POLL_INTERVAL = 30;
+const DEFAULT_POLL_INTERVAL = 60;
 
 /** 轮询服务（单例） */
 export class BiliLivePollingService {
     private static instance: BiliLivePollingService | null = null;
-
-    private constructor() {}
-
-    static getInstance(): BiliLivePollingService {
-        if (!BiliLivePollingService.instance) {
-            BiliLivePollingService.instance =
-                new BiliLivePollingService();
-        }
-        return BiliLivePollingService.instance;
-    }
-
     private timer: ReturnType<typeof setTimeout> | null = null;
     private running = false;
     private stopped = false;
 
+    private constructor() {}
+
     private _liveStore: BiliLiveStore | null = null;
-    private _roomStore: BiliLiveRoomStore | null = null;
 
     /** 惰性获取监控存储（延迟到 plugin_init 之后实例化） */
     private get liveStore(): BiliLiveStore {
@@ -56,6 +46,8 @@ export class BiliLivePollingService {
         }
         return this._liveStore;
     }
+
+    private _roomStore: BiliLiveRoomStore | null = null;
 
     /** 惰性获取房间存储，并注册变化监听器（只注册一次） */
     private get roomStore(): BiliLiveRoomStore {
@@ -66,6 +58,14 @@ export class BiliLivePollingService {
             });
         }
         return this._roomStore;
+    }
+
+    static getInstance(): BiliLivePollingService {
+        if (!BiliLivePollingService.instance) {
+            BiliLivePollingService.instance =
+                new BiliLivePollingService();
+        }
+        return BiliLivePollingService.instance;
     }
 
     /** 启动轮询（plugin_init 中调用） */

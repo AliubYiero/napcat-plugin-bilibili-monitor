@@ -6,6 +6,8 @@ const BILI_LIVE_DATA_FILENAME = 'bilibiliLiveData.json';
 
 export interface BiliLiveMonitor {
     uid: string;
+    /** 主播名称 */
+    uname: string;
     to: BiliLiveMonitorToInfo[];
 }
 
@@ -58,7 +60,11 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
     }
     
     /** 添加一个推送目标（如果已存在则无操作） */
-    add(uid: string, toInfo: BiliLiveMonitorToInfo): boolean {
+    add(
+        uid: string,
+        uname: string,
+        toInfo: BiliLiveMonitorToInfo,
+    ): boolean {
         // 参数校验
         if (typeof uid !== 'string' || uid.trim() === '') {
             throw new Error('uid must be a non-empty string');
@@ -66,7 +72,7 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
         if (!toInfo?.id || !toInfo.type) {
             throw new Error('Invalid toInfo');
         }
-        
+
         // 查找是否已有该直播间的记录
         const existing = this.findItem((item) => item.uid === uid);
         if (existing) {
@@ -74,13 +80,14 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
             if (existing.to.some((t) => t.type === toInfo.type && t.id === toInfo.id)) {
                 return false;
             }
-            // 否则添加新的 to 并保存
+            // 否则同步最新主播名称, 添加新的 to 并保存
+            existing.uname = uname || existing.uname;
             existing.to.push(toInfo);
             this.saveToFile(); // 基类 protected 方法
             return true;
         } else {
             // 新建直播间记录
-            this.addItem({ uid, to: [toInfo] }); // 调用基类 addItem
+            this.addItem({ uid, uname, to: [toInfo] }); // 调用基类 addItem
             return true;
         }
     }

@@ -2,6 +2,8 @@ import { OB11Message } from 'napcat-types/napcat-onebot';
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { addLiveHandler } from './live/add-live.handler';
 import { removeLiveHandler } from './live/remove-live.handler';
+import { listLiveHandler } from './live/list-live.handler';
+import { helpLiveHandler } from './live/help-live.handler';
 
 /**
  *
@@ -26,6 +28,14 @@ const instructionSetMapper: Record<
          * 移除直播间监听
          */
         remove: removeLiveHandler,
+        /**
+         * 查看当前监听的主播列表
+         */
+        list: listLiveHandler,
+        /**
+         * 查看指令帮助
+         */
+        help: helpLiveHandler,
     },
 };
 
