@@ -13,16 +13,21 @@ export interface BiliLiveMonitorToInfo {
     type: 'private' | 'group';
 }
 
-class BiliLiveStore {
+export class BiliLiveStore {
+    private static instance: BiliLiveStore | null = null;
     private biliLiveData: BiliLiveMonitor[] = [];
 
-    private initialized = false;
+    static getInstance(): BiliLiveStore {
+        if (!BiliLiveStore.instance) {
+            BiliLiveStore.instance = new BiliLiveStore();
+        }
+        return BiliLiveStore.instance;
+    }
 
     /**
      * 获取当前内存中的直播间推送信息（不触发磁盘读取）
      */
     get(): BiliLiveMonitor[] {
-        this.ensureInitialized();
         return this.biliLiveData;
     }
 
@@ -30,7 +35,6 @@ class BiliLiveStore {
      * 重新从文件加载数据（用于外部文件可能被修改的情况）
      */
     reload(): void {
-        this.ensureInitialized();
         this.biliLiveData = this.loadFromFile();
     }
 
@@ -38,7 +42,6 @@ class BiliLiveStore {
      * 重置直播间推送信息（清空并保存）
      */
     reset(): void {
-        this.ensureInitialized();
         this.biliLiveData = [];
         this.saveToFile();
     }
@@ -50,7 +53,6 @@ class BiliLiveStore {
      * @returns 若直播间存在且已包含该来源返回 true，否则 false
      */
     has(roomId: number, toInfo: BiliLiveMonitorToInfo): boolean {
-        this.ensureInitialized();
         const liveInfo = this.findLiveInfo(roomId);
         return liveInfo ? this.hasToInfo(liveInfo, toInfo) : false;
     }
@@ -59,7 +61,6 @@ class BiliLiveStore {
      * 添加指定直播间的推送到指定来源
      */
     add(roomId: number, toInfo: BiliLiveMonitorToInfo): boolean {
-        this.ensureInitialized();
         // 参数校验
         if (!Number.isInteger(roomId) || roomId <= 0) {
             throw new Error('roomId must be a positive integer');
@@ -90,7 +91,6 @@ class BiliLiveStore {
      * 移除指定直播间的推送到指定来源
      */
     remove(roomId: number, toInfo: BiliLiveMonitorToInfo): boolean {
-        this.ensureInitialized();
         const liveInfoIndex = this.findIndexLiveInfo(roomId);
         if (liveInfoIndex === -1) {
             return false;
@@ -114,12 +114,6 @@ class BiliLiveStore {
 
         this.saveToFile();
         return true;
-    }
-
-    private ensureInitialized() {
-        if (this.initialized) return;
-        this.biliLiveData = this.loadFromFile();
-        this.initialized = true;
     }
 
     /**
@@ -175,5 +169,3 @@ class BiliLiveStore {
         );
     }
 }
-
-export const biliLiveStore = new BiliLiveStore();
