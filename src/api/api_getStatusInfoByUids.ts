@@ -65,10 +65,8 @@ export async function api_getStatusInfoByUids( roomIds: string[] ): Promise<Room
 		throw new Error( '批量请求最多请求 100 个房间号' );
 	}
 	
-	const res = await baseRequest.get( `/room/v1/Room/get_status_info_by_uids`, {
-		params: {
-			'uids[]': roomIds.join( ',' ),
-		},
+	const res = await baseRequest.post( `/room/v1/Room/get_status_info_by_uids`, {
+		uids: roomIds.map(Number),
 	} );
 	return res.data;
 }
