@@ -59,7 +59,10 @@ interface CardConfig {
     cover: string;
     avatar: string;
     upName: string;
+    /** 开播时间 */
     liveTime: string;
+    /** 事件发生时间 */
+    time: string;
     type: number;
     title: string;
     partition: string;
@@ -94,6 +97,7 @@ export async function buildPushCardMessage(
             latest,
             old,
             nowSec,
+            time,
         );
 
         // 计算标题宽度并动态决定卡片宽度（计算失败用默认 700 继续）
@@ -290,6 +294,7 @@ function collectCardConfig(
     latest: BiliLiveRoomInfo | undefined,
     old: BiliLiveRoomInfo | undefined,
     nowSec: number,
+    time: string,
 ): CardConfig {
     // 数据源回退链：latest 优先，缺失时回退到变更前快照 old
     // （end_stream 时 latest 已更新为离线数据，live_time 为 0、标题可能为空）
@@ -321,6 +326,7 @@ function collectCardConfig(
         upName,
         liveTime:
             liveTimeSec > 0 ? formatTime(liveTimeSec * 1000) : '',
+        time,
         type,
         title,
         partition: formatArea(parentArea, area),
@@ -411,6 +417,7 @@ function generateSvgContent(
         avatar,
         upName,
         liveTime,
+        time,
         type,
         title,
         partition,
@@ -422,6 +429,9 @@ function generateSvgContent(
     const showDuration =
         type !== LiveType.START_LIVE && liveDuration.length > 0;
     const subTitle = renderSubTitle(type);
+    // 开播事件显示开播时间, 其它事件显示事件发生时间
+    const headerTime =
+        type === LiveType.START_LIVE ? liveTime : time;
 
     const avatarImage = avatar
         ? `<image href="${escapeXml(avatar)}" x="16" y="16" width="48" height="48"
@@ -473,7 +483,7 @@ ${avatarImage}
 
 <!-- 头部文字 -->
 <text x="80" y="34" font-size="17" font-weight="bold" fill="#18191C">${escapeXml(upName)}</text>
-<text x="80" y="54" font-size="13" fill="#9499A0">${escapeXml(liveTime)} · ${escapeXml(subTitle)}</text>
+<text x="80" y="54" font-size="13" fill="#9499A0">${escapeXml(headerTime)} · ${escapeXml(subTitle)}</text>
 
 <!-- 内容卡片 -->
 <g clip-path="url(#contentClip)">
