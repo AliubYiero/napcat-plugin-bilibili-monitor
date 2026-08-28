@@ -10,6 +10,10 @@ import {
     mapToRoomInfo,
 } from '../store/bili-live-room.store';
 import { sendReplyByToInfo } from '../handlers/message.handler';
+import {
+    getLiveLimit,
+    isLiveLimitReached,
+} from './live-limit.service';
 import { api_getStatusInfoByUids } from '../api/api_getStatusInfoByUids';
 import { buildChangeMessage } from './live-push-card.service';
 
@@ -44,6 +48,20 @@ class BiliLiveStoreService {
         try {
             // 检查 UID 是否已存在在存储中
             const hasUid = this.biliLiveStore.has(uid, toInfo);
+            if (!hasUid && isLiveLimitReached(toInfo, this.list(toInfo).length)) {
+                // 达到监听上限, 拒绝新增
+                const limit = getLiveLimit(toInfo);
+                const message =
+                    toInfo.type === 'private'
+                        ? `私聊仅支持监听 ${limit} 个主播, 当前监听数已达上限 (${this.list(toInfo).length}/${limit}), 请先使用 #bili live remove 移除现有订阅`
+                        : `当前监听数已达上限 (${this.list(toInfo).length}/${limit})，请联系机器人管理员或使用 #bili live remove 移除现有订阅`;
+                await sendReplyByToInfo(
+                    pluginState.ctx,
+                    toInfo,
+                    message,
+                );
+                return;
+            }
             if (hasUid) {
                 // 已存在则直接返回, 并带上已保存的主播名称
                 const uname = this.getUname(uid);

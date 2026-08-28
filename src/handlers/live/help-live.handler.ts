@@ -1,9 +1,11 @@
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
 import { sendReplyByToInfo } from '../message.handler';
+import { isSuperAdmin } from '../../core/admin';
 
 /**
  * 输出 Bilibili 监听插件指令帮助
+ * 超级管理员额外附带管理命令段落
  */
 export const helpLiveHandler = async (
     ctx: NapCatPluginContext,
@@ -23,6 +25,17 @@ export const helpLiveHandler = async (
         '#bili live mention <主播uid> 订阅主播开播 @ 提醒',
         '#bili live unmention <主播uid> 取消订阅开播 @ 提醒',
         '#bili live help 查看指令帮助',
-    ].join('\n');
-    await sendReplyByToInfo(ctx, toInfo, helpText);
+    ];
+
+    if (isSuperAdmin(String(user_id))) {
+        helpText.push(
+            '',
+            '管理员命令 [超管]:',
+            '#bili live max 查看监听上限',
+            '#bili live max <监听数> 设置当前群监听上限 [超管/群聊]',
+            '#bili live max <监听数> <group|private> <id> 修改指定会话监听上限 [超管/私聊]',
+        );
+    }
+
+    await sendReplyByToInfo(ctx, toInfo, helpText.join('\n'));
 };

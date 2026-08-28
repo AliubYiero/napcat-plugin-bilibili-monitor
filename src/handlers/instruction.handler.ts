@@ -6,6 +6,7 @@ import { listLiveHandler } from './live/list-live.handler';
 import { helpLiveHandler } from './live/help-live.handler';
 import { mentionLiveHandler } from './live/mention-live.handler';
 import { unmentionLiveHandler } from './live/unmention-live.handler';
+import { maxLiveHandler } from './live/max-live.handler';
 
 /**
  *
@@ -46,6 +47,10 @@ const instructionSetMapper: Record<
          * 取消订阅开播 @ 提醒
          */
         unmention: unmentionLiveHandler,
+        /**
+         * 查看/设置监听上限 (仅超级管理员, 其余用户静默忽略)
+         */
+        max: maxLiveHandler,
     },
 };
 

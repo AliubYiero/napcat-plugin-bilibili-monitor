@@ -39,6 +39,8 @@ function sanitizeConfig(raw: unknown): PluginConfig {
     if (typeof raw.debug === 'boolean') out.debug = raw.debug;
     if (typeof raw.commandPrefix === 'string')
         out.commandPrefix = raw.commandPrefix;
+    if (typeof raw.adminUser === 'string')
+        out.adminUser = raw.adminUser;
     if (typeof raw.cooldownSeconds === 'number')
         out.cooldownSeconds = raw.cooldownSeconds;
     if (

@@ -1,0 +1,159 @@
+/**
+ * 查看或设置直播监听上限（仅超级管理员）
+ *
+ * - 群聊: `#bili live max <n>` 设置当前群上限; 无参数显示当前上限
+ * - 超管私聊: `#bili live max <n> <group|private> <id>` 修改指定会话上限;
+ *   无参数显示自己上限并列出所有自定义上限的会话
+ * - 普通用户使用时静默忽略
+ */
+
+import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
+import { OB11Message } from 'napcat-types/napcat-onebot';
+import { sendReply } from '../message.handler';
+import { isSuperAdmin } from '../../core/admin';
+import { biliLiveStoreService } from '../../services/bili-live-store.service';
+import {
+    DEFAULT_GROUP_LIMIT,
+    DEFAULT_PRIVATE_LIMIT,
+    MAX_LIMIT,
+    MIN_LIMIT,
+    getLiveLimit,
+    setLiveLimit,
+} from '../../services/live-limit.service';
+
+const usageText = [
+    '用法:',
+    '#bili live max 查看监听上限',
+    '#bili live max <监听数> 设置当前群监听上限',
+    '[超管私聊] #bili live max <监听数> <group|private> <id> 修改指定会话上限',
+].join('\n');
+
+/**
+ * 处理监听上限查看/设置
+ */
+export const maxLiveHandler = async (
+    ctx: NapCatPluginContext,
+    event: OB11Message,
+    commands: string[],
+) => {
+    const { message_type, group_id, user_id } = event;
+    const toInfo = {
+        id: message_type === 'group' ? String(group_id) : String(user_id),
+        type: message_type,
+    } as const;
+
+    // 仅超级管理员可用, 其余静默忽略
+    if (!isSuperAdmin(String(user_id))) {
+        return;
+    }
+
+    const [firstArg, secondArg, thirdArg] = commands;
+
+    // 无参数 → 查看模式
+    if (!firstArg) {
+        await replyLimitInfo(ctx, event, toInfo);
+        return;
+    }
+
+    const max = Number(firstArg);
+    if (!Number.isInteger(max) || max < MIN_LIMIT || max > MAX_LIMIT) {
+        await sendReply(
+            ctx,
+            event,
+            `监听上限范围 ${MIN_LIMIT}~${MAX_LIMIT}\n${usageText}`,
+        );
+        return;
+    }
+
+    // 群聊 → 设置当前群上限（多余参数宽松忽略）
+    if (message_type === 'group') {
+        await applyLimit(ctx, event, String(group_id), 'group', max);
+        return;
+    }
+
+    // 私聊 → 需要指定目标会话 <group|private> <id>
+    if (
+        (secondArg !== 'group' && secondArg !== 'private') ||
+        !thirdArg
+    ) {
+        await sendReply(ctx, event, usageText);
+        return;
+    }
+    await applyLimit(
+        ctx,
+        event,
+        thirdArg,
+        secondArg,
+        max,
+    );
+};
+
+/**
+ * 回复当前会话的监听上限信息
+ * 超管私聊额外列出所有自定义上限的会话
+ */
+async function replyLimitInfo(
+    ctx: NapCatPluginContext,
+    event: OB11Message,
+    toInfo: { id: string; type: 'private' | 'group' },
+): Promise<void> {
+    const limit = getLiveLimit(toInfo);
+    const current = biliLiveStoreService.list(toInfo).length;
+    const lines = [
+        `当前会话监听上限: ${limit === Infinity ? '无上限' : limit} (已监听 ${current})`,
+    ];
+
+    if (toInfo.type === 'private') {
+        const limits = getLimitStore().list();
+        if (limits.length > 0) {
+            lines.push(
+                '\n自定义上限的会话:',
+                ...limits.map(
+                    (item) =>
+                        `#${item.type === 'group' ? '群' : '私聊'} ${item.id}: ${item.max}`,
+                ),
+            );
+        } else {
+            lines.push(
+                `\n所有会话均为默认上限 (私聊 ${DEFAULT_PRIVATE_LIMIT}, 群聊 ${DEFAULT_GROUP_LIMIT})`,
+            );
+        }
+    }
+
+    await sendReply(ctx, event, lines.join('\n'));
+}
+
+/** 惰性获取上限存储（避免模块加载期触达未初始化的 pluginState.ctx） */
+let _limitStore: BiliLiveLimitStore | null = null;
+function getLimitStore(): BiliLiveLimitStore {
+    if (!_limitStore) {
+        _limitStore = BiliLiveLimitStore.getInstance();
+    }
+    return _limitStore;
+}
+
+/**
+ * 设置上限并回复结果
+ * 新上限低于当前订阅数时附带提醒
+ */
+async function applyLimit(
+    ctx: NapCatPluginContext,
+    event: OB11Message,
+    id: string,
+    type: 'private' | 'group',
+    max: number,
+): Promise<void> {
+    setLiveLimit(id, type, max);
+
+    const targetToInfo = { id, type } as const;
+    const current = biliLiveStoreService.list(targetToInfo).length;
+    const lines = [
+        `已将会话 (${type === 'group' ? '群' : '私聊'} ${id}) 监听上限设为 ${max}`,
+    ];
+    if (current > max) {
+        lines.push(
+            `当前已有 ${current} 个订阅, 超出部分仍会推送, 但无法新增订阅`,
+        );
+    }
+    await sendReply(ctx, event, lines.join('\n'));
+}
