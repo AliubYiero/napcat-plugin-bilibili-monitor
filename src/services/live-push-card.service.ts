@@ -180,17 +180,25 @@ export function renderFirstLine(
     switch (event.type) {
         case 'start_stream':
             return latest
-                ? `[${time}] ${latest.uname} 开始了直播`
+                ? `[${time}] 「${latest.uname}」 开始了直播`
                 : null;
-        case 'end_stream':
-            return old
-                ? `[${time}] ${old.uname} 结束了直播`
-                : null;
+        case 'end_stream': {
+            if (!old) return null;
+            // 追加本次直播时长（开播时间缺失时省略）
+            const durationSec = Math.floor(Date.now() / 1000) - old.live_time;
+            const durationText =
+                durationSec > 0
+                    ? `，直播时长 ${formatDuration(durationSec)}`
+                    : '';
+            return `[${time}] 「${old.uname}」 结束了直播${durationText}`;
+        }
         case 'title_changed':
+        case 'offline_title_changed':
             return latest
-                ? `[${time}] ${latest.uname} 修改了直播标题 「${event.oldValue ?? ''}」->「${event.newValue ?? ''}」`
+                ? `[${time}] 「${latest.uname}」 修改了直播标题 「${event.oldValue ?? ''}」->「${event.newValue ?? ''}」`
                 : null;
-        case 'area_changed': {
+        case 'area_changed':
+        case 'offline_area_changed': {
             if (!latest) return null;
             const oldArea = event.oldValue as
                 | { parent?: string; area?: string }
@@ -198,7 +206,7 @@ export function renderFirstLine(
             const newArea = event.newValue as
                 | { parent?: string; area?: string }
                 | undefined;
-            return `[${time}] ${latest.uname} 修改了直播分区 「${formatArea(oldArea?.parent, oldArea?.area)}」->「${formatArea(newArea?.parent, newArea?.area)}」`;
+            return `[${time}] 「${latest.uname}」 修改了直播分区 「${formatArea(oldArea?.parent, oldArea?.area)}」->「${formatArea(newArea?.parent, newArea?.area)}」`;
         }
         default:
             return null;
@@ -240,7 +248,7 @@ export function renderTextMessage(
             if (!old) return null;
             return [
                 firstLine,
-                durationLine(nowSec - old.live_time),
+                durationLine(old.live_time, nowSec),
                 `标题: ${old.title}`,
                 `分区: ${formatArea(old.parent_area_name, old.area_name)}`,
                 `链接: ${roomUrl(old.room_id)}`,
@@ -248,11 +256,16 @@ export function renderTextMessage(
                 .filter((line): line is string => line !== null)
                 .join('\n');
         }
-        case 'title_changed': {
+        case 'title_changed':
+        case 'offline_title_changed': {
             if (!latest) return null;
             return [
                 firstLine,
-                durationLine(nowSec - latest.live_time),
+                // 未直播变化附加状态说明行
+                event.type === 'offline_title_changed'
+                    ? '状态: 未开播'
+                    : null,
+                durationLine(latest.live_time, nowSec),
                 `标题: ${latest.title}`,
                 `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
                 `链接: ${roomUrl(latest.room_id)}`,
@@ -260,7 +273,8 @@ export function renderTextMessage(
                 .filter((line): line is string => line !== null)
                 .join('\n');
         }
-        case 'area_changed': {
+        case 'area_changed':
+        case 'offline_area_changed': {
             if (!latest) return null;
             const oldArea = event.oldValue as
                 | { parent?: string; area?: string }
@@ -270,7 +284,11 @@ export function renderTextMessage(
                 | undefined;
             return [
                 firstLine,
-                durationLine(nowSec - latest.live_time),
+                // 未直播变化附加状态说明行
+                event.type === 'offline_area_changed'
+                    ? '状态: 未开播'
+                    : null,
+                durationLine(latest.live_time, nowSec),
                 `标题: ${latest.title}`,
                 `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
                 `链接: ${roomUrl(latest.room_id)}`,
@@ -283,8 +301,10 @@ export function renderTextMessage(
     }
 }
 
-/** 时长行（非直播中或开播时间为 0 时返回 null，以便过滤掉） */
-function durationLine(durationSec: number): string | null {
+/** 时长行（开播时间为 0 或时长异常时返回 null，以便过滤掉） */
+function durationLine(liveTimeSec: number, nowSec: number): string | null {
+    if (liveTimeSec <= 0) return null;
+    const durationSec = nowSec - liveTimeSec;
     if (durationSec <= 0) return null;
     return `时长: ${formatDuration(durationSec)}`;
 }
@@ -352,8 +372,10 @@ function mapChangeType(type: ChangeType): number | null {
         case 'end_stream':
             return LiveType.STOP_LIVE;
         case 'title_changed':
+        case 'offline_title_changed':
             return LiveType.CHANGE_LIVE_TITLE;
         case 'area_changed':
+        case 'offline_area_changed':
             return LiveType.CHANGE_LIVE_PARTITION;
         default:
             return null;

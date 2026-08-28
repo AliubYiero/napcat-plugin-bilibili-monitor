@@ -47,8 +47,10 @@ export interface BiliLiveRoomInfo {
 export type ChangeType =
     | 'start_stream' // 开始直播（offline → streaming）
     | 'end_stream' // 结束直播（streaming → offline）
-    | 'title_changed' // 标题变化
-    | 'area_changed'; // 分区变化（父分区或子分区变化）
+    | 'title_changed' // 标题变化（直播中）
+    | 'area_changed' // 分区变化（父分区或子分区变化，直播中）
+    | 'offline_title_changed' // 标题变化（未直播）
+    | 'offline_area_changed'; // 分区变化（未直播）
 
 /** 变化事件详情 */
 export interface ChangeEvent {
@@ -67,8 +69,7 @@ type ChangeListener = (event: ChangeEvent) => void;
  * Bilibili 直播间信息存储（单例）
  * - 内存存储为 Record<uid, BiliLiveRoomInfo>
  * - 自动持久化到文件
- * - 支持变化监听（开始/结束直播、标题修改、分区修改），
- *   标题/分区变化仅在同一直播会话内触发（见 docs/adr/0002）
+ * - 支持变化监听（开始/结束直播、标题修改、分区修改）
  */
 export class BiliLiveRoomStore {
     private static instance: BiliLiveRoomStore | null = null;
@@ -188,11 +189,10 @@ export class BiliLiveRoomStore {
     /**
      * 比对新旧两个对象，返回变化数组
      *
-     * 变化按"直播会话"界定边界：
-     * - 直播状态变化（开始/结束直播）始终触发
-     * - 标题/分区变化仅在会话进行中（前后状态均为 streaming）触发；
-     *   开播瞬间、结束瞬间与直播间隙的字段差异属于会话边界重置，
-     *   不产生变化事件（见 docs/adr/0002）
+     * - 直播状态变化（开始/结束直播）始终触发，并吞掉同一次比对到的
+     *   标题/分区差异（状态推送本身已携带最新状态）
+     * - 状态不变时，标题/分区变化按当前直播状态区分事件类型：
+     *   直播中为 title_changed/area_changed，未直播为 offline_* 变体
      */
     private detectChanges(
         oldInfo: BiliLiveRoomInfo,
@@ -207,7 +207,7 @@ export class BiliLiveRoomStore {
         const oldStatus = oldInfo.live_status;
         const newStatus = newInfo.live_status;
 
-        // 1. 直播状态变化
+        // 1. 直播状态变化（吞掉同次的字段差异）
         if (oldStatus !== newStatus) {
             if (oldStatus === 'offline' && newStatus === 'streaming') {
                 changes.push({
@@ -225,29 +225,31 @@ export class BiliLiveRoomStore {
                     newValue: 'offline',
                 });
             }
-        }
-
-        // 状态变化（开播/结束）意味着会话边界，字段差异随新会话重置
-        if (oldStatus !== newStatus) {
             return changes;
         }
 
-        // 2. 标题变化（仅直播中）
+        // 2. 标题变化（按直播状态区分事件类型）
         if (oldInfo.title !== newInfo.title) {
             changes.push({
-                type: 'title_changed',
+                type:
+                    newStatus === 'streaming'
+                        ? 'title_changed'
+                        : 'offline_title_changed',
                 oldValue: oldInfo.title,
                 newValue: newInfo.title,
             });
         }
 
-        // 3. 分区变化（父分区或子分区任一变化视为分区变化，仅直播中）
+        // 3. 分区变化（父分区或子分区任一变化视为分区变化）
         if (
             oldInfo.parent_area_name !== newInfo.parent_area_name ||
             oldInfo.area_name !== newInfo.area_name
         ) {
             changes.push({
-                type: 'area_changed',
+                type:
+                    newStatus === 'streaming'
+                        ? 'area_changed'
+                        : 'offline_area_changed',
                 oldValue: {
                     parent: oldInfo.parent_area_name,
                     area: oldInfo.area_name,
