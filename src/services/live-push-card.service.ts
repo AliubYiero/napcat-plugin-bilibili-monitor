@@ -67,6 +67,8 @@ interface CardConfig {
     title: string;
     partition: string;
     liveDuration: string;
+    /** 推送时是否正在直播 */
+    isLive: boolean;
 }
 
 /**
@@ -313,9 +315,16 @@ function collectCardConfig(
     const liveTimeSec = latest?.live_time || old?.live_time || 0;
     const roomId = latest?.room_id || old?.room_id || 0;
 
+    // 直播中判定：开播时间存在且未超过当前时间（离线时 live_time 为 0）
+    const isLive = liveTimeSec > 0 && nowSec >= liveTimeSec;
+
     let liveDuration = '';
     const durationSec = nowSec - liveTimeSec;
-    if (type !== LiveType.START_LIVE && durationSec > 0) {
+    if (
+        isLive &&
+        type !== LiveType.START_LIVE &&
+        durationSec > 0
+    ) {
         liveDuration = formatDuration(durationSec);
     }
 
@@ -331,6 +340,7 @@ function collectCardConfig(
         title,
         partition: formatArea(parentArea, area),
         liveDuration,
+        isLive,
     };
 }
 
@@ -422,12 +432,13 @@ function generateSvgContent(
         title,
         partition,
         liveDuration,
+        isLive,
     } = config;
 
     const contentCardWidth = cardWidth - 112; // 80 左外距 + 32 右外距
     const contentAreaWidth = contentCardWidth - 236; // 封面固定 236 宽
-    const showDuration =
-        type !== LiveType.START_LIVE && liveDuration.length > 0;
+    // 未开播时不显示时长
+    const showDuration = isLive && liveDuration.length > 0;
     const subTitle = renderSubTitle(type);
     // 开播事件显示开播时间, 其它事件显示事件发生时间
     const headerTime =
@@ -445,9 +456,14 @@ function generateSvgContent(
     const durationText = showDuration
         ? `<text x="305" y="190" font-size="13" fill="#ffffff" text-anchor="end">${escapeXml(liveDuration)}</text>`
         : '';
-
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${cardWidth}" height="${CARD_HEIGHT}"
-     viewBox="0 0 ${cardWidth} ${CARD_HEIGHT}"
+    // 封面右上角状态标签（直播中/未开播）
+    const liveStatusTag = `
+	<!-- 封面右上角状态标签 -->
+	<rect x="266" y="74" width="44" height="20" rx="2" ry="2" fill="${isLive ? '#f69' : '#b9b9b9'}"/>
+	<text x="288" y="84" font-size="12" fill="#ffffff" text-anchor="middle" dominant-baseline="central">${isLive ? '直播中' : '未开播'}</text>`;
+    
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${cardWidth + 2}" height="${CARD_HEIGHT + 2}"
+     viewBox="0 0 ${cardWidth + 2} ${CARD_HEIGHT + 2}"
      font-family="'PingFang SC','Microsoft YaHei',sans-serif">
 <defs>
 	<!-- 头像圆形裁剪 -->
@@ -474,39 +490,47 @@ function generateSvgContent(
 	</linearGradient>
 </defs>
 
-<!-- 卡片背景 -->
-<rect x="0" y="0" width="${cardWidth}" height="${CARD_HEIGHT}" fill="#ffffff"/>
+<!-- 外边框（1px，向四周扩展） -->
+<rect x="0.5" y="0.5" width="${cardWidth + 1}" height="${CARD_HEIGHT + 1}"
+      fill="none" stroke="#E3E5E7" stroke-width="1"/>
 
-<!-- 头像 -->
-<circle cx="40" cy="40" r="24" fill="#cccccc"/>
-${avatarImage}
+<!-- 原内容整体平移 (1,1) -->
+<g transform="translate(1,1)">
+	<!-- 卡片背景 -->
+	<rect x="0" y="0" width="${cardWidth}" height="${CARD_HEIGHT}" fill="#ffffff"/>
 
-<!-- 头部文字 -->
-<text x="80" y="34" font-size="17" font-weight="bold" fill="#18191C">${escapeXml(upName)}</text>
-<text x="80" y="54" font-size="13" fill="#9499A0">${escapeXml(headerTime)} · ${escapeXml(subTitle)}</text>
+	<!-- 头像 -->
+	<circle cx="40" cy="40" r="24" fill="#cccccc"/>
+	${avatarImage}
 
-<!-- 内容卡片 -->
-<g clip-path="url(#contentClip)">
-	<!-- 封面图 -->
-	<rect x="80" y="68" width="236" height="134" fill="url(#coverPlaceholder)"/>
-	${coverImage}
+	<!-- 头部文字 -->
+	<text x="80" y="34" font-size="17" font-weight="bold" fill="#18191C">${escapeXml(upName)}</text>
+	<text x="80" y="54" font-size="13" fill="#9499A0">${escapeXml(headerTime)} · ${escapeXml(subTitle)}</text>
 
-	<!-- 封面右下角时长阴影遮罩 -->
-	<rect x="80" y="156" width="236" height="46" fill="url(#durationShadow)"/>
+	<!-- 内容卡片 -->
+	<g clip-path="url(#contentClip)">
+		<!-- 封面图 -->
+		<rect x="80" y="68" width="236" height="134" fill="url(#coverPlaceholder)"/>
+		${coverImage}
+		${liveStatusTag}
 
-	<!-- 时长文本 -->
-	${durationText}
+		<!-- 封面右下角时长阴影遮罩 -->
+		<rect x="80" y="156" width="236" height="46" fill="url(#durationShadow)"/>
 
-	<!-- 内容区域背景 -->
-	<rect x="316" y="68" width="${contentAreaWidth}" height="134" fill="#ffffff"/>
+		<!-- 时长文本 -->
+		${durationText}
 
-	<!-- 标题与类型 -->
-	<text x="332" y="93" font-size="15" fill="#18191C">${escapeXml(title)}</text>
-	<text x="332" y="188" font-size="13" fill="#9499A0">${escapeXml(partition)}</text>
+		<!-- 内容区域背景 -->
+		<rect x="316" y="68" width="${contentAreaWidth}" height="134" fill="#ffffff"/>
+
+		<!-- 标题与类型 -->
+		<text x="332" y="93" font-size="15" fill="#18191C">${escapeXml(title)}</text>
+		<text x="332" y="188" font-size="13" fill="#9499A0">${escapeXml(partition)}</text>
+	</g>
+
+	<!-- 内容卡片边框 -->
+	<rect x="80" y="68" width="${contentCardWidth}" height="134" rx="6" ry="6" fill="none"
+	      stroke="#E3E5E7" stroke-width="1"/>
 </g>
-
-<!-- 内容卡片边框 -->
-<rect x="80" y="68" width="${contentCardWidth}" height="134" rx="6" ry="6" fill="none"
-      stroke="#E3E5E7" stroke-width="1"/>
 </svg>`;
 }
