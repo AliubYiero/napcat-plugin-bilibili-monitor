@@ -12,6 +12,7 @@ import { maxLiveHandler } from './live/max-live.handler';
 import { loginHandler } from './user/login.handler';
 import { logoutHandler } from './user/logout.handler';
 import { statusHandler } from './user/status.handler';
+import { helpUserHandler } from './user/help-user.handler';
 
 /** 指令作用域 */
 type InstructionScope = 'group' | 'private';
@@ -124,6 +125,14 @@ const instructionSetMapper: Record<string, Record<string, InstructionDefinition>
         },
         logout: {
             handler: logoutHandler,
+            requiredRole: 'superAdmin',
+            scope: 'private',
+        },
+        /**
+         * 查看用户登录指令帮助 (仅私聊, 超管)
+         */
+        help: {
+            handler: helpUserHandler,
             requiredRole: 'superAdmin',
             scope: 'private',
         },
