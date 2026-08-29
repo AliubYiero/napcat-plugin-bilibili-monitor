@@ -41,6 +41,18 @@ import type { PluginConfig } from './types';
 /** NapCat WebUI 读取此导出来展示配置面板 */
 export let plugin_config_ui: PluginConfigSchema = [];
 
+/** 记录当前 ctx, 供登录状态变化时重建配置 Schema */
+let cachedCtx: NapCatPluginContext | null = null;
+
+/** 用当前登录状态重建配置 Schema */
+function rebuildConfigUI(ctx: NapCatPluginContext): void {
+    const loginStatus: LoginStatusInfo = {
+        user: biliCookieStore.getUser(),
+        cookieExpired: biliCookieStore.isExpired(),
+    };
+    plugin_config_ui = buildConfigSchema(ctx, loginStatus);
+}
+
 // ==================== 生命周期函数 ====================
 
 /**
@@ -57,11 +69,8 @@ export const plugin_init: PluginModule['plugin_init'] = async (
         ctx.logger.info('插件初始化中...');
 
         // 2. 生成配置 Schema（用于 NapCat WebUI 配置面板, 含登录状态静态块）
-        const loginStatus: LoginStatusInfo = {
-            user: biliCookieStore.getUser(),
-            cookieExpired: biliCookieStore.isExpired(),
-        };
-        plugin_config_ui = buildConfigSchema(ctx, loginStatus);
+        cachedCtx = ctx;
+        rebuildConfigUI(ctx);
 
         // 3. 注册 WebUI 页面和静态资源
         // registerWebUI(ctx);
@@ -69,7 +78,12 @@ export const plugin_init: PluginModule['plugin_init'] = async (
         // 4. 注册 API 路由
         registerApiRoutes(ctx);
 
-        // 5. 启动轮询服务（监听直播间状态变化并推送）
+        // 5. 登录状态变化时重建配置 Schema (刷新 WebUI 登录块)
+        biliCookieStore.onLoginStateChange(() => {
+            if (cachedCtx) rebuildConfigUI(cachedCtx);
+        });
+
+        // 6. 启动轮询服务（监听直播间状态变化并推送）
         BiliLivePollingService.getInstance().start();
 
         ctx.logger.info('插件初始化完成');
@@ -125,6 +139,16 @@ export const plugin_cleanup: PluginModule['plugin_cleanup'] = async (
 };
 
 // ==================== 配置管理钩子 ====================
+
+/**
+ * 配置界面控制器
+ * 每次配置界面打开时调用: 用最新登录状态重建 Schema, 保证登录块不滞后
+ */
+export const plugin_config_controller: PluginModule['plugin_config_controller'] =
+    (ctx) => {
+        cachedCtx = ctx;
+        rebuildConfigUI(ctx);
+    };
 
 /** 获取当前配置 */
 export const plugin_get_config: PluginModule['plugin_get_config'] =

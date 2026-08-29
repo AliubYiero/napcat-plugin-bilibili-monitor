@@ -39,6 +39,8 @@ export interface QRPollData {
     /** 0=成功 / 86038=失效 / 86090=已扫码未确认 / 86101=未扫码 */
     code: QRPollCode;
     message: string;
+    /** 登录 Cookie (来自响应头 Set-Cookie, 仅 code=0 时有值) */
+    cookies: Record<string, string>;
 }
 
 interface BilibiliPassportResponse<T> {
@@ -66,5 +68,20 @@ export async function api_pollQR(
     >(`${PASSPORT_BASE}/x/passport-login/web/qrcode/poll`, {
         params: { qrcode_key: qrcodeKey },
     });
-    return res.data.data;
+    const data = res.data.data;
+
+    // 登录凭证由响应头 Set-Cookie 下发 (跨域 url 中已不再携带)
+    const cookies: Record<string, string> = {};
+    const setCookies = res.headers['set-cookie'] ?? [];
+    for (const raw of setCookies) {
+        // 每个 Set-Cookie 头取第一段 "key=value"
+        const pair = raw.split(';')[0];
+        const eq = pair.indexOf('=');
+        if (eq > 0) {
+            cookies[pair.slice(0, eq).trim()] = pair
+                .slice(eq + 1)
+                .trim();
+        }
+    }
+    return { ...data, cookies };
 }

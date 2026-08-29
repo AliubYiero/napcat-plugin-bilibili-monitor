@@ -150,6 +150,17 @@ export default defineConfig(({ mode }) => {
     return {
         resolve: {
             conditions: ['node', 'default'],
+            alias: [
+                // qrcode 声明了 browser 字段, 默认解析到浏览器版 (无 toFile/toBuffer);
+                // 精确匹配裸导入, 强制指向 Node 版入口
+                {
+                    find: /^qrcode$/,
+                    replacement: resolve(
+                        __dirname,
+                        'node_modules/qrcode/lib/index.js',
+                    ),
+                },
+            ],
         },
         build: {
             sourcemap: false,

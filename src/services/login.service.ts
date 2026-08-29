@@ -256,8 +256,11 @@ class LoginService {
     ): Promise<void> {
         this.cleanupTimer();
 
-        // 从跨域登录 url 解析 Cookie 项 (DedeUserID/SESSDATA/bili_jct 等)
-        const cookies = parseCookiesFromCrossDomainUrl(data.url);
+        // 登录 Cookie 优先取响应头 Set-Cookie; 降级从跨域 url 解析
+        const cookies =
+            Object.keys(data.cookies).length > 0
+                ? data.cookies
+                : parseCookiesFromCrossDomainUrl(data.url);
         const loginTime = data.timestamp || Date.now();
         biliCookieStore.saveLogin(cookies, loginTime);
         biliCookieStore.clearExpired();

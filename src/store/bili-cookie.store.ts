@@ -40,6 +40,9 @@ const COOKIE_FILENAME = 'bilibiliCookie.json';
 /** Cookie 失效通知冷却时长 (24h) */
 const EXPIRED_NOTIFY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
+/** 登录状态变化监听器 (用于刷新 WebUI 配置页登录块) */
+export type LoginStateListener = () => void;
+
 class BiliCookieStore {
     private static instance: BiliCookieStore | null = null;
 
@@ -109,6 +112,7 @@ class BiliCookieStore {
     ): void {
         this.data = { cookies, loginTime };
         this.save();
+        this.notifyLoginStateChange();
     }
 
     /**
@@ -123,12 +127,35 @@ class BiliCookieStore {
     logout(): void {
         this.data = { cookies: {} };
         this.save();
+        this.notifyLoginStateChange();
     }
 
     // ==================== 失效处理 ====================
 
     /** 上次失效通知时间戳 (ms), 0 表示未通知过 */
     private lastExpiredNotifyTime = 0;
+
+    /** 登录状态变化监听器列表 */
+    private loginStateListeners: LoginStateListener[] = [];
+
+    /** 注册登录状态变化监听器 */
+    onLoginStateChange(listener: LoginStateListener): void {
+        this.loginStateListeners.push(listener);
+    }
+
+    /** 通知登录状态变化 (异步派发, 避免阻塞主流程) */
+    private notifyLoginStateChange(): void {
+        for (const listener of this.loginStateListeners) {
+            try {
+                listener();
+            } catch (e) {
+                pluginState.logger?.warn(
+                    '登录状态监听器执行失败:',
+                    e,
+                );
+            }
+        }
+    }
 
     /**
      * 标记 Cookie 失效, 并通知全部超级管理员 (24h 冷却)

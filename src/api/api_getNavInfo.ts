@@ -5,7 +5,7 @@
  * 仅可 Cookie (SESSDATA) 认证; code -101 表示账号未登录
  */
 
-import authRequest from './authRequest';
+import authRequest, { authLogger } from './authRequest';
 
 /** nav 响应 data (仅保留插件用到的字段) */
 export interface NavInfoData {
@@ -37,8 +37,12 @@ export async function api_getNavInfo(): Promise<NavInfoData | null> {
         if (res.data.code === 0 && res.data.data.isLogin) {
             return res.data.data;
         }
+        authLogger().warn(
+            `(´･ω･\`) nav 接口返回异常: code=${res.data.code}, message=${res.data.message}`,
+        );
         return null;
-    } catch {
+    } catch (e) {
+        authLogger().warn('(´･ω･`) nav 接口请求失败:', e);
         return null;
     }
 }
