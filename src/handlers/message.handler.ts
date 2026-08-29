@@ -10,8 +10,8 @@
  * 保持每个文件职责单一。
  */
 
-import type {
-    OB11Message,
+import {
+    OB11Message, OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
@@ -241,16 +241,14 @@ export async function sendForwardMsg(
     }
 }
 
-// ==================== 权限检查 ====================
-
 /**
- * 检查群聊中是否有管理员权限
- * 私聊消息默认返回 true
+ * 创建图片消息段
  */
-export function isAdmin(event: OB11Message): boolean {
-    if (event.message_type !== 'group') return true;
-    const role = (event.sender as Record<string, unknown>)?.role;
-    return role === 'admin' || role === 'owner';
+export function createImageMessage(file: string): OB11PostSendMsg["message"] {
+    return {
+        type: 'image' as OB11MessageDataType.image,
+        data: { file },
+    };
 }
 
 // ==================== 消息处理主函数 ====================

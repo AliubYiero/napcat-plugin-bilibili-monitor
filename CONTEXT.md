@@ -4,6 +4,12 @@
 
 ## Language
 
+**用户角色 (UserRole)**:
+消息发送者在权限体系中的身份,四档:`user`(普通用户, 实际仅群聊普通成员)、`admin`(群管理员, 仅群聊可达)、`privateUser`(私聊用户, 等同 admin 权限组)、`superAdmin`(配置于 adminUser 的超级管理员)。优先级 superAdmin > privateUser > admin > user。私聊用户的角色恒为 privateUser 或 superAdmin, 不存在 admin/user。
+
+**帮助版本 (HelpVariant)**:
+帮助指令输出的内容版本,由角色与会话类型共同决定,而非仅由角色决定:群聊超管与群管理员/私聊用户输出 Admin 版,仅私聊超管输出 SuperAdmin 版。_Avoid_: 按角色一一对应帮助版本
+
 **主播 (uid)**:
 被监控的 Bilibili 用户,以 mid 标识。插件对每个主播记录其直播间状态并推送变化。
 _Avoid_: UP主, 用户, 房间号

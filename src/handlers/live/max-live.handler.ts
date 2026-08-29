@@ -1,16 +1,16 @@
 /**
- * 查看或设置直播监听上限（仅超级管理员）
+ * 查看或设置直播监听上限（权限与作用域由指令分发层按参数形态校验）
  *
- * - 群聊: `#bili live max <n>` 设置当前群上限; 无参数显示当前上限
- * - 超管私聊: `#bili live max <n> <group|private> <id>` 修改指定会话上限;
- *   无参数显示自己上限并列出所有自定义上限的会话
- * - 普通用户使用时静默忽略
+ * - 任意会话: `#bili live max` 查看当前会话上限 (admin 级)
+ * - 群聊超管: `#bili live max <n>` 设置当前群上限
+ * - 超管私聊: `#bili live max <n> <group|private> <id>` 修改指定会话上限
+ * - 私聊查看: 仅超管列出所有自定义上限的会话, 其余只显示自己上限
  */
 
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
 import { sendReply } from '../message.handler';
-import { isSuperAdmin } from '../../core/admin';
+import { getUserRole } from '../../core/admin';
 import { biliLiveStoreService } from '../../services/bili-live-store.service';
 import {
     DEFAULT_GROUP_LIMIT,
@@ -41,11 +41,6 @@ export const maxLiveHandler = async (
         id: message_type === 'group' ? String(group_id) : String(user_id),
         type: message_type,
     } as const;
-
-    // 仅超级管理员可用, 其余静默忽略
-    if (!isSuperAdmin(String(user_id))) {
-        return;
-    }
 
     const [firstArg, secondArg, thirdArg] = commands;
 
@@ -90,7 +85,7 @@ export const maxLiveHandler = async (
 
 /**
  * 回复当前会话的监听上限信息
- * 超管私聊额外列出所有自定义上限的会话
+ * 私聊仅超管额外列出所有自定义上限的会话, 其余只显示自己上限
  */
 async function replyLimitInfo(
     ctx: NapCatPluginContext,
@@ -103,7 +98,7 @@ async function replyLimitInfo(
         `当前会话监听上限: ${limit === Infinity ? '无上限' : limit} (已监听 ${current})`,
     ];
 
-    if (toInfo.type === 'private') {
+    if (toInfo.type === 'private' && getUserRole(event).role === 'superAdmin') {
         const limits = getLimitStore().list();
         if (limits.length > 0) {
             lines.push(
