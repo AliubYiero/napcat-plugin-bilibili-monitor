@@ -125,6 +125,14 @@ function copyAssetsPlugin() {
                         "[copy-assets] (o'v'o) 已复制 templates 目录",
                     );
                 }
+                
+                // 5. 复制 assets 目录到 dist/assets（如果存在）
+                const assetsSrc = resolve( __dirname, 'src/assets' );
+                const assetsDest = resolve( distDir, 'assets' );
+                if ( fs.existsSync( assetsSrc ) ) {
+                    copyDirRecursive( assetsSrc, assetsDest );
+                    console.log( '[copy-assets] (o\'v\'o) 已复制 assets 目录到 dist/assets' );
+                }
 
                 console.log("[copy-assets] (*'v'*) 资源复制完成！");
             } catch (error) {
