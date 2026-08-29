@@ -11,6 +11,7 @@ import { unmentionLiveHandler } from './live/unmention-live.handler';
 import { maxLiveHandler } from './live/max-live.handler';
 import { loginHandler } from './user/login.handler';
 import { logoutHandler } from './user/logout.handler';
+import { statusHandler } from './user/status.handler';
 
 /** 指令作用域 */
 type InstructionScope = 'group' | 'private';
@@ -113,6 +114,14 @@ const instructionSetMapper: Record<string, Record<string, InstructionDefinition>
         /**
          * 登出 B 站账号 (仅私聊, 超管)
          */
+        /**
+         * 查询 B 站登录状态 (仅私聊, 超管)
+         */
+        status: {
+            handler: statusHandler,
+            requiredRole: 'superAdmin',
+            scope: 'private',
+        },
         logout: {
             handler: logoutHandler,
             requiredRole: 'superAdmin',
