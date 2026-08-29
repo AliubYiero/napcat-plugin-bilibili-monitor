@@ -32,6 +32,8 @@ import { pluginState } from './core/state';
 import { handleMessage } from './handlers/message.handler';
 import { registerApiRoutes } from './services/api.service';
 import { BiliLivePollingService } from './services/bili-live-polling.service';
+import { biliCookieStore } from './store/bili-cookie.store';
+import type { LoginStatusInfo } from './config';
 import type { PluginConfig } from './types';
 
 // ==================== 配置 UI Schema ====================
@@ -54,8 +56,12 @@ export const plugin_init: PluginModule['plugin_init'] = async (
 
         ctx.logger.info('插件初始化中...');
 
-        // 2. 生成配置 Schema（用于 NapCat WebUI 配置面板）
-        plugin_config_ui = buildConfigSchema(ctx);
+        // 2. 生成配置 Schema（用于 NapCat WebUI 配置面板, 含登录状态静态块）
+        const loginStatus: LoginStatusInfo = {
+            user: biliCookieStore.getUser(),
+            cookieExpired: biliCookieStore.isExpired(),
+        };
+        plugin_config_ui = buildConfigSchema(ctx, loginStatus);
 
         // 3. 注册 WebUI 页面和静态资源
         // registerWebUI(ctx);

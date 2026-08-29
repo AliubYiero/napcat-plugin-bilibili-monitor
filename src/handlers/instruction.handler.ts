@@ -9,6 +9,8 @@ import { helpLiveHandler } from './live/help-live.handler';
 import { mentionLiveHandler } from './live/mention-live.handler';
 import { unmentionLiveHandler } from './live/unmention-live.handler';
 import { maxLiveHandler } from './live/max-live.handler';
+import { loginHandler } from './user/login.handler';
+import { logoutHandler } from './user/logout.handler';
 
 /** 指令作用域 */
 type InstructionScope = 'group' | 'private';
@@ -99,9 +101,25 @@ const instructionSetMapper: Record<string, Record<string, InstructionDefinition>
             ],
         },
     },
+    user: {
+        /**
+         * 扫码登录 B 站账号 (仅私聊, 超管)
+         */
+        login: {
+            handler: loginHandler,
+            requiredRole: 'superAdmin',
+            scope: 'private',
+        },
+        /**
+         * 登出 B 站账号 (仅私聊, 超管)
+         */
+        logout: {
+            handler: logoutHandler,
+            requiredRole: 'superAdmin',
+            scope: 'private',
+        },
+    },
 };
-
-/** 角色等级是否满足指令要求 */
 function hasRole(
     userRole: UserRole['role'],
     requiredRole: UserRole['role'],

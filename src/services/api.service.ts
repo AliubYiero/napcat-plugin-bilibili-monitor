@@ -22,6 +22,8 @@ import type {
     PluginHttpResponse,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { pluginState } from '../core/state';
+import { biliCookieStore } from '../store/bili-cookie.store';
+import { loginService } from './login.service';
 
 /**
  * 注册 API 路由
@@ -167,6 +169,50 @@ export function registerApiRoutes(ctx: NapCatPluginContext): void {
             ctx.logger.error('批量更新群配置失败:', err);
             res.status(500).json({ code: -1, message: String(err) });
         }
+    });
+
+    // ==================== 登录状态 (无鉴权) ====================
+
+    /** 获取登录状态 */
+    router.getNoAuth('/login/status', (_req, res) => {
+        const user = biliCookieStore.getUser();
+        res.json({
+            code: 0,
+            data: {
+                loggedIn: biliCookieStore.has(),
+                cookieExpired: biliCookieStore.isExpired(),
+                user: user ?? null,
+                loginTime:
+                    biliCookieStore.getLoginTime() ?? null,
+            },
+        });
+    });
+
+    /** 发起扫码登录 (与指令入口互斥) */
+    router.postNoAuth('/login/qrcode', (_req, res) => {
+        const error = loginService.start('webui');
+        if (error) {
+            return res
+                .status(409)
+                .json({ code: -1, message: error });
+        }
+        res.json({ code: 0, data: loginService.getSnapshot() });
+    });
+
+    /** 轮询扫码登录会话状态 */
+    router.getNoAuth('/login/qrcode/poll', (_req, res) => {
+        res.json({
+            code: 0,
+            data: loginService.getSnapshot(),
+        });
+    });
+
+    /** 登出: 清除本地 Cookie */
+    router.postNoAuth('/logout', (_req, res) => {
+        loginService.stop();
+        biliCookieStore.logout();
+        ctx.logger.info('已通过 WebUI 登出 B 站账号');
+        res.json({ code: 0, message: 'ok' });
     });
 
     // TODO: 在这里添加你的自定义 API 路由

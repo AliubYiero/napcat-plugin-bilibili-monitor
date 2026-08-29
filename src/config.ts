@@ -10,6 +10,48 @@ import type {
 import type { ChangeType } from './store/bili-live-room.store';
 import type { PluginConfig } from './types';
 
+/** 登录状态数据 (由入口在 plugin_init 时传入, 避免 config -> store 循环引用) */
+export interface LoginStatusInfo {
+    user?: {
+        uid: string;
+        name: string;
+        avatar: string;
+    };
+    cookieExpired: boolean;
+}
+
+/** 构建登录状态展示 HTML (静态块, 刷新配置页/重启插件后更新) */
+export function buildLoginStatusHtml(
+    status?: LoginStatusInfo,
+): string {
+    const user = status?.user;
+
+    // 未登录
+    if (!user) {
+        return `
+            <div style="padding: 14px; background: #fff3f5; border: 1px solid #FB7299; border-radius: 12px; margin-bottom: 20px; color: #666;">
+                <p style="margin: 0 0 6px 0; font-weight: 600; color: #FB7299;">B 站账号: 未登录</p>
+                <p style="margin: 0; font-size: 13px;">动态/视频监听需要登录。请私聊机器人发送 #bili user login 扫码登录</p>
+            </div>
+        `;
+    }
+
+    const expiredBadge = status?.cookieExpired
+        ? '<span style="margin-left: 8px; padding: 2px 8px; border-radius: 6px; background: #ff4d4f; color: white; font-size: 12px;">Cookie 已失效</span>'
+        : '';
+    return `
+        <div style="padding: 14px; background: #f0f9ff; border: 1px solid #52a0e8; border-radius: 12px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="${user.avatar}" alt="avatar" style="width: 48px; height: 48px; border-radius: 50%;" referrerpolicy="no-referrer" />
+                <div>
+                    <p style="margin: 0; font-weight: 600; color: #333;">${user.name}${expiredBadge}</p>
+                    <p style="margin: 2px 0 0 0; font-size: 13px; color: #888;">UID: ${user.uid}</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 /** 有效的推送类型列表 */
 export const VALID_PUSH_TYPES: ChangeType[] = [
     'start_stream',
@@ -50,6 +92,7 @@ export const DEFAULT_CONFIG: PluginConfig = {
  */
 export function buildConfigSchema(
     ctx: NapCatPluginContext,
+    loginStatus?: LoginStatusInfo,
 ): PluginConfigSchema {
     return ctx.NapCatConfig.combine(
         // 插件信息头部
@@ -59,7 +102,8 @@ export function buildConfigSchema(
                 <p style="margin: 0; font-size: 13px; opacity: 0.85;">监听指定用户动态发布/视频发布/直播状态, 推送到指定群聊</p>
             </div>
         `),
-        // TODO: 在这里添加你的配置项
+        // 登录状态展示 (静态块, 登录/登出后重启插件或刷新页面时更新)
+        ctx.NapCatConfig.html(buildLoginStatusHtml(loginStatus)),
         // 管理员用户列表
         ctx.NapCatConfig.text(
             'adminUser',
