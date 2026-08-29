@@ -47,6 +47,10 @@ class BiliCookieStore {
     private static instance: BiliCookieStore | null = null;
 
     private data: BiliCookieData | null = null;
+    /** 上次失效通知时间戳 (ms), 0 表示未通知过 */
+    private lastExpiredNotifyTime = 0;
+    /** 登录状态变化监听器列表 */
+    private loginStateListeners: LoginStateListener[] = [];
 
     private constructor() {}
 
@@ -55,17 +59,6 @@ class BiliCookieStore {
             BiliCookieStore.instance = new BiliCookieStore();
         }
         return BiliCookieStore.instance;
-    }
-
-    /**
-     * 获取内存数据 (惰性加载)
-     * 首次访问时才从文件读取, 避免模块加载阶段 (plugin_init 之前) 触碰 ctx
-     */
-    private ensureLoaded(): BiliCookieData {
-        if (!this.data) {
-            this.data = this.load();
-        }
-        return this.data;
     }
 
     /** 从文件重新加载 (覆盖内存) */
@@ -95,7 +88,6 @@ class BiliCookieStore {
     isExpired(): boolean {
         return this.ensureLoaded().cookieExpired === true;
     }
-
     /** 获取登录时间戳 (ms), 未登录返回 undefined */
     getLoginTime(): number | undefined {
         return this.ensureLoaded().loginTime;
@@ -123,6 +115,8 @@ class BiliCookieStore {
         this.save();
     }
 
+    // ==================== 失效处理 ====================
+
     /** 登出: 清空 Cookie 与用户信息 */
     logout(): void {
         this.data = { cookies: {} };
@@ -130,31 +124,9 @@ class BiliCookieStore {
         this.notifyLoginStateChange();
     }
 
-    // ==================== 失效处理 ====================
-
-    /** 上次失效通知时间戳 (ms), 0 表示未通知过 */
-    private lastExpiredNotifyTime = 0;
-
-    /** 登录状态变化监听器列表 */
-    private loginStateListeners: LoginStateListener[] = [];
-
     /** 注册登录状态变化监听器 */
     onLoginStateChange(listener: LoginStateListener): void {
         this.loginStateListeners.push(listener);
-    }
-
-    /** 通知登录状态变化 (异步派发, 避免阻塞主流程) */
-    private notifyLoginStateChange(): void {
-        for (const listener of this.loginStateListeners) {
-            try {
-                listener();
-            } catch (e) {
-                pluginState.logger?.warn(
-                    '登录状态监听器执行失败:',
-                    e,
-                );
-            }
-        }
     }
 
     /**
@@ -183,6 +155,31 @@ class BiliCookieStore {
     clearExpired(): void {
         this.ensureLoaded().cookieExpired = false;
         this.save();
+    }
+
+    /**
+     * 获取内存数据 (惰性加载)
+     * 首次访问时才从文件读取, 避免模块加载阶段 (plugin_init 之前) 触碰 ctx
+     */
+    private ensureLoaded(): BiliCookieData {
+        if (!this.data) {
+            this.data = this.load();
+        }
+        return this.data;
+    }
+
+    /** 通知登录状态变化 (异步派发, 避免阻塞主流程) */
+    private notifyLoginStateChange(): void {
+        for (const listener of this.loginStateListeners) {
+            try {
+                listener();
+            } catch (e) {
+                pluginState.logger?.warn(
+                    '登录状态监听器执行失败:',
+                    e,
+                );
+            }
+        }
     }
 
     /** 通知全部超级管理员 Cookie 已失效 */
