@@ -478,8 +478,14 @@ function generateSvgContent(
     const durationText = showDuration
         ? `<text x="305" y="190" font-size="13" fill="#ffffff" text-anchor="end">${escapeXml(liveDuration)}</text>`
         : '';
-    // 封面右上角状态标签（直播中/未开播）
-    const liveStatusTag = `
+    // 封面右上角状态标签：直播结束为 56 宽粉色标签，直播中为 44 宽粉色，未开播为 44 宽灰色
+    const isStopLive = type === LiveType.STOP_LIVE;
+    const liveStatusTag = isStopLive
+        ? `
+	<!-- 封面右上角状态标签 -->
+	<rect x="254" y="74" width="56" height="20" rx="2" ry="2" fill="#f69"/>
+	<text x="282" y="84" font-size="12" fill="#ffffff" text-anchor="middle" dominant-baseline="central">直播结束</text>`
+        : `
 	<!-- 封面右上角状态标签 -->
 	<rect x="266" y="74" width="44" height="20" rx="2" ry="2" fill="${isLive ? '#f69' : '#b9b9b9'}"/>
 	<text x="288" y="84" font-size="12" fill="#ffffff" text-anchor="middle" dominant-baseline="central">${isLive ? '直播中' : '未开播'}</text>`;
