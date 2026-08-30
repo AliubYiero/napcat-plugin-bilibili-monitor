@@ -10,13 +10,13 @@ export function formatTime(timestamp: number): string {
     return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-/** 格式化时长: H:MM:SS */
+/** 格式化时长: HH:MM:SS */
 export function formatDuration(seconds: number): string {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
     const pad = (n: number) => String(n).padStart(2, '0');
-    return `${h}:${pad(m)}:${pad(s)}`;
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
 /** 复合分区文本: 父-子;父为空或等于子只显示子;都为空显示"未知分区" */
