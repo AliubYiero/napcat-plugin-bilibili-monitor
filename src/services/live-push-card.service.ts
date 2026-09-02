@@ -142,7 +142,9 @@ export async function buildPushCardMessage(
         return [
             {
                 type: 'text' as OB11MessageDataType.text,
-                data: { text: `${firstLine}\n${roomUrl(config.roomId)}` },
+                data: {
+                    text: `${firstLine}\n${roomUrl(config.roomId)}`,
+                },
             },
             {
                 type: 'image' as OB11MessageDataType.image,
@@ -185,7 +187,8 @@ export function renderFirstLine(
         case 'end_stream': {
             if (!old) return null;
             // 追加本次直播时长（开播时间缺失时省略）
-            const durationSec = Math.floor(Date.now() / 1000) - old.live_time;
+            const durationSec =
+                Math.floor(Date.now() / 1000) - old.live_time;
             const durationText =
                 durationSec > 0
                     ? `，直播时长 ${formatDuration(durationSec)}`
@@ -237,11 +240,18 @@ export function renderTextMessage(
                 `链接: ${roomUrl(latest.room_id)}`,
             ].join('\n');
             // 附带图片（放最后）：优先直播间封面，缺失时回退到关键帧
-            const imageUrl = latest.cover_from_user || latest.keyframe;
+            const imageUrl =
+                latest.cover_from_user || latest.keyframe;
             if (!imageUrl) return text;
             return [
-                { type: 'text' as OB11MessageDataType.text, data: { text } },
-                { type: 'image' as OB11MessageDataType.image, data: { file: imageUrl } },
+                {
+                    type: 'text' as OB11MessageDataType.text,
+                    data: { text },
+                },
+                {
+                    type: 'image' as OB11MessageDataType.image,
+                    data: { file: imageUrl },
+                },
             ];
         }
         case 'end_stream': {
@@ -302,7 +312,10 @@ export function renderTextMessage(
 }
 
 /** 时长行（开播时间为 0 或时长异常时返回 null，以便过滤掉） */
-function durationLine(liveTimeSec: number, nowSec: number): string | null {
+function durationLine(
+    liveTimeSec: number,
+    nowSec: number,
+): string | null {
     if (liveTimeSec <= 0) return null;
     const durationSec = nowSec - liveTimeSec;
     if (durationSec <= 0) return null;
@@ -340,11 +353,7 @@ function collectCardConfig(
 
     let liveDuration = '';
     const durationSec = nowSec - liveTimeSec;
-    if (
-        isLive &&
-        type !== LiveType.START_LIVE &&
-        durationSec > 0
-    ) {
+    if (isLive && type !== LiveType.START_LIVE && durationSec > 0) {
         liveDuration = formatDuration(durationSec);
     }
 
@@ -463,8 +472,7 @@ function generateSvgContent(
     const showDuration = isLive && liveDuration.length > 0;
     const subTitle = renderSubTitle(type);
     // 开播事件显示开播时间, 其它事件显示事件发生时间
-    const headerTime =
-        type === LiveType.START_LIVE ? liveTime : time;
+    const headerTime = type === LiveType.START_LIVE ? liveTime : time;
 
     const avatarImage = avatar
         ? `<image href="${escapeXml(avatar)}" x="16" y="16" width="48" height="48"
@@ -489,7 +497,7 @@ function generateSvgContent(
 	<!-- 封面右上角状态标签 -->
 	<rect x="266" y="74" width="44" height="20" rx="2" ry="2" fill="${isLive ? '#f69' : '#b9b9b9'}"/>
 	<text x="288" y="84" font-size="12" fill="#ffffff" text-anchor="middle" dominant-baseline="central">${isLive ? '直播中' : '未开播'}</text>`;
-    
+
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${cardWidth + 2}" height="${CARD_HEIGHT + 2}"
      viewBox="0 0 ${cardWidth + 2} ${CARD_HEIGHT + 2}"
      font-family="'PingFang SC','Microsoft YaHei',sans-serif">

@@ -24,9 +24,7 @@ export const DEFAULT_GROUP_LIMIT = 5;
  * - 超级管理员本人的私聊无上限（返回 Infinity）
  * - 其余会话优先取自定义上限, 未设置时取默认上限
  */
-export function getLiveLimit(
-    toInfo: BiliLiveMonitorToInfo,
-): number {
+export function getLiveLimit(toInfo: BiliLiveMonitorToInfo): number {
     if (toInfo.type === 'private' && isSuperAdmin(toInfo.id)) {
         return Infinity;
     }

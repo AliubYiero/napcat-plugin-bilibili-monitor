@@ -38,7 +38,10 @@ export const maxLiveHandler = async (
 ) => {
     const { message_type, group_id, user_id } = event;
     const toInfo = {
-        id: message_type === 'group' ? String(group_id) : String(user_id),
+        id:
+            message_type === 'group'
+                ? String(group_id)
+                : String(user_id),
         type: message_type,
     } as const;
 
@@ -51,7 +54,11 @@ export const maxLiveHandler = async (
     }
 
     const max = Number(firstArg);
-    if (!Number.isInteger(max) || max < MIN_LIMIT || max > MAX_LIMIT) {
+    if (
+        !Number.isInteger(max) ||
+        max < MIN_LIMIT ||
+        max > MAX_LIMIT
+    ) {
         await sendReply(
             ctx,
             event,
@@ -74,13 +81,7 @@ export const maxLiveHandler = async (
         await sendReply(ctx, event, usageText);
         return;
     }
-    await applyLimit(
-        ctx,
-        event,
-        thirdArg,
-        secondArg,
-        max,
-    );
+    await applyLimit(ctx, event, thirdArg, secondArg, max);
 };
 
 /**
@@ -98,7 +99,10 @@ async function replyLimitInfo(
         `当前会话监听上限: ${limit === Infinity ? '无上限' : limit} (已监听 ${current})`,
     ];
 
-    if (toInfo.type === 'private' && getUserRole(event).role === 'superAdmin') {
+    if (
+        toInfo.type === 'private' &&
+        getUserRole(event).role === 'superAdmin'
+    ) {
         const limits = getLimitStore().list();
         if (limits.length > 0) {
             lines.push(

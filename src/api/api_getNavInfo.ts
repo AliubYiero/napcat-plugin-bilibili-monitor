@@ -24,8 +24,7 @@ interface BilibiliNavResponse {
     data: NavInfoData;
 }
 
-const NAV_URL =
-    'https://api.bilibili.com/x/web-interface/nav';
+const NAV_URL = 'https://api.bilibili.com/x/web-interface/nav';
 
 /**
  * 获取登录用户信息 (顺带验证 Cookie 有效性)
@@ -33,7 +32,8 @@ const NAV_URL =
  */
 export async function api_getNavInfo(): Promise<NavInfoData | null> {
     try {
-        const res = await authRequest.get<BilibiliNavResponse>(NAV_URL);
+        const res =
+            await authRequest.get<BilibiliNavResponse>(NAV_URL);
         if (res.data.code === 0 && res.data.data.isLogin) {
             return res.data.data;
         }

@@ -26,7 +26,10 @@ export class BiliLiveLimitStore extends BaseStore<BiliLiveLimit> {
     }
 
     /** 获取指定会话的自定义上限记录（不存在返回 undefined） */
-    find(id: string, type: 'private' | 'group'): BiliLiveLimit | undefined {
+    find(
+        id: string,
+        type: 'private' | 'group',
+    ): BiliLiveLimit | undefined {
         return this.findItem(
             (item) => item.id === id && item.type === type,
         );

@@ -132,7 +132,9 @@ export class BiliLivePollingService {
     private async pollOnce(): Promise<void> {
         const monitors = this.liveStore.get();
         if (monitors.length === 0) {
-            pluginState.logger.debug('当前无被监控主播，跳过本轮拉取');
+            pluginState.logger.debug(
+                '当前无被监控主播，跳过本轮拉取',
+            );
             return;
         }
         pluginState.logger.debug(
@@ -268,7 +270,11 @@ async function sendMentionMessages(
     mentionUsers: string[],
     uname: string,
 ): Promise<void> {
-    for (let i = 0; i < mentionUsers.length; i += MENTION_GROUP_SIZE) {
+    for (
+        let i = 0;
+        i < mentionUsers.length;
+        i += MENTION_GROUP_SIZE
+    ) {
         const chunk = mentionUsers.slice(i, i + MENTION_GROUP_SIZE);
         const message: OB11PostSendMsg['message'] = [
             ...chunk.map((qq) => ({

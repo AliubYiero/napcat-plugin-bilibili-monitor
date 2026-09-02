@@ -12,7 +12,10 @@ export const listLiveHandler = async (
 ) => {
     const { message_type, group_id, user_id } = event;
     const toInfo = {
-        id: message_type === 'group' ? String(group_id) : String(user_id),
+        id:
+            message_type === 'group'
+                ? String(group_id)
+                : String(user_id),
         type: message_type,
     } as const;
 

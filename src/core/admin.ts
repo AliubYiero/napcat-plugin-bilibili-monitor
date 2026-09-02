@@ -42,7 +42,9 @@ export function getUserRole(event: OB11Message): UserRole {
         userId,
         role,
         from: {
-            id: isGroup ? String(event.group_id) : String(event.user_id),
+            id: isGroup
+                ? String(event.group_id)
+                : String(event.user_id),
             type: isGroup ? 'group' : 'private',
         },
     };

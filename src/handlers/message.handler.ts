@@ -11,7 +11,8 @@
  */
 
 import {
-    OB11Message, OB11MessageDataType,
+    OB11Message,
+    OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
@@ -244,7 +245,9 @@ export async function sendForwardMsg(
 /**
  * 创建图片消息段
  */
-export function createImageMessage(file: string): OB11PostSendMsg["message"] {
+export function createImageMessage(
+    file: string,
+): OB11PostSendMsg['message'] {
     return {
         type: 'image' as OB11MessageDataType.image,
         data: { file },

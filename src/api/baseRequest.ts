@@ -4,24 +4,25 @@ import { pluginState } from '../core/state';
 
 // 1. 定义 B 站 API 的通用响应结构
 interface BilibiliResponse<T = any> {
-	code: number;
-	message: string;
-	ttl: number;
-	data: T;
+    code: number;
+    message: string;
+    ttl: number;
+    data: T;
 }
 
 // 2. 创建实例（单例）
 const apiBase = 'https://api.live.bilibili.com';
 
 const axiosInstance: AxiosInstance = axios.create({
-	baseURL: apiBase,
-	timeout: 15000, // B站接口偶尔慢，设长一点
-	headers: {
-		'Content-Type': 'application/json',
-		// B 站服务端会校验 Referer，防止跨域拦截
-		'Referer': 'https://live.bilibili.com/',
-		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-	}
+    baseURL: apiBase,
+    timeout: 15000, // B站接口偶尔慢，设长一点
+    headers: {
+        'Content-Type': 'application/json',
+        // B 站服务端会校验 Referer，防止跨域拦截
+        Referer: 'https://live.bilibili.com/',
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    },
 });
 
 // 3. 响应拦截器：统一剥离 data 层，并处理全局错误
@@ -45,7 +46,6 @@ const axiosInstance: AxiosInstance = axios.create({
 // 		return Promise.reject(error);
 // 	}
 // );
-
 
 // 导出单例实例
 export default axiosInstance;

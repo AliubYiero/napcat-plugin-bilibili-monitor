@@ -60,7 +60,10 @@ const ROLE_LEVEL: Record<UserRole['role'], number> = {
 /**
  * 指令注册表: 模块 -> 子指令 -> 定义
  */
-const instructionSetMapper: Record<string, Record<string, InstructionDefinition>> = {
+const instructionSetMapper: Record<
+    string,
+    Record<string, InstructionDefinition>
+> = {
     live: {
         /**
          * 添加直播间监听
@@ -98,8 +101,16 @@ const instructionSetMapper: Record<string, Record<string, InstructionDefinition>
             scopeRules: [
                 { args: 0, scope: 'group', requiredRole: 'admin' },
                 { args: 0, scope: 'private', requiredRole: 'admin' },
-                { args: 1, scope: 'group', requiredRole: 'superAdmin' },
-                { args: 3, scope: 'private', requiredRole: 'superAdmin' },
+                {
+                    args: 1,
+                    scope: 'group',
+                    requiredRole: 'superAdmin',
+                },
+                {
+                    args: 3,
+                    scope: 'private',
+                    requiredRole: 'superAdmin',
+                },
             ],
         },
     },
@@ -182,7 +193,14 @@ export const instructionHandler = (
             (item) => item.args === commands.length,
         );
         if (rule) {
-            if (!hasRole(role, rule.requiredRole ?? definition.requiredRole ?? 'user')) {
+            if (
+                !hasRole(
+                    role,
+                    rule.requiredRole ??
+                        definition.requiredRole ??
+                        'user',
+                )
+            ) {
                 return;
             }
             if (rule.scope !== messageType) {

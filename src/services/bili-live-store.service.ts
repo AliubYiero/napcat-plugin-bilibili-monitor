@@ -48,7 +48,10 @@ class BiliLiveStoreService {
         try {
             // 检查 UID 是否已存在在存储中
             const hasUid = this.biliLiveStore.has(uid, toInfo);
-            if (!hasUid && isLiveLimitReached(toInfo, this.list(toInfo).length)) {
+            if (
+                !hasUid &&
+                isLiveLimitReached(toInfo, this.list(toInfo).length)
+            ) {
                 // 达到监听上限, 拒绝新增
                 const limit = getLiveLimit(toInfo);
                 const message =
@@ -150,7 +153,8 @@ class BiliLiveStoreService {
             .get()
             .filter((monitor) =>
                 monitor.to.some(
-                    (t) => t.type === toInfo.type && t.id === toInfo.id,
+                    (t) =>
+                        t.type === toInfo.type && t.id === toInfo.id,
                 ),
             );
     }
@@ -184,7 +188,11 @@ class BiliLiveStoreService {
                 return;
             }
             const uname = this.getUname(uid);
-            const isAdded = this.biliLiveStore.addMention(uid, toInfo, qq);
+            const isAdded = this.biliLiveStore.addMention(
+                uid,
+                toInfo,
+                qq,
+            );
             const message = isAdded
                 ? `已订阅「${uname || uid}」(${uid}) 开播 @ 提醒`
                 : `已订阅过「${uname || uid}」(${uid}) 开播 @ 提醒`;
@@ -241,7 +249,8 @@ class BiliLiveStoreService {
      */
     private isStartStreamPushEnabled(): boolean {
         return (
-            pluginState.config.pushTypes?.includes('start_stream') ?? true
+            pluginState.config.pushTypes?.includes('start_stream') ??
+            true
         );
     }
 

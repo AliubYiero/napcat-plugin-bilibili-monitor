@@ -127,8 +127,14 @@ export function buildConfigSchema(
                 { value: 'end_stream', label: '结束直播' },
                 { value: 'title_changed', label: '修改标题' },
                 { value: 'area_changed', label: '修改分区' },
-                { value: 'offline_title_changed', label: '未直播修改标题' },
-                { value: 'offline_area_changed', label: '未直播修改分区' },
+                {
+                    value: 'offline_title_changed',
+                    label: '未直播修改标题',
+                },
+                {
+                    value: 'offline_area_changed',
+                    label: '未直播修改分区',
+                },
             ],
             VALID_PUSH_TYPES,
             '选择需要推送的变化类型',

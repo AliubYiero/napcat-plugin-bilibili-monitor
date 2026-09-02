@@ -20,47 +20,48 @@ export interface BiliLiveMonitorToInfo {
 
 export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
     private static instance: BiliLiveStore | null = null;
-    
+
     private constructor() {
         // 指定存储文件名
         super(BILI_LIVE_DATA_FILENAME);
     }
-    
+
     static getInstance(): BiliLiveStore {
         if (!BiliLiveStore.instance) {
             BiliLiveStore.instance = new BiliLiveStore();
         }
         return BiliLiveStore.instance;
     }
-    
+
     // ========== 暴露原有业务接口 ==========
-    
+
     /** 获取当前内存中的所有监控数据 */
     get(): BiliLiveMonitor[] {
         return this.getAll(); // 复用基类方法
     }
-    
+
     /** 重载数据（重新从文件读取） */
     reload(): void {
         super.reload();
     }
-    
+
     /** 重置所有数据（清空并保存） */
     reset(): void {
         super.reset();
     }
-    
+
     /** 判断某个直播间是否已推送至指定目标 */
     has(uid: string, toInfo: BiliLiveMonitorToInfo): boolean {
         return this.hasItem(
             (item) =>
                 item.uid === uid &&
                 item.to.some(
-                    (t) => t.type === toInfo.type && t.id === toInfo.id
-                )
+                    (t) =>
+                        t.type === toInfo.type && t.id === toInfo.id,
+                ),
         );
     }
-    
+
     /** 添加一个推送目标（如果已存在则无操作） */
     add(
         uid: string,
@@ -79,7 +80,12 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
         const existing = this.findItem((item) => item.uid === uid);
         if (existing) {
             // 如果该目标已存在，直接返回 false
-            if (existing.to.some((t) => t.type === toInfo.type && t.id === toInfo.id)) {
+            if (
+                existing.to.some(
+                    (t) =>
+                        t.type === toInfo.type && t.id === toInfo.id,
+                )
+            ) {
                 return false;
             }
             // 否则同步最新主播名称, 添加新的 to 并保存
@@ -93,7 +99,7 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
             return true;
         }
     }
-    
+
     /** 移除一个推送目标（如果不存在则无操作） */
     remove(uid: string, toInfo: BiliLiveMonitorToInfo): boolean {
         const liveInfo = this.findItem((item) => item.uid === uid);
@@ -102,7 +108,7 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
         const originalLength = liveInfo.to.length;
         // 过滤掉匹配的目标
         liveInfo.to = liveInfo.to.filter(
-            (t) => !(t.type === toInfo.type && t.id === toInfo.id)
+            (t) => !(t.type === toInfo.type && t.id === toInfo.id),
         );
 
         // 如果没有被移除，返回 false
@@ -165,8 +171,13 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
     }
 
     /** 获取某主播某个目标的开播 @ 订阅用户列表 */
-    getMentionUsers(uid: string, toInfo: BiliLiveMonitorToInfo): string[] {
-        return this.findMentionTarget(uid, toInfo)?.mentionUsers ?? [];
+    getMentionUsers(
+        uid: string,
+        toInfo: BiliLiveMonitorToInfo,
+    ): string[] {
+        return (
+            this.findMentionTarget(uid, toInfo)?.mentionUsers ?? []
+        );
     }
 
     /** 查找某主播的某个推送目标（不存在返回 undefined） */

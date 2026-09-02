@@ -11,7 +11,11 @@ import fs from 'fs';
 import { join, resolve } from 'path';
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import { sendReply, sendReplyByToInfo, createImageMessage } from '../handlers/message.handler';
+import {
+    sendReply,
+    sendReplyByToInfo,
+    createImageMessage,
+} from '../handlers/message.handler';
 import { getUserRole, UserRole } from '../core/admin';
 import { pluginState } from '../core/state';
 
@@ -25,7 +29,10 @@ export interface HelpContent {
 }
 
 /** 由角色与会话类型决定帮助版本 */
-export function getHelpVariant(role: UserRole['role'], isGroup: boolean): HelpVariant {
+export function getHelpVariant(
+    role: UserRole['role'],
+    isGroup: boolean,
+): HelpVariant {
     switch (role) {
         case 'superAdmin':
             // 群聊超管输出 Admin 版, 私聊超管输出 SuperAdmin 版
@@ -42,7 +49,10 @@ export function getHelpVariant(role: UserRole['role'], isGroup: boolean): HelpVa
  * 构建帮助图片绝对路径
  * assets 目录位于 ctx.dataPath 的父目录下
  */
-function getHelpImagePath(imageMap: Record<HelpVariant, string>, variant: HelpVariant): string {
+function getHelpImagePath(
+    imageMap: Record<HelpVariant, string>,
+    variant: HelpVariant,
+): string {
     const assetsDir = join(pluginState.ctx.dataPath, '..', 'assets');
     return resolve(assetsDir, imageMap[variant]);
 }
@@ -58,7 +68,10 @@ export async function sendHelpMessage(
 ): Promise<void> {
     const { message_type, group_id, user_id } = event;
     const toInfo = {
-        id: message_type === 'group' ? String(group_id) : String(user_id),
+        id:
+            message_type === 'group'
+                ? String(group_id)
+                : String(user_id),
         type: message_type,
     } as const;
 
@@ -68,7 +81,11 @@ export async function sendHelpMessage(
     // 优先发送帮助图片, 文件缺失或发送失败时回退文本帮助
     const imagePath = getHelpImagePath(content.imageMap, variant);
     if (fs.existsSync(imagePath)) {
-        const sent = await sendReply(ctx, event, createImageMessage(imagePath));
+        const sent = await sendReply(
+            ctx,
+            event,
+            createImageMessage(imagePath),
+        );
         if (sent) return;
     }
 

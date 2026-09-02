@@ -209,7 +209,10 @@ export class BiliLiveRoomStore {
 
         // 1. 直播状态变化（吞掉同次的字段差异）
         if (oldStatus !== newStatus) {
-            if (oldStatus === 'offline' && newStatus === 'streaming') {
+            if (
+                oldStatus === 'offline' &&
+                newStatus === 'streaming'
+            ) {
                 changes.push({
                     type: 'start_stream',
                     oldValue: 'offline',

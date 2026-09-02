@@ -5,7 +5,10 @@
 
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import { sendHelpMessage, HelpVariant } from '../../utils/help-message';
+import {
+    sendHelpMessage,
+    HelpVariant,
+} from '../../utils/help-message';
 
 /** 帮助图片文件名 */
 const HELP_IMAGE = {
@@ -78,5 +81,8 @@ export const helpLiveHandler = async (
     ctx: NapCatPluginContext,
     event: OB11Message,
 ) => {
-    await sendHelpMessage(ctx, event, { imageMap: HELP_IMAGE, textMap: HELP_TEXT_MAP });
+    await sendHelpMessage(ctx, event, {
+        imageMap: HELP_IMAGE,
+        textMap: HELP_TEXT_MAP,
+    });
 };
