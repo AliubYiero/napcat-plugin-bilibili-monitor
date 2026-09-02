@@ -180,7 +180,7 @@ export function renderFirstLine(
     switch (event.type) {
         case 'start_stream':
             return latest
-                ? `[${time}] 「${latest.uname}」 开始了直播`
+                ? `[${time}] 「${latest.uname}」 开始了直播 「${latest.title}」`
                 : null;
         case 'end_stream': {
             if (!old) return null;
@@ -195,7 +195,7 @@ export function renderFirstLine(
         case 'title_changed':
         case 'offline_title_changed':
             return latest
-                ? `[${time}] 「${latest.uname}」 修改了直播标题 「${event.oldValue ?? ''}」->「${event.newValue ?? ''}」`
+                ? `[${time}] 「${latest.uname}」 修改了直播标题 「${event.oldValue ?? ''}」→「${event.newValue ?? ''}」`
                 : null;
         case 'area_changed':
         case 'offline_area_changed': {
@@ -206,7 +206,7 @@ export function renderFirstLine(
             const newArea = event.newValue as
                 | { parent?: string; area?: string }
                 | undefined;
-            return `[${time}] 「${latest.uname}」 修改了直播分区 「${formatArea(oldArea?.parent, oldArea?.area)}」->「${formatArea(newArea?.parent, newArea?.area)}」`;
+            return `[${time}] 「${latest.uname}」 修改了直播分区 「${formatArea(oldArea?.parent, oldArea?.area)}」→「${formatArea(newArea?.parent, newArea?.area)}」`;
         }
         default:
             return null;
