@@ -43,16 +43,19 @@ const EXPIRED_NOTIFY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 /** 登录状态变化监听器 (用于刷新 WebUI 配置页登录块) */
 export type LoginStateListener = () => void;
 
-class BiliCookieStore {
+export class BiliCookieStore {
     private static instance: BiliCookieStore | null = null;
 
-    private data: BiliCookieData | null = null;
+    private data: BiliCookieData = { cookies: {} };
     /** 上次失效通知时间戳 (ms), 0 表示未通知过 */
     private lastExpiredNotifyTime = 0;
     /** 登录状态变化监听器列表 */
     private loginStateListeners: LoginStateListener[] = [];
 
-    private constructor() {}
+    // 注意: 构造函数虽读取文件, 但实例化被推迟到业务调用时 (plugin_init 之后), 安全
+    private constructor() {
+        this.data = this.load();
+    }
 
     static getInstance(): BiliCookieStore {
         if (!BiliCookieStore.instance) {
@@ -68,29 +71,26 @@ class BiliCookieStore {
 
     /** 是否存在 Cookie (不考虑失效状态) */
     has(): boolean {
-        return (
-            Object.keys(this.ensureLoaded().cookies ?? {})
-                .length > 0
-        );
+        return Object.keys(this.data.cookies).length > 0;
     }
 
     /** 获取登录 Cookie 对象 (未登录返回 {}) */
     getCookies(): Record<string, string> {
-        return this.ensureLoaded().cookies ?? {};
+        return this.data.cookies;
     }
 
     /** 获取登录用户信息 (未登录返回 undefined) */
     getUser(): BiliUserInfo | undefined {
-        return this.ensureLoaded().user;
+        return this.data.user;
     }
 
     /** 获取 Cookie 失效标记 */
     isExpired(): boolean {
-        return this.ensureLoaded().cookieExpired === true;
+        return this.data.cookieExpired === true;
     }
     /** 获取登录时间戳 (ms), 未登录返回 undefined */
     getLoginTime(): number | undefined {
-        return this.ensureLoaded().loginTime;
+        return this.data.loginTime;
     }
 
     /**
@@ -111,7 +111,7 @@ class BiliCookieStore {
      * 补充/更新登录用户信息 (nav 接口获取)
      */
     saveUser(user: BiliUserInfo): void {
-        this.ensureLoaded().user = user;
+        this.data.user = user;
         this.save();
     }
 
@@ -134,9 +134,8 @@ class BiliCookieStore {
      * @returns 是否实际发送了通知
      */
     async markExpired(): Promise<boolean> {
-        const data = this.ensureLoaded();
-        if (data.cookieExpired) return false;
-        data.cookieExpired = true;
+        if (this.data.cookieExpired) return false;
+        this.data.cookieExpired = true;
         this.save();
 
         const now = Date.now();
@@ -153,19 +152,8 @@ class BiliCookieStore {
 
     /** 重新登录成功后清除失效标记 */
     clearExpired(): void {
-        this.ensureLoaded().cookieExpired = false;
+        this.data.cookieExpired = false;
         this.save();
-    }
-
-    /**
-     * 获取内存数据 (惰性加载)
-     * 首次访问时才从文件读取, 避免模块加载阶段 (plugin_init 之前) 触碰 ctx
-     */
-    private ensureLoaded(): BiliCookieData {
-        if (!this.data) {
-            this.data = this.load();
-        }
-        return this.data;
     }
 
     /** 通知登录状态变化 (异步派发, 避免阻塞主流程) */
@@ -212,23 +200,15 @@ class BiliCookieStore {
     }
 
     private save(): void {
-        pluginState.saveDataFile(
-            COOKIE_FILENAME,
-            this.ensureLoaded(),
-        );
+        pluginState.saveDataFile(COOKIE_FILENAME, this.data);
     }
 }
-
-/** 全局单例 */
-export const biliCookieStore = BiliCookieStore.getInstance();
 
 /**
  * 便捷方法: 通过 nav 接口拉取用户信息并保存
  * @returns 成功返回用户信息, 失败 (未登录/网络错误) 返回 null
  */
-export async function refreshUserInfo(): Promise<
-    BiliUserInfo | null
-> {
+export async function refreshUserInfo(): Promise<BiliUserInfo | null> {
     const nav = await api_getNavInfo();
     if (!nav) return null;
     const user: BiliUserInfo = {
@@ -236,6 +216,6 @@ export async function refreshUserInfo(): Promise<
         name: nav.uname,
         avatar: nav.face,
     };
-    biliCookieStore.saveUser(user);
+    BiliCookieStore.getInstance().saveUser(user);
     return user;
 }

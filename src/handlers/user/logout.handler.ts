@@ -7,7 +7,7 @@
 import type { OB11Message } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { sendReply } from '../message.handler';
-import { biliCookieStore } from '../../store/bili-cookie.store';
+import { BiliCookieStore } from '../../store/bili-cookie.store';
 import { loginService } from '../../services/login.service';
 
 export const logoutHandler = async (
@@ -17,6 +17,7 @@ export const logoutHandler = async (
     // 有登录流程进行中时先终止, 避免登出后又被写入 Cookie
     loginService.stop();
 
+    const biliCookieStore = BiliCookieStore.getInstance();
     if (!biliCookieStore.has()) {
         await sendReply(ctx, event, '当前未登录');
         return;
@@ -27,8 +28,6 @@ export const logoutHandler = async (
     await sendReply(
         ctx,
         event,
-        user
-            ? `已登出: ${user.name} (${user.uid})`
-            : '已登出',
+        user ? `已登出: ${user.name} (${user.uid})` : '已登出',
     );
 };

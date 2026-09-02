@@ -83,7 +83,7 @@ export const biliLiveStoreService = new BiliLiveStoreService();
 
 ## 反例：模块加载期导出单例
 
-`src/store/bili-cookie.store.ts` 是一个反面教材：
+一种典型的错误写法（本项目的 `bili-cookie.store.ts` 曾出现过，现已修复）：
 
 ```ts
 class BiliCookieStore {
@@ -107,7 +107,7 @@ export const biliCookieStore = BiliCookieStore.getInstance();
 1. **导出即实例化**。`biliCookieStore` 在 import 时就被创建。虽然它的构造函数本身不读文件（`data` 初始为 `null`），但为了让延迟读取生效，所有读取方法内部都被迫先调用 `this.ensureLoaded()` 做惰性加载兜底——每个 getter 都多一层样板代码，且容易遗漏（新增方法忘记调用 `ensureLoaded()` 就会读到 `null`）。
 2. 这实际上是把"延迟实例化"的责任从**调用方**转移到了 **store 内部每一个方法**，模式被拆散在所有方法里，不如正确范式集中、清晰。
 
-该 store 目前没有出错的原因是它把"构造时不读文件 + `ensureLoaded()` 兜底"绑定在一起；一旦有人把读文件挪进构造函数（直觉上很自然），插件就会在 import 阶段崩溃。正确范式从结构上杜绝了这个隐患。
+该写法之所以长期没出错，是因为它把"构造时不读文件 + `ensureLoaded()` 兜底"绑定在一起；一旦有人把读文件挪进构造函数（直觉上很自然），插件就会在 import 阶段崩溃。正确范式从结构上杜绝了这个隐患。
 
 ## 标准范式清单
 

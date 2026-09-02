@@ -32,7 +32,7 @@ import { pluginState } from './core/state';
 import { handleMessage } from './handlers/message.handler';
 import { registerApiRoutes } from './services/api.service';
 import { BiliLivePollingService } from './services/bili-live-polling.service';
-import { biliCookieStore } from './store/bili-cookie.store';
+import { BiliCookieStore } from './store/bili-cookie.store';
 import type { LoginStatusInfo } from './config';
 import type { PluginConfig } from './types';
 
@@ -46,6 +46,7 @@ let cachedCtx: NapCatPluginContext | null = null;
 
 /** 用当前登录状态重建配置 Schema */
 function rebuildConfigUI(ctx: NapCatPluginContext): void {
+    const biliCookieStore = BiliCookieStore.getInstance();
     const loginStatus: LoginStatusInfo = {
         user: biliCookieStore.getUser(),
         cookieExpired: biliCookieStore.isExpired(),
@@ -79,7 +80,7 @@ export const plugin_init: PluginModule['plugin_init'] = async (
         registerApiRoutes(ctx);
 
         // 5. 登录状态变化时重建配置 Schema (刷新 WebUI 登录块)
-        biliCookieStore.onLoginStateChange(() => {
+        BiliCookieStore.getInstance().onLoginStateChange(() => {
             if (cachedCtx) rebuildConfigUI(cachedCtx);
         });
 

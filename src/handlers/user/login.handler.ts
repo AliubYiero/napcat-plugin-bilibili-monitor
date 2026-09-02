@@ -11,7 +11,7 @@ import {
     loginService,
     LoginSessionStatus,
 } from '../../services/login.service';
-import { biliCookieStore } from '../../store/bili-cookie.store';
+import { BiliCookieStore } from '../../store/bili-cookie.store';
 
 /** 登录会话状态 -> 提示前缀 */
 function statusPrefix(status: LoginSessionStatus): string {
@@ -36,6 +36,7 @@ export const loginHandler = async (
     event: OB11Message,
 ): Promise<void> => {
     // 已登录: 提示当前账号, 避免误触发重登
+    const biliCookieStore = BiliCookieStore.getInstance();
     const existingUser = biliCookieStore.getUser();
     if (biliCookieStore.has() && existingUser) {
         await sendReply(
@@ -46,9 +47,12 @@ export const loginHandler = async (
         return;
     }
 
-    const error = loginService.start('instruction', async (status, message) => {
-        await sendReply(ctx, event, message);
-    });
+    const error = loginService.start(
+        'instruction',
+        async (status, message) => {
+            await sendReply(ctx, event, message);
+        },
+    );
     if (error) {
         await sendReply(ctx, event, error);
         return;
@@ -66,9 +70,7 @@ export const loginHandler = async (
             );
             return;
         }
-        if (
-            snapshot.status === LoginSessionStatus.Error
-        ) {
+        if (snapshot.status === LoginSessionStatus.Error) {
             await sendReply(ctx, event, snapshot.message);
             return;
         }

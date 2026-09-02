@@ -20,7 +20,7 @@ import {
     type QRPollData,
 } from '../api/api_qrcodeLogin';
 import {
-    biliCookieStore,
+    BiliCookieStore,
     refreshUserInfo,
     type BiliUserInfo,
 } from '../store/bili-cookie.store';
@@ -91,8 +91,7 @@ class LoginService {
     private refreshed = 0;
 
     /** 轮询定时器 */
-    private pollTimer: ReturnType<typeof setInterval> | null =
-        null;
+    private pollTimer: ReturnType<typeof setInterval> | null = null;
 
     /** 最近一次状态与提示 (快照用) */
     private lastStatus: LoginSessionStatus =
@@ -177,10 +176,7 @@ class LoginService {
                 LoginSessionStatus.Error,
                 '生成登录二维码失败, 请稍后重试',
             );
-            pluginState.logger.error(
-                '(╥﹏╥) 生成登录二维码失败:',
-                e,
-            );
+            pluginState.logger.error('(╥﹏╥) 生成登录二维码失败:', e);
             this.endSession();
         }
     }
@@ -251,9 +247,7 @@ class LoginService {
     }
 
     /** 登录成功: 存储 Cookie -> nav 补充用户信息 -> 结束会话 */
-    private async handleSuccess(
-        data: QRPollData,
-    ): Promise<void> {
+    private async handleSuccess(data: QRPollData): Promise<void> {
         this.cleanupTimer();
 
         // 登录 Cookie 优先取响应头 Set-Cookie; 降级从跨域 url 解析
@@ -262,6 +256,7 @@ class LoginService {
                 ? data.cookies
                 : parseCookiesFromCrossDomainUrl(data.url);
         const loginTime = data.timestamp || Date.now();
+        const biliCookieStore = BiliCookieStore.getInstance();
         biliCookieStore.saveLogin(cookies, loginTime);
         biliCookieStore.clearExpired();
 

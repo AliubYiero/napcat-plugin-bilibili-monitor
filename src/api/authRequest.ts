@@ -8,7 +8,7 @@
 
 import axios, { type AxiosInstance } from 'axios';
 import { pluginState } from '../core/state';
-import { biliCookieStore } from '../store/bili-cookie.store';
+import { BiliCookieStore } from '../store/bili-cookie.store';
 
 /** 将 Cookie 对象序列化为请求头字符串 */
 function buildCookieHeader(cookies: Record<string, string>): string {
@@ -21,7 +21,7 @@ const authAxiosInstance: AxiosInstance = axios.create({
     timeout: 15000,
     headers: {
         'Content-Type': 'application/json',
-        'Referer': 'https://www.bilibili.com/',
+        Referer: 'https://www.bilibili.com/',
         'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     },
@@ -29,7 +29,7 @@ const authAxiosInstance: AxiosInstance = axios.create({
 
 // 请求拦截器: 自动附加登录 Cookie (无 Cookie 时不附加)
 authAxiosInstance.interceptors.request.use((config) => {
-    const cookies = biliCookieStore.getCookies();
+    const cookies = BiliCookieStore.getInstance().getCookies();
     if (cookies && Object.keys(cookies).length > 0) {
         config.headers['Cookie'] = buildCookieHeader(cookies);
     }

@@ -22,8 +22,13 @@ import type {
     PluginHttpResponse,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { pluginState } from '../core/state';
-import { biliCookieStore } from '../store/bili-cookie.store';
+import { BiliCookieStore } from '../store/bili-cookie.store';
 import { loginService } from './login.service';
+
+/** 惰性获取 Cookie 存储实例 (避免模块加载期触达未初始化的 pluginState.ctx) */
+function getCookieStore() {
+    return BiliCookieStore.getInstance();
+}
 
 /**
  * 注册 API 路由
@@ -175,15 +180,15 @@ export function registerApiRoutes(ctx: NapCatPluginContext): void {
 
     /** 获取登录状态 */
     router.getNoAuth('/login/status', (_req, res) => {
-        const user = biliCookieStore.getUser();
+        const store = getCookieStore();
+        const user = store.getUser();
         res.json({
             code: 0,
             data: {
-                loggedIn: biliCookieStore.has(),
-                cookieExpired: biliCookieStore.isExpired(),
+                loggedIn: store.has(),
+                cookieExpired: store.isExpired(),
                 user: user ?? null,
-                loginTime:
-                    biliCookieStore.getLoginTime() ?? null,
+                loginTime: store.getLoginTime() ?? null,
             },
         });
     });
@@ -192,9 +197,7 @@ export function registerApiRoutes(ctx: NapCatPluginContext): void {
     router.postNoAuth('/login/qrcode', (_req, res) => {
         const error = loginService.start('webui');
         if (error) {
-            return res
-                .status(409)
-                .json({ code: -1, message: error });
+            return res.status(409).json({ code: -1, message: error });
         }
         res.json({ code: 0, data: loginService.getSnapshot() });
     });
@@ -210,7 +213,7 @@ export function registerApiRoutes(ctx: NapCatPluginContext): void {
     /** 登出: 清除本地 Cookie */
     router.postNoAuth('/logout', (_req, res) => {
         loginService.stop();
-        biliCookieStore.logout();
+        getCookieStore().logout();
         ctx.logger.info('已通过 WebUI 登出 B 站账号');
         res.json({ code: 0, message: 'ok' });
     });
