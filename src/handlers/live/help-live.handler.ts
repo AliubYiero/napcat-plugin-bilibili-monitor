@@ -30,7 +30,7 @@ const HELP_TEXT_MAP: Record<HelpVariant, string> = {
 
 辅助指令:
 #bili live help: 查看直播状态监听指令帮助
-#bili dyn help: 查询动态状态监听指令帮助
+#bili dyn help: 查询动态监听指令帮助 (add/remove/latest)
 `,
     admin: `【Bilibili Live Monitor 插件帮助】
 
@@ -43,10 +43,11 @@ const HELP_TEXT_MAP: Record<HelpVariant, string> = {
 
 辅助指令:
 #bili live help: 查看直播状态监听指令帮助
-#bili dyn help: 查询动态状态监听指令帮助
+#bili dyn help: 查询动态监听指令帮助 (add/remove/latest)
 
 监听管理指令 [管理员]:
 #bili live max: 查看当前会话直播状态监听上限
+#bili dyn max: 查看当前会话动态监听上限
 `,
     superAdmin: `【Bilibili Live Monitor 插件帮助】
 
@@ -70,6 +71,8 @@ const HELP_TEXT_MAP: Record<HelpVariant, string> = {
 监听管理指令 [超管]:
 #bili live max <监听数>: 设置当前群直播状态监听上限 [仅群聊]
 #bili live max <监听数> <group|private> <id>: 修改指定会话直播状态监听上限 [仅私聊]
+#bili dyn max <监听数>: 设置当前群动态监听上限 [仅群聊]
+#bili dyn max <监听数> <group|private> <id>: 修改指定会话动态监听上限 [仅私聊]
 `,
 };
 

@@ -49,6 +49,12 @@ function sanitizeConfig(raw: unknown): PluginConfig {
     ) {
         out.pollIntervalSeconds = raw.pollIntervalSeconds;
     }
+    if (
+        typeof raw.dynPollIntervalSeconds === 'number' &&
+        raw.dynPollIntervalSeconds > 0
+    ) {
+        out.dynPollIntervalSeconds = raw.dynPollIntervalSeconds;
+    }
     if (Array.isArray(raw.pushTypes)) {
         // 空数组表示"不推送任何类型"，应尊重用户选择而非回退默认
         const validPushTypes = new Set<string>(VALID_PUSH_TYPES);

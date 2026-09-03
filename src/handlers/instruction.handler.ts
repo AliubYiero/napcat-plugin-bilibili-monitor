@@ -9,6 +9,11 @@ import { helpLiveHandler } from './live/help-live.handler';
 import { mentionLiveHandler } from './live/mention-live.handler';
 import { unmentionLiveHandler } from './live/unmention-live.handler';
 import { maxLiveHandler } from './live/max-live.handler';
+import { addDynHandler } from './dyn/add-dyn.handler';
+import { removeDynHandler } from './dyn/remove-dyn.handler';
+import { latestDynHandler } from './dyn/latest-dyn.handler';
+import { maxDynHandler } from './dyn/max-dyn.handler';
+import { helpDynHandler } from './dyn/help-dyn.handler';
 import { loginHandler } from './user/login.handler';
 import { logoutHandler } from './user/logout.handler';
 import { statusHandler } from './user/status.handler';
@@ -98,6 +103,45 @@ const instructionSetMapper: Record<
          */
         max: {
             handler: maxLiveHandler,
+            scopeRules: [
+                { args: 0, scope: 'group', requiredRole: 'admin' },
+                { args: 0, scope: 'private', requiredRole: 'admin' },
+                {
+                    args: 1,
+                    scope: 'group',
+                    requiredRole: 'superAdmin',
+                },
+                {
+                    args: 3,
+                    scope: 'private',
+                    requiredRole: 'superAdmin',
+                },
+            ],
+        },
+    },
+    dyn: {
+        /**
+         * 添加主播动态监听
+         */
+        add: { handler: addDynHandler },
+        /**
+         * 移除主播动态监听
+         */
+        remove: { handler: removeDynHandler },
+        /**
+         * 查看主播最新一条动态
+         */
+        latest: { handler: latestDynHandler },
+        /**
+         * 查看动态监听指令帮助
+         */
+        help: { handler: helpDynHandler },
+        /**
+         * 查看/设置动态监听上限
+         * 形态与 live max 完全对称
+         */
+        max: {
+            handler: maxDynHandler,
             scopeRules: [
                 { args: 0, scope: 'group', requiredRole: 'admin' },
                 { args: 0, scope: 'private', requiredRole: 'admin' },

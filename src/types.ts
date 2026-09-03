@@ -28,6 +28,8 @@ export interface PluginConfig {
     groupConfigs: Record<string, GroupConfig>;
     /** 轮询间隔（秒），多久拉取一次 B站直播间状态 */
     pollIntervalSeconds: number;
+    /** 动态轮询间隔（秒），多久拉取一次监听主播的空间动态 */
+    dynPollIntervalSeconds: number;
     /** 要推送的变化类型（多选），未选中的类型不推送 */
     pushTypes: ChangeType[];
     // TODO: 在这里添加你的插件配置项

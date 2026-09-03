@@ -71,6 +71,8 @@ export const DEFAULT_CONFIG: PluginConfig = {
     groupConfigs: {},
     // 轮询默认每 60 秒拉取一次直播间状态
     pollIntervalSeconds: 60,
+    // 动态轮询默认每 300 秒拉取一次监听主播的空间动态
+    dynPollIntervalSeconds: 300,
     // 默认推送全部变化类型
     pushTypes: [...VALID_PUSH_TYPES],
     // TODO: 在这里添加你的默认配置值
@@ -117,6 +119,13 @@ export function buildConfigSchema(
             '轮询间隔(秒)',
             60,
             '多久拉取一次 B站 直播间状态, 修改后下一轮生效',
+        ),
+        // 动态轮询间隔
+        ctx.NapCatConfig.number(
+            'dynPollIntervalSeconds',
+            '动态轮询间隔(秒)',
+            300,
+            '多久拉取一次监听主播的空间动态, 修改后下一轮生效',
         ),
         // 推送类型
         ctx.NapCatConfig.multiSelect(

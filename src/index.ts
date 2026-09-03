@@ -32,6 +32,7 @@ import { pluginState } from './core/state';
 import { handleMessage } from './handlers/message.handler';
 import { registerApiRoutes } from './services/api.service';
 import { BiliLivePollingService } from './services/bili-live-polling.service';
+import { BiliDynamicPollingService } from './services/bili-dynamic-polling.service';
 import { BiliCookieStore } from './store/bili-cookie.store';
 import type { LoginStatusInfo } from './config';
 import type { PluginConfig } from './types';
@@ -86,6 +87,8 @@ export const plugin_init: PluginModule['plugin_init'] = async (
 
         // 6. 启动轮询服务（监听直播间状态变化并推送）
         BiliLivePollingService.getInstance().start();
+        // 7. 启动动态轮询服务（监听主播动态发布并推送）
+        BiliDynamicPollingService.getInstance().start();
 
         ctx.logger.info('插件初始化完成');
     } catch (error) {
@@ -131,6 +134,7 @@ export const plugin_cleanup: PluginModule['plugin_cleanup'] = async (
     try {
         // 先停止轮询，再清理全局状态
         BiliLivePollingService.getInstance().stop();
+        BiliDynamicPollingService.getInstance().stop();
         // TODO: 在这里清理你的资源（定时器、WebSocket 连接等）
         pluginState.cleanup();
         ctx.logger.info('插件已卸载');
