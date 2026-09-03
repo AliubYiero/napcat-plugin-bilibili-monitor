@@ -151,14 +151,20 @@ export class BiliDynamicStoreService {
                 await send(toInfo, msg);
                 return;
             }
-            const latest = resp.data.items.find(
-                (it) => it.modules.module_tag?.text !== '置顶',
-            );
-            if (!latest) {
+            // 最新一条非置顶且非直播推荐 (LIVE_RCMD 由 live 指令负责)
+            let parsed: ReturnType<typeof parseBiliDynamic> | null =
+                null;
+            for (const it of resp.data.items) {
+                if (it.modules.module_tag?.text === '置顶') continue;
+                const candidate = parseBiliDynamic(it);
+                if (candidate.kind === 'live') continue;
+                parsed = candidate;
+                break;
+            }
+            if (!parsed) {
                 await send(toInfo, `未找到主播 ${uid} 可展示的动态`);
                 return;
             }
-            const parsed = parseBiliDynamic(latest);
             const message = buildDynMessage(parsed);
             if (!message) {
                 await send(toInfo, `主播 ${uid} 最新动态无法解析`);

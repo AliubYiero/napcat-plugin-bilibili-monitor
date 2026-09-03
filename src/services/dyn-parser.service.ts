@@ -81,6 +81,11 @@ function formatVideoDuration(durationText: string): string {
     return durationText || '';
 }
 
+/** 手动拼接动态通用跳转链接 */
+function buildDynJumpUrl(idStr: string): string {
+    return `https://www.bilibili.com/${idStr}`;
+}
+
 // ==================== 主解析入口 ====================
 
 /**
@@ -109,7 +114,7 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
             separator: FORWARD_SEPARATOR,
             origCard: orig,
             // 转发动态无 OPUS jump_url, 手动拼接
-            jumpUrl: `https://www.bilibili.com/${item.id_str}`,
+            jumpUrl: buildDynJumpUrl(item.id_str),
             pubTs,
         };
     }
@@ -153,7 +158,6 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
                 `时长: ${formatVideoDuration(archive.duration_text)}`,
             );
         }
-        texts.push(`链接: ${jumpUrl}`);
         return {
             id: item.id_str,
             kind: 'video',
@@ -183,13 +187,13 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
         const jumpUrl = normalizeUrl(
             opus?.jump_url ||
                 item.basic?.jump_url ||
-                `https://www.bilibili.com/opus/${item.id_str}`,
+                buildDynJumpUrl(item.id_str),
         );
         return {
             id: item.id_str,
             kind: 'article',
             headline: `${timeText} 「${name}」 投稿了文章`,
-            texts: [jumpUrl, title, summary].filter(
+            texts: [title, summary].filter(
                 (t) => t.length > 0,
             ),
             images: (opus?.pics ?? [])
@@ -217,7 +221,7 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
         const jumpUrl = normalizeUrl(
             opus?.jump_url ||
                 item.basic?.jump_url ||
-                `https://www.bilibili.com/opus/${item.id_str}`,
+                buildDynJumpUrl(item.id_str),
         );
         // 表情包: 从 rich_text_nodes 提取 emoji 图标
         const emojiImages = extractEmojiImages(
@@ -251,7 +255,7 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
         images: [],
         separator: null,
         origCard: null,
-        jumpUrl: `https://www.bilibili.com/${item.id_str}`,
+        jumpUrl: buildDynJumpUrl(item.id_str),
         pubTs,
     };
 }
@@ -279,14 +283,14 @@ function parseOrigCard(orig: BiliDynamic): ParsedDynCard {
             ? `https://www.bilibili.com/video/${archive.bvid}`
             : '';
         const texts: string[] = [];
-        if (jumpUrl) texts.push(`链接: ${jumpUrl}`);
         if (archive?.title) texts.push(`标题: ${archive.title}`);
         const desc = cleanText(archive?.desc ?? '');
         if (desc) texts.push(`简介: ${desc}`);
         if (archive?.duration_text)
             texts.push(`时长: ${archive.duration_text}`);
+        if (jumpUrl) texts.push(`链接: ${jumpUrl}`);
         return {
-            headline: `${timeText} 「${name}」 投稿了视频`,
+            headline: `${timeText} 「${name}」 `,
             texts,
             images: archive?.cover ? [archive.cover] : [],
         };

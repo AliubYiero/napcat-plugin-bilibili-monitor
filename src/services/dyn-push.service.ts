@@ -9,6 +9,7 @@
 
 import { pluginState } from '../core/state';
 import type {
+    OB11MessageData,
     OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
@@ -19,14 +20,22 @@ import { BiliLiveRoomStore } from '../store/bili-live-room.store';
 import { buildChangeMessage } from './live-push-card.service';
 import type { ParsedDyn } from './dyn-parser.service';
 
-/** 消息段类型别名 */
-type MessageSegment = OB11PostSendMsg['message'][number];
-
 /** 组装普通动态的推送消息（文本 + 图片） */
 export function buildDynMessage(
     dyn: ParsedDyn,
 ): OB11PostSendMsg['message'] | null {
-    const lines: string[] = [dyn.headline, ...dyn.texts];
+    const lines: string[] = [dyn.headline];
+
+    if (dyn.kind === 'video' && dyn.jumpUrl) {
+        lines.push(...dyn.texts);
+        lines.push(`链接: ${dyn.jumpUrl}`);
+    } else if (
+        ['forward', 'opus', 'text', 'fallback', 'article'].includes(dyn.kind) &&
+        dyn.jumpUrl
+    ) {
+        lines.push(`${dyn.jumpUrl}`);
+        lines.push(...dyn.texts);
+    }
 
     // 转发动态: 分隔线 + 原动态卡片
     if (dyn.separator && dyn.origCard) {
@@ -47,7 +56,7 @@ export function buildDynMessage(
     }
     if (!text.trim() && images.length === 0) return null;
 
-    const segments: MessageSegment[] = [
+    const segments: OB11MessageData[] = [
         {
             type: 'text' as OB11MessageDataType.text,
             data: { text },
@@ -57,7 +66,7 @@ export function buildDynMessage(
                 ({
                     type: 'image' as OB11MessageDataType.image,
                     data: { file: url },
-                }) as MessageSegment,
+                }) as OB11MessageData,
         ),
     ];
     return segments;
