@@ -6,7 +6,11 @@
  * 置顶判断、零宽字符清理、链接拼接等复杂逻辑。无 IO，可独立验证。
  */
 
-import type { BiliDynamic } from '../store/BiliDynamic.type';
+import type {
+    BiliDynamic,
+    LiveRcmdContent,
+} from '../store/BiliDynamic.type';
+import { formatArea, roomUrl } from '../utils/format';
 
 // ==================== 解析结果结构 ====================
 
@@ -119,20 +123,34 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
         };
     }
 
-    // 直播推荐
+    // 直播推荐（文本格式与直播开播卡片一致）
     if (
         item.type === 'DYNAMIC_TYPE_LIVE_RCMD' ||
         major?.type === 'MAJOR_TYPE_LIVE_RCMD'
     ) {
+        const playInfo = parseLiveRcmd(major?.live_rcmd ?? null);
+        const title = playInfo?.title ?? '';
+        const jumpUrl = roomUrl(playInfo?.room_id);
         return {
             id: item.id_str,
             kind: 'live',
-            headline: `${timeText} 「${name}」 发送了动态`,
-            texts: [],
-            images: [],
+            headline: title
+                ? `${timeText} 「${name}」 开始了直播 「${title}」`
+                : `${timeText} 「${name}」 开始了直播`,
+            texts: [
+                title ? `标题: ${title}` : '',
+                playInfo
+                    ? `分区: ${formatArea(
+                          playInfo.parent_area_name,
+                          playInfo.area_name,
+                      )}`
+                    : '',
+                jumpUrl ? `链接: ${jumpUrl}` : '',
+            ].filter((t) => t.length > 0),
+            images: playInfo?.cover ? [playInfo.cover] : [],
             separator: null,
             origCard: null,
-            jumpUrl: '',
+            jumpUrl,
             pubTs,
         };
     }
@@ -261,6 +279,18 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
 }
 
 // ==================== 辅助解析 ====================
+
+/** 解析直播推荐的 live_rcmd JSON 字符串 */
+function parseLiveRcmd(
+    raw: string | null | undefined,
+): LiveRcmdContent['live_play_info'] | null {
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw).live_play_info ?? null;
+    } catch {
+        return null;
+    }
+}
 
 /**
  * 解析转发动态的原动态为卡片
