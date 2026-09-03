@@ -26,6 +26,11 @@ const DEFAULT_DYN_POLL_INTERVAL = 300;
 /** 新动态推送间隔（ms） */
 const PUSH_INTERVAL_MS = 500;
 
+/**
+ * 动态监听的间隔 (ms)
+ */
+const MONITOR_INTERVAL_MS = 500;
+
 /** 动态轮询服务（单例） */
 export class BiliDynamicPollingService {
     private static instance: BiliDynamicPollingService | null = null;
@@ -129,6 +134,7 @@ export class BiliDynamicPollingService {
         for (const uid of uniqueUids) {
             try {
                 await this.processMonitor(uid);
+                await sleep(MONITOR_INTERVAL_MS);
             } catch (err) {
                 // 单个主播失败不影响其他主播
                 pluginState.logger.error(
