@@ -20,7 +20,61 @@ import { BiliLiveRoomStore } from '../store/bili-live-room.store';
 import { buildChangeMessage } from './live-push-card.service';
 import type { ParsedDyn } from './dyn-parser.service';
 
-/** 组装普通动态的推送消息（文本 + 图片） */
+/**
+ * 按表情映射切分文本为 [文本, 图片, 文本, ...] 交错序列
+ * 映射为空时原样返回单段文本
+ */
+function splitByEmojiMap(
+    text: string,
+    emojiMap: Record<string, string>,
+): { text: string; image?: string }[] {
+    const keys = Object.keys(emojiMap);
+    if (keys.length === 0 || !text) return [{ text }];
+
+    // 按 key 长度降序构建正则, 避免短 key 抢占长 key 的匹配
+    const pattern = new RegExp(
+        keys
+            .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+            .join('|'),
+        'g',
+    );
+    const parts: { text: string; image?: string }[] = [];
+    let last = 0;
+    for (const match of text.matchAll(pattern)) {
+        const url = emojiMap[match[0]];
+        if (!url) continue;
+        if (match.index! > last) {
+            parts.push({ text: text.slice(last, match.index) });
+        }
+        parts.push({ text: '', image: url });
+        last = match.index! + match[0].length;
+    }
+    if (last < text.length) parts.push({ text: text.slice(last) });
+    return parts;
+}
+
+/** 将切分结果映射为 OB11 消息段（空文本段丢弃） */
+function toSegments(
+    parts: { text: string; image?: string }[],
+): OB11MessageData[] {
+    const segments: OB11MessageData[] = [];
+    for (const part of parts) {
+        if (part.image) {
+            segments.push({
+                type: 'image' as OB11MessageDataType.image,
+                data: { file: part.image },
+            } as OB11MessageData);
+        } else if (part.text) {
+            segments.push({
+                type: 'text' as OB11MessageDataType.text,
+                data: { text: part.text },
+            } as OB11MessageData);
+        }
+    }
+    return segments;
+}
+
+/** 组装普通动态的推送消息（文本 + 表情内嵌图片 + 内容图片） */
 export function buildDynMessage(
     dyn: ParsedDyn,
 ): OB11PostSendMsg['message'] | null {
@@ -30,7 +84,9 @@ export function buildDynMessage(
         lines.push(...dyn.texts);
         lines.push(`链接: ${dyn.jumpUrl}`);
     } else if (
-        ['forward', 'opus', 'text', 'fallback', 'article'].includes(dyn.kind) &&
+        ['forward', 'opus', 'text', 'fallback', 'article'].includes(
+            dyn.kind,
+        ) &&
         dyn.jumpUrl
     ) {
         lines.push(`${dyn.jumpUrl}`);
@@ -38,8 +94,9 @@ export function buildDynMessage(
     }
 
     // 转发动态: 分隔线 + 原动态卡片
+    const origLines: string[] = [];
     if (dyn.separator && dyn.origCard) {
-        lines.push(
+        origLines.push(
             '',
             dyn.separator,
             '',
@@ -48,19 +105,28 @@ export function buildDynMessage(
         );
     }
 
-    // 文本为空且无图片时无法构成消息
-    const text = lines.join('\n');
+    const mainText = lines.join('\n');
+    const origText = origLines.join('\n');
     const images = [...dyn.images];
     if (dyn.origCard) {
         images.push(...dyn.origCard.images);
     }
-    if (!text.trim() && images.length === 0) return null;
 
-    const segments: OB11MessageData[] = [
-        {
-            type: 'text' as OB11MessageDataType.text,
-            data: { text },
-        },
+    // 文本为空且无图片时无法构成消息
+    if (!mainText.trim() && !origText.trim() && images.length === 0)
+        return null;
+
+    const parts = splitByEmojiMap(mainText, dyn.emojiMap);
+    if (origText) {
+        parts.push(
+            ...splitByEmojiMap(
+                origText,
+                dyn.origCard?.emojiMap ?? {},
+            ),
+        );
+    }
+    return [
+        ...toSegments(parts),
         ...images.map(
             (url) =>
                 ({
@@ -69,7 +135,6 @@ export function buildDynMessage(
                 }) as OB11MessageData,
         ),
     ];
-    return segments;
 }
 
 /**

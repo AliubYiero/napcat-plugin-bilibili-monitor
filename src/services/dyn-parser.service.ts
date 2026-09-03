@@ -20,7 +20,9 @@ export interface ParsedDynCard {
     headline: string;
     /** 文本内容行 */
     texts: string[];
-    /** 图片 URL 列表（表情包也走这里） */
+    /** 表情文本 → 图片 URL 映射（键为带中括号的 emoji 文本） */
+    emojiMap: Record<string, string>;
+    /** 图片 URL 列表 */
     images: string[];
 }
 
@@ -41,6 +43,8 @@ export interface ParsedDyn {
     headline: string;
     /** 文本内容行（已清理零宽字符） */
     texts: string[];
+    /** 表情文本 → 图片 URL 映射（键为带中括号的 emoji 文本） */
+    emojiMap: Record<string, string>;
     /** 图片 URL 列表 */
     images: string[];
     /** 转发动态的分隔线, 其余类型为 null */
@@ -80,6 +84,29 @@ function formatDynTime(pubTs: number): string {
     return `[${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}]`;
 }
 
+/** 表情文本 → 图片 URL 映射（gif 优先, 回退静态图标） */
+function extractEmojiMap(
+    nodes: {
+        type?: string;
+        text?: string;
+        emoji?: {
+            text?: string;
+            gif_url?: string;
+            icon_url?: string;
+        } | null;
+    }[],
+): Record<string, string> {
+    const map: Record<string, string> = {};
+    for (const node of nodes) {
+        if (node?.type !== 'RICH_TEXT_NODE_TYPE_EMOJI') continue;
+        const url = node.emoji?.gif_url || node.emoji?.icon_url;
+        const key = node.emoji?.text || node.text;
+        if (!url || !key) continue;
+        map[key] = url;
+    }
+    return map;
+}
+
 /** 秒数 → hh:mm:ss（超过 1 小时）或 mm:ss */
 function formatVideoDuration(durationText: string): string {
     return durationText || '';
@@ -114,6 +141,9 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
             texts: [
                 cleanText(dynamicModule?.desc?.text ?? ''),
             ].filter((t) => t.length > 0),
+            emojiMap: extractEmojiMap(
+                dynamicModule?.desc?.rich_text_nodes ?? [],
+            ),
             images: [],
             separator: FORWARD_SEPARATOR,
             origCard: orig,
@@ -147,6 +177,7 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
                     : '',
                 jumpUrl ? `链接: ${jumpUrl}` : '',
             ].filter((t) => t.length > 0),
+            emojiMap: {},
             images: playInfo?.cover ? [playInfo.cover] : [],
             separator: null,
             origCard: null,
@@ -189,6 +220,7 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
                       ],
                   }
                 : { texts }),
+            emojiMap: {},
             images: archive?.cover ? [archive.cover] : [],
             separator: null,
             origCard: null,
@@ -211,8 +243,9 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
             id: item.id_str,
             kind: 'article',
             headline: `${timeText} 「${name}」 投稿了文章`,
-            texts: [title, summary].filter(
-                (t) => t.length > 0,
+            texts: [title, summary].filter((t) => t.length > 0),
+            emojiMap: extractEmojiMap(
+                opus?.summary?.rich_text_nodes ?? [],
             ),
             images: (opus?.pics ?? [])
                 .map((pic) => pic.url)
@@ -241,8 +274,8 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
                 item.basic?.jump_url ||
                 buildDynJumpUrl(item.id_str),
         );
-        // 表情包: 从 rich_text_nodes 提取 emoji 图标
-        const emojiImages = extractEmojiImages(
+        // 表情包: 从 rich_text_nodes 提取 emoji 文本 → 图片映射
+        const emojiMap = extractEmojiMap(
             opus?.summary?.rich_text_nodes ??
                 dynamicModule?.desc?.rich_text_nodes ??
                 [],
@@ -252,9 +285,9 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
             kind: title ? 'opus' : 'text',
             headline: `${timeText} 「${name}」 发送了动态`,
             texts: [title, bodyText].filter((t) => t.length > 0),
+            emojiMap,
             images: [
                 ...(opus?.pics ?? []).map((pic) => pic.url),
-                ...emojiImages,
             ].filter(Boolean),
             separator: null,
             origCard: null,
@@ -270,6 +303,7 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
         kind: 'fallback',
         headline: `${timeText} 「${name}」 发送了动态`,
         texts: fallbackText ? [fallbackText] : [],
+        emojiMap: {},
         images: [],
         separator: null,
         origCard: null,
@@ -322,6 +356,7 @@ function parseOrigCard(orig: BiliDynamic): ParsedDynCard {
         return {
             headline: `${timeText} 「${name}」 `,
             texts,
+            emojiMap: {},
             images: archive?.cover ? [archive.cover] : [],
         };
     }
@@ -334,7 +369,7 @@ function parseOrigCard(orig: BiliDynamic): ParsedDynCard {
             orig.modules.module_dynamic?.desc?.text ||
             '',
     );
-    const emojiImages = extractEmojiImages(
+    const emojiMap = extractEmojiMap(
         opus?.summary?.rich_text_nodes ??
             orig.modules.module_dynamic?.desc?.rich_text_nodes ??
             [],
@@ -342,22 +377,9 @@ function parseOrigCard(orig: BiliDynamic): ParsedDynCard {
     return {
         headline: `${timeText} 「${name}」`,
         texts: [title, bodyText].filter((t) => t.length > 0),
-        images: [
-            ...(opus?.pics ?? []).map((pic) => pic.url),
-            ...emojiImages,
-        ].filter(Boolean),
+        emojiMap,
+        images: [...(opus?.pics ?? []).map((pic) => pic.url)].filter(
+            Boolean,
+        ),
     };
-}
-
-/** 从富文本节点提取表情包图标 URL */
-function extractEmojiImages(
-    nodes: { type?: string; emoji?: { icon_url?: string } | null }[],
-): string[] {
-    return nodes
-        .filter(
-            (node) =>
-                node?.type === 'RICH_TEXT_NODE_TYPE_EMOJI' &&
-                node.emoji?.icon_url,
-        )
-        .map((node) => node.emoji!.icon_url!);
 }
