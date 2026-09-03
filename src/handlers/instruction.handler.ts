@@ -173,9 +173,6 @@ const instructionSetMapper: Record<
             scope: 'private',
         },
         /**
-         * 登出 B 站账号 (仅私聊, 超管)
-         */
-        /**
          * 查询 B 站登录状态 (仅私聊, 超管)
          */
         status: {
@@ -183,6 +180,9 @@ const instructionSetMapper: Record<
             requiredRole: 'superAdmin',
             scope: 'private',
         },
+        /**
+         * 登出 B 站账号 (仅私聊, 超管)
+         */
         logout: {
             handler: logoutHandler,
             requiredRole: 'superAdmin',
