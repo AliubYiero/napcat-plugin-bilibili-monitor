@@ -1,6 +1,6 @@
 # Bilibili 监测者
 
-一个 NapCat 插件，监听 Bilibili 直播间状态并推送到指定会话：开播/下播、直播中与未直播时的标题/分区变化，推送内容为渲染好的 SVG 卡片图片（失败时回退纯文本）。
+一个 NapCat 插件，监听 Bilibili 直播间状态与主播动态并推送到指定会话：开播/下播、直播中与未直播时的标题/分区变化、动态发布（含图文/转发/视频/文章/表情包等类型），推送内容为渲染好的 SVG 卡片图片（失败时回退纯文本）。
 
 ## 功能
 
@@ -10,35 +10,56 @@
   - `end_stream` 结束直播
   - `title_changed` / `area_changed` 直播中修改标题/分区
   - `offline_title_changed` / `offline_area_changed` 未直播时修改标题/分区（独立推送类型，可单独关闭）
-- **SVG 卡片推送**：直播变化以图片卡片形式推送，封面右上角带直播/未直播状态角标，时间显示为事件发生时间（开播推送为开播时间）；渲染失败自动回退纯文本
+- **动态监听与推送**：轮询监听主播的空间动态，支持图文/转发/视频/转发视频/文章/直播开播等动态类型解析；表情包以图片内嵌文本原位置替换
+- **B 站账号登录**：私聊扫码登录（二维码自动刷新），登录后可使用动态监听；WebUI 配置面板展示登录状态
+- **SVG 卡片推送**：直播/动态变化以图片卡片形式推送，封面右上角带直播/未直播状态角标，时间显示为事件发生时间（开播推送为开播时间）；渲染失败自动回退纯文本
 - **开播 @ 订阅**：可为单个主播订阅开播 @ 提醒
-- **监听上限管理**：每个会话有监听主播数量上限，超级管理员可查看/调整
+- **监听上限管理**：每个会话有监听主播数量上限（直播与动态独立计数），超级管理员可查看/调整
 - **推送类型可配置**：WebUI 配置面板中按类型勾选需要推送的变化
-
-> 用户动态发布、视频发布监听开发中，敬请期待。
 
 ## 指令
 
 默认指令前缀为 `#bili`（可在配置中修改 `commandPrefix`）：
+
+### 直播监听
 
 | 指令 | 说明 |
 |------|------|
 | `#bili live add <主播uid>` | 添加主播监听 |
 | `#bili live remove <主播uid>` | 移除主播监听 |
 | `#bili live list` | 查看当前监听的主播列表 |
-| `#bili live mention <主播uid>` | 订阅主播开播 @ 提醒 |
-| `#bili live unmention <主播uid>` | 取消订阅开播 @ 提醒 |
+| `#bili live mention <主播uid>` | 订阅主播开播 @ 提醒（仅群聊） |
+| `#bili live unmention <主播uid>` | 取消订阅开播 @ 提醒（仅群聊） |
 | `#bili live help` | 查看指令帮助 |
 
-### 管理员指令（仅超级管理员）
-
-超级管理员在配置项 `adminUser` 中配置（逗号分隔的 QQ 号列表）：
+### 动态监听
 
 | 指令 | 说明 |
 |------|------|
-| `#bili live max` | 查看当前会话监听上限 |
-| `#bili live max <监听数>` | 设置当前群监听上限（群聊） |
-| `#bili live max <监听数> <group\|private> <id>` | 修改指定会话监听上限（私聊） |
+| `#bili dyn add <主播uid>` | 添加主播到动态监听列表 |
+| `#bili dyn remove <主播uid>` | 从动态监听列表移除主播 |
+| `#bili dyn latest <主播uid>` | 查看主播最新一条动态 |
+| `#bili dyn list` | 查看当前监听动态的主播列表 |
+| `#bili dyn help` | 查看动态监听指令帮助 |
+
+### 账号管理（仅私聊，超级管理员）
+
+| 指令 | 说明 |
+|------|------|
+| `#bili user login` | 扫码登录 Bilibili 账号 |
+| `#bili user logout` | 登出 Bilibili 账号 |
+| `#bili user status` | 查询当前登录状态 |
+| `#bili user help` | 查看账号管理指令帮助 |
+
+### 监听上限（仅超级管理员）
+
+超级管理员在配置项 `adminUser` 中配置（逗号分隔的 QQ 号列表）。`live max` 与 `dyn max` 形态一致：
+
+| 指令 | 说明 |
+|------|------|
+| `#bili live max` / `#bili dyn max` | 查看当前会话监听上限（群管理员也可用） |
+| `#bili live max <监听数>` / `#bili dyn max <监听数>` | 设置当前群监听上限（群聊） |
+| `#bili live max <监听数> <group\|private> <id>` / `#bili dyn max ...` | 修改指定会话监听上限（私聊） |
 
 ## 配置
 
@@ -49,6 +70,7 @@
 | `commandPrefix` | 指令前缀 | `#bili` |
 | `cooldownSeconds` | 同一命令冷却时间（秒），0 不限制 | `0` |
 | `pollIntervalSeconds` | 直播状态轮询间隔（秒） | `60` |
+| `dynPollIntervalSeconds` | 动态轮询间隔（秒） | `300` |
 | `pushTypes` | 需要推送的变化类型（多选） | 全部类型 |
 | `adminUser` | 超级管理员 QQ 号（逗号分隔） | 空 |
 
@@ -66,35 +88,43 @@ napcat-plugin-bilibili-monitor/
 │   │   ├── state.ts                      # 全局状态管理单例
 │   │   └── admin.ts                      # 超级管理员判断
 │   ├── api/
-│   │   ├── baseRequest.ts                # B 站 API 请求封装
-│   │   └── api_getStatusInfoByUids.ts    # 批量查询直播间状态
+│   │   ├── baseRequest.ts                # B 站 API 请求封装（authRequest 携带 Cookie）
+│   │   ├── api_getStatusInfoByUids.ts    # 批量查询直播间状态
+│   │   ├── api_getDynamicFeed.ts         # 拉取用户空间动态
+│   │   ├── api_getNavInfo.ts             # 登录状态/用户信息查询
+│   │   └── api_qrcodeLogin.ts            # 扫码登录接口
 │   ├── handlers/
 │   │   ├── message.handler.ts            # 消息处理（解析、CD 冷却、发送工具）
-│   │   ├── instruction.handler.ts        # 指令分发
-│   │   └── live/                         # live 子指令 handlers
-│   │       ├── add-live.handler.ts
-│   │       ├── remove-live.handler.ts
-│   │       ├── list-live.handler.ts
-│   │       ├── mention-live.handler.ts
-│   │       ├── unmention-live.handler.ts
-│   │       ├── max-live.handler.ts
-│   │       └── help-live.handler.ts
+│   │   ├── instruction.handler.ts        # 指令分发（权限/作用域校验）
+│   │   ├── live/                         # live 子指令 handlers
+│   │   ├── dyn/                          # dyn 子指令 handlers
+│   │   └── user/                         # user 子指令 handlers（登录/登出/状态）
 │   ├── services/
 │   │   ├── bili-live-polling.service.ts  # 直播状态轮询服务
-│   │   ├── bili-live-store.service.ts    # 监听数据业务逻辑
-│   │   ├── live-limit.service.ts         # 监听上限管理
-│   │   ├── live-push-card.service.ts     # 推送卡片生成与发送
+│   │   ├── bili-live-store.service.ts    # 直播监听数据业务逻辑
+│   │   ├── bili-dynamic-polling.service.ts # 动态轮询服务
+│   │   ├── bili-dynamic-store.service.ts # 动态监听数据业务逻辑
+│   │   ├── dyn-parser.service.ts         # 动态解析（纯函数，多动态类型模板）
+│   │   ├── dyn-push.service.ts           # 动态推送服务
+│   │   ├── login.service.ts              # 扫码登录会话管理
+│   │   ├── live-limit.service.ts / dyn-limit.service.ts # 监听上限管理
+│   │   ├── live-push-card.service.ts     # 直播推送卡片生成与发送
 │   │   ├── svg-render-service.ts         # SVG 渲染图片服务
 │   │   └── api.service.ts                # WebUI API 路由
 │   ├── store/                            # 持久化存储层
 │   │   ├── BaseStore.ts
-│   │   ├── bili-live.store.ts            # 监听主播列表
+│   │   ├── bili-live.store.ts            # 直播监听主播列表
 │   │   ├── bili-live-room.store.ts       # 直播间状态与变化检测
-│   │   └── bili-live-limit.store.ts      # 会话监听上限
+│   │   ├── bili-live-limit.store.ts      # 直播监听上限
+│   │   ├── bili-dynamic.store.ts         # 动态监听主播列表
+│   │   ├── bili-dyn-limit.store.ts       # 动态监听上限
+│   │   └── bili-cookie.store.ts          # 登录 Cookie 存储
 │   ├── utils/
-│   │   └── format.ts
+│   │   ├── format.ts                     # 格式化工具
+│   │   └── help-message.ts               # 帮助消息输出（按角色+会话类型选版本）
+│   ├── assets/                           # 帮助图片资源
 │   └── webui/                            # React SPA 前端（独立构建）
-└── docs/adr/                             # 架构决策记录
+└── docs/                                 # store/help 范式文档与 ADR
 ```
 
 ## 快速开始
@@ -123,17 +153,14 @@ pnpm run typecheck
 
 ### 调试 & 热重载
 
-通过 Vite 插件 `napcatHmrPlugin` 集成热重载（已在 `vite.config.ts` 配置），需要在 NapCat 端安装 `napcat-plugin-debug` 插件并启用：
+通过 Vite 插件 `napcatHmrPlugin` 集成热重载（已在 `vite.config.ts` 配置），需要在 NapCat 端安装 `napcat-plugin-debug` 插件并启用，通过 `.env` 中的 `WS_URL` 与 `TOKEN` 连接远程 NapCat 实例：
 
 ```bash
-# 一键部署：构建 → 自动复制到远程插件目录 → 自动重载
-pnpm run deploy
-
-# 开发模式：watch 构建 + 每次构建后自动部署 + 热重载
-pnpm run dev
+# watch 构建 + 每次构建后自动部署 + 热重载
+pnpm run watch
 ```
 
-> `pnpm run dev` 仅监听插件后端（`src/` 下非 webui 文件）的变化。只开发 WebUI 前端时推荐 `pnpm run dev:webui`。
+> 只开发 WebUI 前端时推荐 `pnpm run dev:webui`。
 
 ## 架构说明
 
@@ -155,8 +182,9 @@ graph TD
 | 设计 | 实现位置 | 说明 |
 |------|----------|------|
 | 单例状态 | `src/core/state.ts` | `pluginState` 全局单例，持有 ctx、config、logger |
-| 存储分层 | `src/store/*.ts` | `BaseStore` 基类 + 各数据存储，单例模式获取 |
+| 存储分层 | `src/store/*.ts` | `BaseStore` 基类 + 各数据存储，单例模式惰性获取 |
 | 变化检测 | `src/store/bili-live-room.store.ts` | 轮询比对直播间状态，产出 `ChangeType` 事件 |
+| 动态解析 | `src/services/dyn-parser.service.ts` | 纯函数模块，解析各类动态为渲染所需结构 |
 | 推送渲染 | `src/services/live-push-card.service.ts` | SVG 卡片渲染，失败回退纯文本 |
 
 架构决策记录见 [docs/adr](docs/adr/)。

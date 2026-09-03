@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-NapCat 插件（QQ 机器人），监听 Bilibili 直播间状态并推送通知：开播/下播、标题/分区变化，推送内容为 SVG 渲染的卡片图片（渲染失败回退纯文本）。TypeScript，pnpm，Vite 构建为单文件 ESM（`dist/index.mjs`），无测试框架。
+NapCat 插件（QQ 机器人），监听 Bilibili 直播与动态并推送通知：直播开播/下播、标题/分区变化，动态发布推送（含图文/转发/视频/文章/表情包等类型解析）。推送内容为 SVG 渲染的卡片图片（渲染失败回退纯文本）。TypeScript，pnpm，Vite 构建为单文件 ESM（`dist/index.mjs`），无测试框架。动态/视频监听需要 B 站登录（Cookie），通过私聊扫码登录（`#bili user login`）。
 
 ## 常用命令
 
@@ -32,11 +32,15 @@ pnpm run dev:webui      # 前端开发服务器
 ### 分层
 
 ```
-index.ts (生命周期) 
-  → handlers/    指令解析与处理（message.handler 解析/CD → instruction.handler 分发 → live|user 子指令 handler）
-  → services/    业务逻辑（轮询 bili-live-polling、监听数据 bili-live-store、上限 live-limit、卡片推送 live-push-card、SVG 渲染 svg-render、WebUI API 路由 api.service）
+index.ts (生命周期)
+  → handlers/    指令解析与处理（message.handler 解析/CD → instruction.handler 分发 → live|dyn|user 子指令 handler）
+  → services/    业务逻辑
+      live: 轮询 bili-live-polling、监听数据 bili-live-store、上限 live-limit、卡片推送 live-push-card、SVG 渲染 svg-render
+      dyn:  轮询 bili-dynamic-polling、解析 dyn-parser（纯函数）、推送 dyn-push、上限 dyn-limit
+      user: 扫码登录 login（二维码生成/轮询/会话互斥）
+      通用: WebUI API 路由 api.service
   → store/       持久化层（JSON 文件读写）
-  → api/         B 站 HTTP 接口封装（baseRequest / authRequest，authRequest 携带登录 Cookie）
+  → api/         B 站 HTTP 接口封装（baseRequest / authRequest，authRequest 携带登录 Cookie；登录态查询 nav、动态 dynamic-feed、扫码 qrcodeLogin）
 ```
 
 ### 全局状态
@@ -62,7 +66,11 @@ index.ts (生命周期)
 
 ### 推送卡片
 
-直播变化通知由 `live-push-card.service.ts` 生成 SVG，经 `svg-render-service.ts` 调用渲染插件转图片发送；渲染不可用/失败时自动回退纯文本。新增推送字段需同时改卡片模板与文本回退。
+直播/动态变化通知由 `live-push-card.service.ts` / `dyn-push.service.ts` 生成 SVG，经 `svg-render-service.ts` 调用渲染插件转图片发送；渲染不可用/失败时自动回退纯文本。新增推送字段需同时改卡片模板与文本回退。动态解析集中在 `dyn-parser.service.ts`（纯函数模块，无 IO，吸收全部动态类型模板/置顶判断/零宽字符清理/链接拼接逻辑）。
+
+### 指令注册
+
+新增指令在 `src/handlers/instruction.handler.ts` 的 `instructionSetMapper`（模块 → 子指令 → 定义）注册，可声明 `requiredRole` / `scope`，或用 `scopeRules` 按参数个数区分形态权限（如 `live max`）。帮助输出范式见 `docs/help-output-pattern.md`：`sendHelpMessage` 按角色+会话类型选 User/Admin/SuperAdmin 版本，优先发帮助图片（`src/assets/*.png`，部署到 data 目录上级的 assets），缺失或失败回退文本。
 
 ### 配置
 
@@ -75,6 +83,7 @@ index.ts (生命周期)
 ## 其他文档
 
 - `docs/store-pattern.md` — store 层数据读写范式（正反例）
+- `docs/help-output-pattern.md` — 指令帮助输出全链路范式
 - `docs/adr/` — 架构决策记录（SVG 渲染、离线变化检测、配置 Schema 注入运行时数据等）
 - `.github/copilot-instructions.md`: 面向 NapCat 的插件开发模板描述（TypeScript，ESM），使用 Vite 打包到 `dist/index.mjs` 作为插件入口；包含消息处理、配置管理和 WebUI 支持。
 - `.example/plugin/index.md`: 插件开发示例
