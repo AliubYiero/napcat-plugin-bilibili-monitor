@@ -12,6 +12,7 @@ import { maxLiveHandler } from './live/max-live.handler';
 import { addDynHandler } from './dyn/add-dyn.handler';
 import { removeDynHandler } from './dyn/remove-dyn.handler';
 import { latestDynHandler } from './dyn/latest-dyn.handler';
+import { listDynHandler } from './dyn/list-dyn.handler';
 import { maxDynHandler } from './dyn/max-dyn.handler';
 import { helpDynHandler } from './dyn/help-dyn.handler';
 import { loginHandler } from './user/login.handler';
@@ -132,6 +133,10 @@ const instructionSetMapper: Record<
          * 查看主播最新一条动态
          */
         latest: { handler: latestDynHandler },
+        /**
+         * 查看当前监听动态的主播列表
+         */
+        list: { handler: listDynHandler },
         /**
          * 查看动态监听指令帮助
          */
