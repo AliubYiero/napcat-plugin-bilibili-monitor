@@ -35,13 +35,19 @@ pnpm run dev:webui      # 前端开发服务器
 index.ts (生命周期)
   → handlers/    指令解析与处理（message.handler 解析/CD → instruction.handler 分发 → live|dyn|user 子指令 handler）
   → services/    业务逻辑
-      live: 轮询 bili-live-polling、监听数据 bili-live-store、上限 live-limit、卡片推送 live-push-card、SVG 渲染 svg-render
-      dyn:  轮询 bili-dynamic-polling、解析 dyn-parser（纯函数）、推送 dyn-push、上限 dyn-limit
+      live: 轮询 polling、监听数据 store、上限 limit、卡片推送 pushCard
+      dyn:  轮询 polling、解析 parser（纯函数）、推送 push、上限 limit
       user: 扫码登录 login（二维码生成/轮询/会话互斥）
-      通用: WebUI API 路由 api.service
+      通用: WebUI API 路由 api.service、SVG 渲染 svgRender.service
   → store/       持久化层（JSON 文件读写）
-  → api/         B 站 HTTP 接口封装（baseRequest / authRequest，authRequest 携带登录 Cookie；登录态查询 nav、动态 dynamic-feed、扫码 qrcodeLogin）
+  → api/         B 站 HTTP 接口封装（baseRequest / authRequest，authRequest 携带登录 Cookie；登录态查询 getNavInfo、动态 getDynamicFeed、扫码 qrcodeLogin）
 ```
+
+### 命名规范
+
+- 文件名一律小驼峰（`pushCard.service.ts`、`helpMessage.ts`），类型后缀（`.handler` / `.service` / `.store`）保留；类、接口、type 别名用大驼峰。
+- services / handlers 按模块分子文件夹（`live/`、`dyn/`、`user/`），文件名不再带模块前缀——目录已表达模块归属（如 `services/live/polling.service.ts` 而非 `services/bili-live-polling.service.ts`）。
+- 例外：`src/store/` 不分模块子目录，文件保留 `bili` 前缀（`biliLive.store.ts`）；`BaseStore.ts`、`BiliDynamic.type.ts` 按类型名命名，不适用小驼峰规则。
 
 ### 全局状态
 
@@ -53,7 +59,7 @@ index.ts (生命周期)
 
 - 继承 `BaseStore<T>`（`src/store/BaseStore.ts`，列表型数据）或直接使用 `pluginState.loadDataFile / saveDataFile`（键值型）。
 - `private constructor` + `static getInstance()` 单例。
-- **store 文件只导出类，不导出实例**；使用方（service/handler）在方法调用时惰性 `getInstance()`（可用 private getter 缓存）。禁止 `export const x = X.getInstance()` —— 那会导致导出即实例化，迫使所有方法加 `ensureLoaded()` 兜底（`bili-cookie.store.ts` 是历史反例）。
+- **store 文件只导出类，不导出实例**；使用方（service/handler）在方法调用时惰性 `getInstance()`（可用 private getter 缓存）。禁止 `export const x = X.getInstance()` —— 那会导致导出即实例化，迫使所有方法加 `ensureLoaded()` 兜底（`biliCookie.store.ts` 是历史反例）。
 - 数据变更后立即 `saveToFile()` 持久化。
 
 ### 领域语言
@@ -62,11 +68,11 @@ index.ts (生命周期)
 
 ### 用户角色
 
-四档权限：`user` < `admin`（群管理员）< `privateUser`（私聊用户，等同 admin 权限组）< `superAdmin`（`adminUser` 配置）。帮助指令输出按"角色 + 会话类型"决定版本（见 `src/utils/help-message.ts`），不是按角色一一对应。
+四档权限：`user` < `admin`（群管理员）< `privateUser`（私聊用户，等同 admin 权限组）< `superAdmin`（`adminUser` 配置）。帮助指令输出按"角色 + 会话类型"决定版本（见 `src/utils/helpMessage.ts`），不是按角色一一对应。
 
 ### 推送卡片
 
-直播/动态变化通知由 `live-push-card.service.ts` / `dyn-push.service.ts` 生成 SVG，经 `svg-render-service.ts` 调用渲染插件转图片发送；渲染不可用/失败时自动回退纯文本。新增推送字段需同时改卡片模板与文本回退。动态解析集中在 `dyn-parser.service.ts`（纯函数模块，无 IO，吸收全部动态类型模板/置顶判断/零宽字符清理/链接拼接逻辑）。
+直播/动态变化通知由 `services/live/pushCard.service.ts` / `services/dyn/push.service.ts` 生成 SVG，经 `svgRender.service.ts` 调用渲染插件转图片发送；渲染不可用/失败时自动回退纯文本。新增推送字段需同时改卡片模板与文本回退。动态解析集中在 `parser.service.ts`（纯函数模块，无 IO，吸收全部动态类型模板/置顶判断/零宽字符清理/链接拼接逻辑）。
 
 ### 指令注册
 

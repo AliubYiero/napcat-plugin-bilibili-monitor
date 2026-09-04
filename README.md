@@ -89,10 +89,10 @@ napcat-plugin-bilibili-monitor/
 │   │   └── admin.ts                      # 超级管理员判断
 │   ├── api/
 │   │   ├── baseRequest.ts                # B 站 API 请求封装（authRequest 携带 Cookie）
-│   │   ├── api_getStatusInfoByUids.ts    # 批量查询直播间状态
-│   │   ├── api_getDynamicFeed.ts         # 拉取用户空间动态
-│   │   ├── api_getNavInfo.ts             # 登录状态/用户信息查询
-│   │   └── api_qrcodeLogin.ts            # 扫码登录接口
+│   │   ├── getStatusInfoByUids.ts    # 批量查询直播间状态
+│   │   ├── getDynamicFeed.ts         # 拉取用户空间动态
+│   │   ├── getNavInfo.ts             # 登录状态/用户信息查询
+│   │   └── qrcodeLogin.ts            # 扫码登录接口
 │   ├── handlers/
 │   │   ├── message.handler.ts            # 消息处理（解析、CD 冷却、发送工具）
 │   │   ├── instruction.handler.ts        # 指令分发（权限/作用域校验）
@@ -100,28 +100,28 @@ napcat-plugin-bilibili-monitor/
 │   │   ├── dyn/                          # dyn 子指令 handlers
 │   │   └── user/                         # user 子指令 handlers（登录/登出/状态）
 │   ├── services/
-│   │   ├── bili-live-polling.service.ts  # 直播状态轮询服务
-│   │   ├── bili-live-store.service.ts    # 直播监听数据业务逻辑
-│   │   ├── bili-dynamic-polling.service.ts # 动态轮询服务
-│   │   ├── bili-dynamic-store.service.ts # 动态监听数据业务逻辑
-│   │   ├── dyn-parser.service.ts         # 动态解析（纯函数，多动态类型模板）
-│   │   ├── dyn-push.service.ts           # 动态推送服务
-│   │   ├── login.service.ts              # 扫码登录会话管理
-│   │   ├── live-limit.service.ts / dyn-limit.service.ts # 监听上限管理
-│   │   ├── live-push-card.service.ts     # 直播推送卡片生成与发送
-│   │   ├── svg-render-service.ts         # SVG 渲染图片服务
+│   │   ├── live/polling.service.ts  # 直播状态轮询服务
+│   │   ├── live/store.service.ts    # 直播监听数据业务逻辑
+│   │   ├── dyn/polling.service.ts # 动态轮询服务
+│   │   ├── dyn/store.service.ts # 动态监听数据业务逻辑
+│   │   ├── dyn/parser.service.ts         # 动态解析（纯函数，多动态类型模板）
+│   │   ├── dyn/push.service.ts           # 动态推送服务
+│   │   ├── user/login.service.ts              # 扫码登录会话管理
+│   │   ├── live/limit.service.ts / dyn/limit.service.ts # 监听上限管理
+│   │   ├── live/pushCard.service.ts     # 直播推送卡片生成与发送
+│   │   ├── svgRender.service.ts         # SVG 渲染图片服务
 │   │   └── api.service.ts                # WebUI API 路由
 │   ├── store/                            # 持久化存储层
 │   │   ├── BaseStore.ts
-│   │   ├── bili-live.store.ts            # 直播监听主播列表
-│   │   ├── bili-live-room.store.ts       # 直播间状态与变化检测
-│   │   ├── bili-live-limit.store.ts      # 直播监听上限
-│   │   ├── bili-dynamic.store.ts         # 动态监听主播列表
-│   │   ├── bili-dyn-limit.store.ts       # 动态监听上限
-│   │   └── bili-cookie.store.ts          # 登录 Cookie 存储
+│   │   ├── biliLive.store.ts            # 直播监听主播列表
+│   │   ├── biliLiveRoom.store.ts       # 直播间状态与变化检测
+│   │   ├── biliLiveLimit.store.ts      # 直播监听上限
+│   │   ├── biliDynamic.store.ts         # 动态监听主播列表
+│   │   ├── biliDynLimit.store.ts       # 动态监听上限
+│   │   └── biliCookie.store.ts          # 登录 Cookie 存储
 │   ├── utils/
 │   │   ├── format.ts                     # 格式化工具
-│   │   └── help-message.ts               # 帮助消息输出（按角色+会话类型选版本）
+│   │   └── helpMessage.ts               # 帮助消息输出（按角色+会话类型选版本）
 │   ├── assets/                           # 帮助图片资源
 │   └── webui/                            # React SPA 前端（独立构建）
 └── docs/                                 # store/help 范式文档与 ADR
@@ -183,9 +183,9 @@ graph TD
 |------|----------|------|
 | 单例状态 | `src/core/state.ts` | `pluginState` 全局单例，持有 ctx、config、logger |
 | 存储分层 | `src/store/*.ts` | `BaseStore` 基类 + 各数据存储，单例模式惰性获取 |
-| 变化检测 | `src/store/bili-live-room.store.ts` | 轮询比对直播间状态，产出 `ChangeType` 事件 |
-| 动态解析 | `src/services/dyn-parser.service.ts` | 纯函数模块，解析各类动态为渲染所需结构 |
-| 推送渲染 | `src/services/live-push-card.service.ts` | SVG 卡片渲染，失败回退纯文本 |
+| 变化检测 | `src/store/biliLiveRoom.store.ts` | 轮询比对直播间状态，产出 `ChangeType` 事件 |
+| 动态解析 | `src/services/dyn/parser.service.ts` | 纯函数模块，解析各类动态为渲染所需结构 |
+| 推送渲染 | `src/services/live/pushCard.service.ts` | SVG 卡片渲染，失败回退纯文本 |
 
 架构决策记录见 [docs/adr](docs/adr/)。
 

@@ -1,7 +1,7 @@
 # 指令帮助输出范式
 
 本文定义插件指令帮助的输出范式, 覆盖从指令定义到用户可见帮助消息的全链路。
-参考实现: `src/handlers/live/help-live.handler.ts`、`src/handlers/user/help-user.handler.ts`、`src/utils/help-message.ts` (以下引用其内容均作为示例)。
+参考实现: `src/handlers/live/help.handler.ts`、`src/handlers/user/help.handler.ts`、`src/utils/helpMessage.ts` (以下引用其内容均作为示例)。
 
 ## 1. 概述
 
@@ -80,12 +80,12 @@ SuperAdmin 版可以包含**仅私聊可用**的指令 (`onlyPrivate`)。这直�
 
 产物以"落盘"方式进入插件, 图片与文本保持同一种模式:
 
-- **PNG**: 复制进插件 `assets` 目录, 保留 `{id}-{变体}.png` 命名约定。handler 中以 `HELP_IMAGE` 常量声明各变体对应的文件名 (示例见 `help-live.handler.ts`)。
+- **PNG**: 复制进插件 `assets` 目录, 保留 `{id}-{变体}.png` 命名约定。handler 中以 `HELP_IMAGE` 常量声明各变体对应的文件名 (示例见 `help.handler.ts`)。
 - **texts.json**: 将三个字符串嵌入 handler 的 `HELP_TEXT_MAP` 常量 (`Record<HelpVariant, string>`)。
 
 **同步纪律**: `HELP_IMAGE` 与 `HELP_TEXT_MAP` 必须以导出产物为准, **不得手写改写**。任何帮助内容变更都应先修改上游 `cmd.json` 并重新导出, 再同步落盘到插件——这是防止图片版与文本版、以及插件与工具项目之间内容漂移的唯一保障。
 
-运行时发送逻辑由共享工具 `src/utils/help-message.ts` 的 `sendHelpMessage` 承担, handler 只需提供 `imageMap` 与 `textMap` 两份内容, 不自行实现选择与回退逻辑。
+运行时发送逻辑由共享工具 `src/utils/helpMessage.ts` 的 `sendHelpMessage` 承担, handler 只需提供 `imageMap` 与 `textMap` 两份内容, 不自行实现选择与回退逻辑。
 
 ## 5. 变体映射
 
@@ -110,9 +110,9 @@ SuperAdmin 版可以包含**仅私聊可用**的指令 (`onlyPrivate`)。这直�
 
 | 文件 | 职责 |
 |---|---|
-| `src/utils/help-message.ts` | 变体选择、图片路径解析、图片优先/文本回退 |
-| `src/handlers/live/help-live.handler.ts` | live 模块帮助内容声明 (`HELP_IMAGE` / `HELP_TEXT_MAP`) |
-| `src/handlers/user/help-user.handler.ts` | user 模块帮助内容声明 (仅超管私聊场景) |
+| `src/utils/helpMessage.ts` | 变体选择、图片路径解析、图片优先/文本回退 |
+| `src/handlers/live/help.handler.ts` | live 模块帮助内容声明 (`HELP_IMAGE` / `HELP_TEXT_MAP`) |
+| `src/handlers/user/help.handler.ts` | user 模块帮助内容声明 (仅超管私聊场景) |
 
 以上均为范例, 新增帮助 handler 时以其结构为模板。
 

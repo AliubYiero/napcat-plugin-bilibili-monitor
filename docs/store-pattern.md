@@ -17,12 +17,12 @@ NapCat 插件的加载流程是：模块 import（加载所有文件）→ 调�
 
 ## 正确范式
 
-以 `src/store/bili-live.store.ts` + `src/services/bili-live-store.service.ts` 为例。
+以 `src/store/biliLive.store.ts` + `src/services/services/live/store.service.ts` 为例。
 
 ### 1. store 文件只定义类并导出类本身
 
 ```ts
-// src/store/bili-live.store.ts
+// src/store/biliLive.store.ts
 export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
     private static instance: BiliLiveStore | null = null;
 
@@ -53,7 +53,7 @@ export class BiliLiveStore extends BaseStore<BiliLiveMonitor> {
 ### 2. 使用方在调用时惰性获取实例
 
 ```ts
-// src/services/bili-live-store.service.ts
+// src/services/services/live/store.service.ts
 class BiliLiveStoreService {
     private _biliLiveStore: BiliLiveStore | null = null;
 
@@ -83,7 +83,7 @@ export const biliLiveStoreService = new BiliLiveStoreService();
 
 ## 反例：模块加载期导出单例
 
-一种典型的错误写法（本项目的 `bili-cookie.store.ts` 曾出现过，现已修复）：
+一种典型的错误写法（本项目的 `biliCookie.store.ts` 曾出现过，现已修复）：
 
 ```ts
 class BiliCookieStore {
