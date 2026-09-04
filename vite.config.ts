@@ -1,5 +1,5 @@
 import { resolve, dirname } from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import { builtinModules } from 'module';
 import { fileURLToPath } from 'url';
@@ -149,6 +149,17 @@ function copyAssetsPlugin() {
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, __dirname, '');
+    let enabledNapcatHmrPlugin: Plugin | undefined ;
+    if ( mode === 'deploy') {
+        enabledNapcatHmrPlugin = napcatHmrPlugin({
+            webui: {
+                distDir: './src/webui/dist',
+                targetDir: 'webui',
+            },
+            wsUrl: env.WS_URL,
+            token: env.TOKEN,
+        })
+    }
     return {
         resolve: {
             conditions: ['node', 'default'],
@@ -184,14 +195,7 @@ export default defineConfig(({ mode }) => {
         plugins: [
             nodeResolve(),
             copyAssetsPlugin(),
-            napcatHmrPlugin({
-                webui: {
-                    distDir: './src/webui/dist',
-                    targetDir: 'webui',
-                },
-                wsUrl: env.WS_URL,
-                token: env.TOKEN,
-            }),
+            enabledNapcatHmrPlugin,
         ],
     };
 });
