@@ -1,14 +1,14 @@
 /**
  * 动态监听上限服务
  *
- * 与 live-limit.service 同范式, 独立存储 (默认值不同):
+ * 与 limit.service 同范式, 独立存储 (默认值不同):
  * 群聊默认 1, 私聊默认 0; 超级管理员本人的私聊无上限。
  */
 
-import { pluginState } from '../core/state';
-import { isSuperAdmin } from '../core/admin';
-import type { BiliDynamicMonitorToInfo } from '../store/bili-dynamic.store';
-import { BiliDynLimitStore } from '../store/bili-dyn-limit.store';
+import { pluginState } from '../../core/state';
+import { isSuperAdmin } from '../../core/admin';
+import type { BiliDynamicMonitorToInfo } from '../../store/biliDynamic.store';
+import { BiliDynLimitStore } from '../../store/biliDynLimit.store';
 
 /** 上限允许设置的最小值 (0 表示禁止新增订阅) */
 export const MIN_LIMIT = 0;

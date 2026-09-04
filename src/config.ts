@@ -7,7 +7,7 @@ import type {
     NapCatPluginContext,
     PluginConfigSchema,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
-import type { ChangeType } from './store/bili-live-room.store';
+import type { ChangeType } from './store/biliLiveRoom.store';
 import type { PluginConfig } from './types';
 
 /** 登录状态数据 (由入口在 plugin_init 时传入, 避免 config -> store 循环引用) */

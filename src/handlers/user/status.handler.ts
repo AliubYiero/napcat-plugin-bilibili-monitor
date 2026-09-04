@@ -7,7 +7,7 @@
 import type { OB11Message } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { sendReply } from '../message.handler';
-import { BiliCookieStore } from '../../store/bili-cookie.store';
+import { BiliCookieStore } from '../../store/biliCookie.store';
 import { formatTime } from '../../utils/format';
 
 export const statusHandler = async (

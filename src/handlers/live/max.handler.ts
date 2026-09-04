@@ -1,9 +1,9 @@
 /**
- * 查看或设置动态监听上限（权限与作用域由指令分发层按参数形态校验）
+ * 查看或设置直播监听上限（权限与作用域由指令分发层按参数形态校验）
  *
- * - 任意会话: `#bili dyn max` 查看当前会话上限 (admin 级)
- * - 群聊超管: `#bili dyn max <n>` 设置当前群上限
- * - 超管私聊: `#bili dyn max <n> <group|private> <id>` 修改指定会话上限
+ * - 任意会话: `#bili live max` 查看当前会话上限 (admin 级)
+ * - 群聊超管: `#bili live max <n>` 设置当前群上限
+ * - 超管私聊: `#bili live max <n> <group|private> <id>` 修改指定会话上限
  * - 私聊查看: 仅超管列出所有自定义上限的会话, 其余只显示自己上限
  */
 
@@ -11,28 +11,27 @@ import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/t
 import { OB11Message } from 'napcat-types/napcat-onebot';
 import { sendReply } from '../message.handler';
 import { getUserRole } from '../../core/admin';
-import { biliDynamicStoreService } from '../../services/bili-dynamic-store.service';
+import { biliLiveStoreService } from '../../services/live/store.service';
 import {
     DEFAULT_GROUP_LIMIT,
     DEFAULT_PRIVATE_LIMIT,
     MAX_LIMIT,
     MIN_LIMIT,
-    getDynLimit,
-    setDynLimit,
-} from '../../services/dyn-limit.service';
-import { BiliDynLimitStore } from '../../store/bili-dyn-limit.store';
+    getLiveLimit,
+    setLiveLimit,
+} from '../../services/live/limit.service';
 
 const usageText = [
     '用法:',
-    '#bili dyn max 查看动态监听上限',
-    '#bili dyn max <监听数> 设置当前群动态监听上限',
-    '[超管私聊] #bili dyn max <监听数> <group|private> <id> 修改指定会话上限',
+    '#bili live max 查看监听上限',
+    '#bili live max <监听数> 设置当前群监听上限',
+    '[超管私聊] #bili live max <监听数> <group|private> <id> 修改指定会话上限',
 ].join('\n');
 
 /**
- * 处理动态监听上限查看/设置
+ * 处理监听上限查看/设置
  */
-export const maxDynHandler = async (
+export const maxLiveHandler = async (
     ctx: NapCatPluginContext,
     event: OB11Message,
     commands: string[],
@@ -63,7 +62,7 @@ export const maxDynHandler = async (
         await sendReply(
             ctx,
             event,
-            `动态监听上限范围 ${MIN_LIMIT}~${MAX_LIMIT}\n${usageText}`,
+            `监听上限范围 ${MIN_LIMIT}~${MAX_LIMIT}\n${usageText}`,
         );
         return;
     }
@@ -86,7 +85,7 @@ export const maxDynHandler = async (
 };
 
 /**
- * 回复当前会话的动态监听上限信息
+ * 回复当前会话的监听上限信息
  * 私聊仅超管额外列出所有自定义上限的会话, 其余只显示自己上限
  */
 async function replyLimitInfo(
@@ -94,20 +93,20 @@ async function replyLimitInfo(
     event: OB11Message,
     toInfo: { id: string; type: 'private' | 'group' },
 ): Promise<void> {
-    const limit = getDynLimit(toInfo);
-    const current = biliDynamicStoreService.list(toInfo).length;
+    const limit = getLiveLimit(toInfo);
+    const current = biliLiveStoreService.list(toInfo).length;
     const lines = [
-        `当前会话动态监听上限: ${limit === Infinity ? '无上限' : limit} (已监听 ${current})`,
+        `当前会话监听上限: ${limit === Infinity ? '无上限' : limit} (已监听 ${current})`,
     ];
 
     if (
         toInfo.type === 'private' &&
         getUserRole(event).role === 'superAdmin'
     ) {
-        const limits = BiliDynLimitStore.getInstance().list();
+        const limits = getLimitStore().list();
         if (limits.length > 0) {
             lines.push(
-                '\n自定义动态上限的会话:',
+                '\n自定义上限的会话:',
                 ...limits.map(
                     (item) =>
                         `#${item.type === 'group' ? '群' : '私聊'} ${item.id}: ${item.max}`,
@@ -123,8 +122,17 @@ async function replyLimitInfo(
     await sendReply(ctx, event, lines.join('\n'));
 }
 
+/** 惰性获取上限存储（避免模块加载期触达未初始化的 pluginState.ctx） */
+let _limitStore: BiliLiveLimitStore | null = null;
+function getLimitStore(): BiliLiveLimitStore {
+    if (!_limitStore) {
+        _limitStore = BiliLiveLimitStore.getInstance();
+    }
+    return _limitStore;
+}
+
 /**
- * 设置动态监听上限并回复结果
+ * 设置上限并回复结果
  * 新上限低于当前订阅数时附带提醒
  */
 async function applyLimit(
@@ -134,16 +142,16 @@ async function applyLimit(
     type: 'private' | 'group',
     max: number,
 ): Promise<void> {
-    setDynLimit(id, type, max);
+    setLiveLimit(id, type, max);
 
     const targetToInfo = { id, type } as const;
-    const current = biliDynamicStoreService.list(targetToInfo).length;
+    const current = biliLiveStoreService.list(targetToInfo).length;
     const lines = [
-        `已将会话 (${type === 'group' ? '群' : '私聊'} ${id}) 动态监听上限设为 ${max}`,
+        `已将会话 (${type === 'group' ? '群' : '私聊'} ${id}) 监听上限设为 ${max}`,
     ];
     if (current > max) {
         lines.push(
-            `当前已有 ${current} 个动态订阅, 超出部分仍会推送, 但无法新增订阅`,
+            `当前已有 ${current} 个订阅, 超出部分仍会推送, 但无法新增订阅`,
         );
     }
     await sendReply(ctx, event, lines.join('\n'));

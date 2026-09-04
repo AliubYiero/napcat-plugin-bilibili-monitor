@@ -1,11 +1,11 @@
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import { biliDynamicStoreService } from '../../services/bili-dynamic-store.service';
+import { biliDynamicStoreService } from '../../services/dyn/store.service';
 
 /**
- * 添加主播动态监听
+ * 查看主播最新一条动态（输出与推送模板一致）
  */
-export const addDynHandler = async (
+export const latestDynHandler = async (
     ctx: NapCatPluginContext,
     event: OB11Message,
     commands: string[],
@@ -20,7 +20,7 @@ export const addDynHandler = async (
     const groupId =
         message_type === 'group' ? String(group_id) : String(user_id);
 
-    await biliDynamicStoreService.add(uid, {
+    await biliDynamicStoreService.latest(uid, {
         id: groupId,
         type: message_type,
     });

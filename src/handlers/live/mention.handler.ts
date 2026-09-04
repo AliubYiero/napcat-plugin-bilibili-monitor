@@ -1,12 +1,12 @@
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import { biliLiveStoreService } from '../../services/bili-live-store.service';
+import { biliLiveStoreService } from '../../services/live/store.service';
 import { sendReply } from '../message.handler';
 
 /**
- * 取消开播 @ 提醒订阅（仅群聊）
+ * 订阅开播 @ 提醒（仅群聊）
  */
-export const unmentionLiveHandler = async (
+export const mentionLiveHandler = async (
     ctx: NapCatPluginContext,
     event: OB11Message,
     commands: string[],
@@ -29,7 +29,7 @@ export const unmentionLiveHandler = async (
         id: String(group_id),
         type: 'group',
     } as const;
-    await biliLiveStoreService.removeMention(
+    await biliLiveStoreService.addMention(
         uid,
         toInfo,
         String(user_id),

@@ -9,7 +9,7 @@
 
 // ==================== 插件配置 ====================
 
-import type { ChangeType } from './store/bili-live-room.store';
+import type { ChangeType } from './store/biliLiveRoom.store';
 
 /**
  * 插件主配置接口

@@ -1,12 +1,12 @@
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import { biliDynamicStoreService } from '../../services/bili-dynamic-store.service';
+import { biliLiveStoreService } from '../../services/live/store.service';
 import { sendReplyByToInfo } from '../message.handler';
 
 /**
- * 查看当前会话正在监听动态的主播列表
+ * 查看当前会话正在监听的主播列表
  */
-export const listDynHandler = async (
+export const listLiveHandler = async (
     ctx: NapCatPluginContext,
     event: OB11Message,
 ) => {
@@ -19,12 +19,12 @@ export const listDynHandler = async (
         type: message_type,
     } as const;
 
-    const monitors = biliDynamicStoreService.list(toInfo);
+    const monitors = biliLiveStoreService.list(toInfo);
     if (monitors.length === 0) {
         await sendReplyByToInfo(
             ctx,
             toInfo,
-            '当前没有正在监听动态的主播',
+            '当前没有正在监听的主播',
         );
         return;
     }
@@ -33,11 +33,18 @@ export const listDynHandler = async (
         const name = monitor.uname
             ? `${monitor.uname} (uid: ${monitor.uid})`
             : `uid: ${monitor.uid}`;
-        return `${index + 1}. ${name}`;
+        // 当前会话的推送目标上绑定的开播 @ 订阅人数
+        const target = monitor.to.find(
+            (t) => t.type === toInfo.type && t.id === toInfo.id,
+        );
+        const mentionCount = target?.mentionUsers?.length ?? 0;
+        const mentionSuffix =
+            mentionCount > 0 ? ` (${mentionCount} 人订阅开播 @)` : '';
+        return `${index + 1}. ${name}${mentionSuffix}`;
     });
     await sendReplyByToInfo(
         ctx,
         toInfo,
-        `当前监听动态的主播列表:\n${lines.join('\n')}`,
+        `当前监听的主播列表:\n${lines.join('\n')}`,
     );
 };

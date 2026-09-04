@@ -7,8 +7,8 @@
 import type { OB11Message } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { sendReply } from '../message.handler';
-import { BiliCookieStore } from '../../store/bili-cookie.store';
-import { loginService } from '../../services/login.service';
+import { BiliCookieStore } from '../../store/biliCookie.store';
+import { loginService } from '../../services/user/login.service';
 
 export const logoutHandler = async (
     ctx: NapCatPluginContext,

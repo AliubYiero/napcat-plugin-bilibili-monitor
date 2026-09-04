@@ -9,16 +9,16 @@
  * 注意：store 单例依赖 pluginState.ctx，必须 plugin_init 之后才可实例化，
  * 因此使用惰性 getter。
  */
-import { pluginState } from '../core/state';
+import { pluginState } from '../../core/state';
 import {
     BiliDynamicStore,
     type BiliDynamicMonitor,
-} from '../store/bili-dynamic.store';
-import { BiliCookieStore } from '../store/bili-cookie.store';
-import { api_getDynamicFeed } from '../api/api_getDynamicFeed';
-import type { BiliDynamicItem } from '../api/api_getDynamicFeed';
-import { parseBiliDynamic } from './dyn-parser.service';
-import { pushDynToTargets } from './dyn-push.service';
+} from '../../store/biliDynamic.store';
+import { BiliCookieStore } from '../../store/biliCookie.store';
+import { api_getDynamicFeed } from '../../api/getDynamicFeed';
+import type { BiliDynamicItem } from '../../api/getDynamicFeed';
+import { parseBiliDynamic } from './parser.service';
+import { pushDynToTargets } from './push.service';
 
 /** 默认轮询间隔（秒），配置缺失时兜底 */
 const DEFAULT_DYN_POLL_INTERVAL = 300;

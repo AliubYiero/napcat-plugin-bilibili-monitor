@@ -1,6 +1,6 @@
 /**
  * 输出 Bilibili Live Monitor 插件指令帮助
- * 帮助文本按模板字符串存储, 图片优先/文本回退逻辑见 src/utils/help-message.ts
+ * 帮助文本按模板字符串存储, 图片优先/文本回退逻辑见 src/utils/helpMessage.ts
  */
 
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
@@ -8,7 +8,7 @@ import { OB11Message } from 'napcat-types/napcat-onebot';
 import {
     sendHelpMessage,
     HelpVariant,
-} from '../../utils/help-message';
+} from '../../utils/helpMessage';
 
 /** 帮助图片文件名 */
 const HELP_IMAGE = {

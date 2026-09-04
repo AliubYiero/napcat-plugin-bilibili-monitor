@@ -8,7 +8,7 @@
 
 import axios, { type AxiosInstance } from 'axios';
 import { pluginState } from '../core/state';
-import { BiliCookieStore } from '../store/bili-cookie.store';
+import { BiliCookieStore } from '../store/biliCookie.store';
 
 /** 将 Cookie 对象序列化为请求头字符串 */
 function buildCookieHeader(cookies: Record<string, string>): string {

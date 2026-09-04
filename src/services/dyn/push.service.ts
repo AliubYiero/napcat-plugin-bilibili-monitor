@@ -7,18 +7,18 @@
  *   (由直播推送负责)，否则复用 buildChangeMessage 开播卡片
  */
 
-import { pluginState } from '../core/state';
+import { pluginState } from '../../core/state';
 import type {
     OB11MessageData,
     OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
-import { sendReplyByToInfo } from '../handlers/message.handler';
-import type { BiliDynamicMonitorToInfo } from '../store/bili-dynamic.store';
-import { BiliLiveStore } from '../store/bili-live.store';
-import { BiliLiveRoomStore } from '../store/bili-live-room.store';
-import { buildChangeMessage } from './live-push-card.service';
-import type { ParsedDyn } from './dyn-parser.service';
+import { sendReplyByToInfo } from '../../handlers/message.handler';
+import type { BiliDynamicMonitorToInfo } from '../../store/biliDynamic.store';
+import { BiliLiveStore } from '../../store/biliLive.store';
+import { BiliLiveRoomStore } from '../../store/biliLiveRoom.store';
+import { buildChangeMessage } from '../live/pushCard.service';
+import type { ParsedDyn } from './parser.service';
 
 /**
  * 按表情映射切分文本为 [文本, 图片, 文本, ...] 交错序列

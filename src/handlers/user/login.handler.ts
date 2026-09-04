@@ -10,8 +10,8 @@ import { sendReply, createImageMessage } from '../message.handler';
 import {
     loginService,
     LoginSessionStatus,
-} from '../../services/login.service';
-import { BiliCookieStore } from '../../store/bili-cookie.store';
+} from '../../services/user/login.service';
+import { BiliCookieStore } from '../../store/biliCookie.store';
 
 /** 登录会话状态 -> 提示前缀 */
 function statusPrefix(status: LoginSessionStatus): string {

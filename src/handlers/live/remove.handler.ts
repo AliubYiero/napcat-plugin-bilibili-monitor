@@ -1,6 +1,6 @@
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import { biliLiveStoreService } from '../../services/bili-live-store.service';
+import { biliLiveStoreService } from '../../services/live/store.service';
 
 /**
  * 删除直播间监听

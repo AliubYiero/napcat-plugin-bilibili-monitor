@@ -9,24 +9,24 @@
  * 注意：store 单例依赖 pluginState.ctx，必须在 plugin_init 之后才可实例化，
  * 因此这里使用惰性 getter，避免模块加载期过早初始化抛错。
  */
-import { pluginState } from '../core/state';
+import { pluginState } from '../../core/state';
 import {
     BiliLiveStore,
     type BiliLiveMonitorToInfo,
-} from '../store/bili-live.store';
+} from '../../store/biliLive.store';
 import {
     BiliLiveRoomStore,
     type ChangeEvent,
     mapToRoomInfo,
-} from '../store/bili-live-room.store';
-import { api_getStatusInfoByUids } from '../api/api_getStatusInfoByUids';
+} from '../../store/biliLiveRoom.store';
+import { api_getStatusInfoByUids } from '../../api/getStatusInfoByUids';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import {
     type OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
-import { sendReplyByToInfo } from '../handlers/message.handler';
-import { buildChangeMessage } from './live-push-card.service';
+import { sendReplyByToInfo } from '../../handlers/message.handler';
+import { buildChangeMessage } from './pushCard.service';
 
 /** B站接口单次最大请求房间数 */
 const MAX_ROOM_IDS_PER_REQUEST = 100;

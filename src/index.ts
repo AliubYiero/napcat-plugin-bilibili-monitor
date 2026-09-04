@@ -31,9 +31,9 @@ import { buildConfigSchema } from './config';
 import { pluginState } from './core/state';
 import { handleMessage } from './handlers/message.handler';
 import { registerApiRoutes } from './services/api.service';
-import { BiliLivePollingService } from './services/bili-live-polling.service';
-import { BiliDynamicPollingService } from './services/bili-dynamic-polling.service';
-import { BiliCookieStore } from './store/bili-cookie.store';
+import { BiliLivePollingService } from './services/live/polling.service';
+import { BiliDynamicPollingService } from './services/dyn/polling.service';
+import { BiliCookieStore } from './store/biliCookie.store';
 import type { LoginStatusInfo } from './config';
 import type { PluginConfig } from './types';
 

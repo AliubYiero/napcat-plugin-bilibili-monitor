@@ -9,8 +9,8 @@
 import type {
     BiliDynamic,
     LiveRcmdContent,
-} from '../store/BiliDynamic.type';
-import { formatArea, roomUrl } from '../utils/format';
+} from '../../store/BiliDynamic.type';
+import { formatArea, roomUrl } from '../../utils/format';
 
 // ==================== 解析结果结构 ====================
 

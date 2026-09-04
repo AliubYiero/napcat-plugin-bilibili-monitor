@@ -11,7 +11,7 @@
  */
 
 import { pluginState } from '../core/state';
-import { api_getNavInfo } from '../api/api_getNavInfo';
+import { api_getNavInfo } from '../api/getNavInfo';
 
 /** 登录用户信息 */
 export interface BiliUserInfo {

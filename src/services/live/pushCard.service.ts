@@ -8,24 +8,24 @@
  * 4. 组装三段式消息 [文本, 图片, 链接]；任何环节失败返回 null，
  *    由调用方回退到纯文本推送
  */
-import { pluginState } from '../core/state';
+import { pluginState } from '../../core/state';
 import type {
     BiliLiveRoomInfo,
     BiliLiveRoomStore,
     ChangeEvent,
     ChangeType,
-} from '../store/bili-live-room.store';
+} from '../../store/biliLiveRoom.store';
 import {
     formatArea,
     formatDuration,
     formatTime,
     roomUrl,
-} from '../utils/format';
+} from '../../utils/format';
 import {
     type OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
-import { svgRenderService } from './svg-render-service';
+import { svgRenderService } from '../svgRender.service';
 
 /** 直播事件类型（与渲染插件约定的枚举） */
 const LiveType = {

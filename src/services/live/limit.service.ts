@@ -5,10 +5,10 @@
  * 未设置时使用默认值；超级管理员本人的私聊无上限。
  */
 
-import { pluginState } from '../core/state';
-import { isSuperAdmin } from '../core/admin';
-import type { BiliLiveMonitorToInfo } from '../store/bili-live.store';
-import { BiliLiveLimitStore } from '../store/bili-live-limit.store';
+import { pluginState } from '../../core/state';
+import { isSuperAdmin } from '../../core/admin';
+import type { BiliLiveMonitorToInfo } from '../../store/biliLive.store';
+import { BiliLiveLimitStore } from '../../store/biliLiveLimit.store';
 
 /** 监听上限允许设置的最小值（0 表示禁止新增订阅） */
 export const MIN_LIMIT = 0;

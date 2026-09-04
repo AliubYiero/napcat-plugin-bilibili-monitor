@@ -1,28 +1,26 @@
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import { biliLiveStoreService } from '../../services/bili-live-store.service';
+import { biliDynamicStoreService } from '../../services/dyn/store.service';
 
 /**
- * 添加直播间监听
+ * 添加主播动态监听
  */
-export const addLiveHandler = async (
+export const addDynHandler = async (
     ctx: NapCatPluginContext,
     event: OB11Message,
     commands: string[],
 ) => {
-    // 获取参数, 直播间号
     const [uid] = commands;
     if (!uid) {
         ctx.logger.debug('未检测到主播UID');
         return;
     }
 
-    // 添加直播间
     const { message_type, group_id, user_id } = event;
     const groupId =
         message_type === 'group' ? String(group_id) : String(user_id);
 
-    await biliLiveStoreService.add(uid, {
+    await biliDynamicStoreService.add(uid, {
         id: groupId,
         type: message_type,
     });

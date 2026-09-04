@@ -1,6 +1,6 @@
 // BiliLiveRoomStore.ts
 import { pluginState } from '../core/state';
-import type { RoomStatusInfo } from '../api/api_getStatusInfoByUids';
+import type { RoomStatusInfo } from '../api/getStatusInfoByUids';
 
 const ROOM_DATA_FILENAME = 'bilibiliLiveRoomData.json';
 

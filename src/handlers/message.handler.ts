@@ -18,7 +18,7 @@ import {
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { pluginState } from '../core/state';
 import { instructionHandler } from './instruction.handler';
-import { BiliLiveMonitorToInfo } from '../store/bili-live.store';
+import { BiliLiveMonitorToInfo } from '../store/biliLive.store';
 
 // ==================== CD 冷却管理 ====================
 

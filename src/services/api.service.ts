@@ -22,8 +22,8 @@ import type {
     PluginHttpResponse,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { pluginState } from '../core/state';
-import { BiliCookieStore } from '../store/bili-cookie.store';
-import { loginService } from './login.service';
+import { BiliCookieStore } from '../store/biliCookie.store';
+import { loginService } from './user/login.service';
 
 /** 惰性获取 Cookie 存储实例 (避免模块加载期触达未初始化的 pluginState.ctx) */
 function getCookieStore() {
