@@ -97,7 +97,7 @@ export function buildDynMessage(
     const origLines: string[] = [];
     if (dyn.separator && dyn.origCard) {
         origLines.push(
-            '',
+            '\n',
             dyn.separator,
             '',
             dyn.origCard.headline,
