@@ -114,7 +114,7 @@ function formatVideoDuration(durationText: string): string {
 
 /** 手动拼接动态通用跳转链接 */
 function buildDynJumpUrl(idStr: string): string {
-    return `https://www.bilibili.com/${idStr}`;
+    return `https://t.bilibili.com/${idStr}`;
 }
 
 // ==================== 主解析入口 ====================
