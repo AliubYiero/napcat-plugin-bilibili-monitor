@@ -226,12 +226,7 @@ export class BiliLivePollingService {
                 pluginState.logger.debug(
                     `推送 ${type} 通知到 ${toInfo.type}: ${toInfo.id}（uid=${uid}）`,
                 );
-                await sendReplyByToInfo(
-                    pluginState.ctx,
-                    toInfo,
-                    message,
-                );
-
+                
                 // 开播事件: 群目标存在开播 @ 订阅时, 按 10 人一组额外发送 @ 提醒
                 if (
                     event.type === 'start_stream' &&
@@ -248,6 +243,12 @@ export class BiliLivePollingService {
                         );
                     }
                 }
+                
+                await sendReplyByToInfo(
+                    pluginState.ctx,
+                    toInfo,
+                    message,
+                );
             }
         } catch (err) {
             pluginState.logger.error('处理直播间变化事件出错:', err);

@@ -491,7 +491,7 @@ function generateSvgContent(
     const liveStatusTag = isStopLive
         ? `
 	<!-- 封面右上角状态标签 -->
-	<rect x="254" y="74" width="56" height="20" rx="2" ry="2" fill="#f69"/>
+	<rect x="254" y="74" width="56" height="20" rx="2" ry="2" fill="#b9b9b9"/>
 	<text x="282" y="84" font-size="12" fill="#ffffff" text-anchor="middle" dominant-baseline="central">直播结束</text>`
         : `
 	<!-- 封面右上角状态标签 -->
