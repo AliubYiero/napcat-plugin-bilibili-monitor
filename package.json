@@ -41,7 +41,7 @@
     "scripts": {
         "build": "vite build",
         "watch": "vite build --watch",
-        "deploy": "vite build --deploy",
+        "deploy": "vite build --mode deploy",
         "deploy:watch": "vite build --watch --mode deploy",
         "build:webui": "cd src/webui && pnpm install && pnpm run build",
         "dev:webui": "cd src/webui && pnpm run dev",
