@@ -4,7 +4,7 @@
  *
  * 帮助版本由角色与会话类型共同决定:
  * - 群聊超管输出 Admin 版, 仅私聊超管输出 SuperAdmin 版
- * - 私聊用户 (privateUser) 等同 admin 权限组, 输出 Admin 版
+ * - 好友私聊用户 (privateUser) 等同 admin 权限组, 输出 Admin 版
  */
 
 import fs from 'fs';
@@ -15,7 +15,7 @@ import {
     sendReply,
     sendReplyByToInfo,
     createImageMessage,
-} from '../handlers/message.handler';
+} from '../handlers/utils';
 import { getUserRole, UserRole } from '../core/admin';
 import { pluginState } from '../core/state';
 

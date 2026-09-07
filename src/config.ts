@@ -67,7 +67,6 @@ export const DEFAULT_CONFIG: PluginConfig = {
     enabled: true,
     debug: false,
     commandPrefix: '#bili',
-    cooldownSeconds: 0,
     groupConfigs: {},
     // 轮询默认每 60 秒拉取一次直播间状态
     pollIntervalSeconds: 60,
@@ -76,7 +75,7 @@ export const DEFAULT_CONFIG: PluginConfig = {
     // 默认推送全部变化类型
     pushTypes: [...VALID_PUSH_TYPES],
     // TODO: 在这里添加你的默认配置值
-    adminUser: '',
+    adminUsers: [],
 };
 
 /**
@@ -108,10 +107,10 @@ export function buildConfigSchema(
         ctx.NapCatConfig.html(buildLoginStatusHtml(loginStatus)),
         // 管理员用户列表
         ctx.NapCatConfig.text(
-            'adminUser',
+            'adminUsers',
             '插件管理员',
             '',
-            '可私聊管理插件的超级管理员用户',
+            '可私聊管理插件的超级管理员用户, 多个QQ号用英文逗号分隔',
         ),
         // 轮询间隔
         ctx.NapCatConfig.number(

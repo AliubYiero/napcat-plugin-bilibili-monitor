@@ -13,7 +13,7 @@ import type {
     OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
-import { sendReplyByToInfo } from '../../handlers/message.handler';
+import { sendReplyByToInfo } from '../../handlers/utils';
 import type { BiliDynamicMonitorToInfo } from '../../store/biliDynamic.store';
 import { BiliLiveStore } from '../../store/biliLive.store';
 import { BiliLiveRoomStore } from '../../store/biliLiveRoom.store';

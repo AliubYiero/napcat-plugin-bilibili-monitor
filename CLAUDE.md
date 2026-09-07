@@ -68,7 +68,7 @@ index.ts (生命周期)
 
 ### 用户角色
 
-四档权限：`user` < `admin`（群管理员）< `privateUser`（私聊用户，等同 admin 权限组）< `superAdmin`（`adminUser` 配置）。帮助指令输出按"角色 + 会话类型"决定版本（见 `src/utils/helpMessage.ts`），不是按角色一一对应。
+四档权限：`user`（含非好友私聊）< `admin`（群管理员）< `privateUser`（好友私聊用户，按 `event.sub_type === 'friend'` 判断，等同 admin 权限组）< `superAdmin`（`adminUsers` 配置，逗号分隔字符串经 `sanitizeConfig` 预解析为数组）。帮助指令输出按"角色 + 会话类型"决定版本（见 `src/utils/helpMessage.ts`），不是按角色一一对应。
 
 ### 推送卡片
 
@@ -89,6 +89,7 @@ index.ts (生命周期)
 ## 其他文档
 
 - `docs/store-pattern.md` — store 层数据读写范式（正反例）
+- `docs/instruction-pattern.md` — 指令分发范式（消息接收、注册表、四档权限模型、作用域校验）
 - `docs/help-output-pattern.md` — 指令帮助输出全链路范式
 - `docs/adr/` — 架构决策记录（SVG 渲染、离线变化检测、配置 Schema 注入运行时数据等）
 - `.github/copilot-instructions.md`: 面向 NapCat 的插件开发模板描述（TypeScript，ESM），使用 Vite 打包到 `dist/index.mjs` 作为插件入口；包含消息处理、配置管理和 WebUI 支持。

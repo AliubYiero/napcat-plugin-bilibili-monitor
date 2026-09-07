@@ -18,7 +18,7 @@ import { api_getDynamicFeed } from '../../api/getDynamicFeed';
 import { parseBiliDynamic } from './parser.service';
 import { buildDynMessage } from './push.service';
 import { getDynLimit, isDynLimitReached } from './limit.service';
-import { sendReplyByToInfo } from '../../handlers/message.handler';
+import { sendReplyByToInfo } from '../../handlers/utils';
 import type { OB11PostSendMsg } from 'napcat-types/napcat-onebot';
 
 /** 动态监听服务（导出实例，内部惰性实例化 store，遵循 store-pattern） */

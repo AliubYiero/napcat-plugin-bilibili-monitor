@@ -95,13 +95,13 @@ SuperAdmin 版可以包含**仅私聊可用**的指令 (`onlyPrivate`)。这直�
 |---|---|---|
 | `user` | 任意 | User |
 | `admin` (群管理员) | 任意 | Admin |
-| `privateUser` (私聊用户) | 私聊 | Admin |
+| `privateUser` (好友私聊用户) | 好友私聊 | Admin |
 | `superAdmin` | 群聊 | Admin |
 | `superAdmin` | 私聊 | SuperAdmin |
 
 映射依据:
 
-- `privateUser` 等同 admin 权限组, 故输出 Admin 版。
+- `privateUser` (机器人好友的私聊用户) 等同 admin 权限组, 故输出 Admin 版; 非好友私聊角色为 user, 输出 User 版。
 - **群聊超管输出 Admin 版而非 SuperAdmin 版**: SuperAdmin 版含有仅私聊可用的指令, 在群聊中输出会误导用户。私聊超管才能看到完整版。
 
 `HelpVariant` 类型 (`'user' | 'admin' | 'superAdmin'`) 与 texts.json / PNG 文件名中的权限组一一对应。

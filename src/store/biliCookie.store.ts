@@ -172,14 +172,9 @@ export class BiliCookieStore {
 
     /** 通知全部超级管理员 Cookie 已失效 */
     private async notifyAdmins(): Promise<boolean> {
-        const adminList = pluginState.config.adminUser
-            .split(',')
-            .map((id) => id.trim())
-            .filter(Boolean);
+        const adminList = pluginState.config.adminUsers;
 
-        const { sendPrivateMessage } = await import(
-            '../handlers/message.handler'
-        );
+        const { sendPrivateMessage } = await import('../handlers/utils');
         for (const adminId of adminList) {
             await sendPrivateMessage(
                 pluginState.ctx,

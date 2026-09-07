@@ -164,10 +164,6 @@ export default function StatusPage({
                         value={config.commandPrefix}
                     />
                     <InfoRow
-                        label="冷却时间"
-                        value={`${config.cooldownSeconds} 秒`}
-                    />
-                    <InfoRow
                         label="调试模式"
                         value={config.debug ? '开启' : '关闭'}
                     />

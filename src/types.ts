@@ -22,8 +22,6 @@ export interface PluginConfig {
     debug: boolean;
     /** 触发命令前缀，默认为 #cmd */
     commandPrefix: string;
-    /** 同一命令请求冷却时间（秒），0 表示不限制 */
-    cooldownSeconds: number;
     /** 按群的单独配置 */
     groupConfigs: Record<string, GroupConfig>;
     /** 轮询间隔（秒），多久拉取一次 B站直播间状态 */
@@ -33,7 +31,7 @@ export interface PluginConfig {
     /** 要推送的变化类型（多选），未选中的类型不推送 */
     pushTypes: ChangeType[];
     // TODO: 在这里添加你的插件配置项
-    adminUser: string;
+    adminUsers: string[];
 }
 
 /**

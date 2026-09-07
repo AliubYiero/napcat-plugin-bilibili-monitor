@@ -39,10 +39,22 @@ function sanitizeConfig(raw: unknown): PluginConfig {
     if (typeof raw.debug === 'boolean') out.debug = raw.debug;
     if (typeof raw.commandPrefix === 'string')
         out.commandPrefix = raw.commandPrefix;
-    if (typeof raw.adminUser === 'string')
-        out.adminUser = raw.adminUser;
-    if (typeof raw.cooldownSeconds === 'number')
-        out.cooldownSeconds = raw.cooldownSeconds;
+    // 处理 adminUsers - 从字符串（WebUI/旧配置）或数组（配置文件）转换为数组
+    // 兼容旧字段 adminUser（逗号分隔字符串）
+    const rawAdminUsers =
+        raw.adminUsers ?? raw.adminUser;
+    if (typeof rawAdminUsers === 'string') {
+        out.adminUsers = rawAdminUsers
+            .split(',')
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0);
+    } else if (Array.isArray(rawAdminUsers)) {
+        out.adminUsers = rawAdminUsers
+            .map((id) => String(id))
+            .filter((id) => id.length > 0);
+    } else {
+        out.adminUsers = [...DEFAULT_CONFIG.adminUsers];
+    }
     if (
         typeof raw.pollIntervalSeconds === 'number' &&
         raw.pollIntervalSeconds > 0

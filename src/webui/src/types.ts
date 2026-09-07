@@ -16,7 +16,6 @@ export interface PluginConfig {
     enabled: boolean;
     debug: boolean;
     commandPrefix: string;
-    cooldownSeconds: number;
     groupConfigs?: Record<string, GroupConfig>;
     // TODO: 在这里添加你的插件配置项类型
 }

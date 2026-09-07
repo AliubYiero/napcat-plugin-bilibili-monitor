@@ -9,7 +9,7 @@
 
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import { sendReply } from '../message.handler';
+import { sendReply } from '../utils';
 import { getUserRole } from '../../core/admin';
 import { biliLiveStoreService } from '../../services/live/store.service';
 import {
@@ -20,6 +20,7 @@ import {
     getLiveLimit,
     setLiveLimit,
 } from '../../services/live/limit.service';
+import { BiliLiveLimitStore } from '../../store/biliLiveLimit.store';
 
 const usageText = [
     '用法:',

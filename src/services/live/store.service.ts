@@ -9,7 +9,7 @@ import {
     type ChangeEvent,
     mapToRoomInfo,
 } from '../../store/biliLiveRoom.store';
-import { sendReplyByToInfo } from '../../handlers/message.handler';
+import { sendReplyByToInfo } from '../../handlers/utils';
 import { getLiveLimit, isLiveLimitReached } from './limit.service';
 import { api_getStatusInfoByUids } from '../../api/getStatusInfoByUids';
 import { buildChangeMessage } from './pushCard.service';

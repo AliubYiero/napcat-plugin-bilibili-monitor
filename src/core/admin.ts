@@ -1,7 +1,8 @@
 /**
  * 超级管理员模块
  *
- * 插件配置中的 adminUser 为逗号分隔的 QQ 号列表,
+ * 插件配置中的 adminUsers 为超级管理员 QQ 号列表
+ * (配置面为逗号分隔字符串, 经 sanitizeConfig 预解析为数组),
  * 超级管理员可管理直播监听上限等插件配置。
  */
 
@@ -21,8 +22,8 @@ export interface UserRole {
 
 /**
  * 获取消息发送者的用户角色
- * 优先级: superAdmin > privateUser(仅私聊) > admin(群管理员, 仅群聊可达) > user
- * 私聊用户的角色恒为 privateUser 或 superAdmin
+ * 优先级: superAdmin > privateUser(仅好友私聊) > admin(群管理员, 仅群聊可达) > user
+ * 好友私聊用户的角色恒为 privateUser 或 superAdmin, 非好友私聊降为 user
  */
 export function getUserRole(event: OB11Message): UserRole {
     const userId = String(event.user_id);
@@ -32,8 +33,10 @@ export function getUserRole(event: OB11Message): UserRole {
     if (isSuperAdmin(userId)) {
         role = 'superAdmin';
     } else if (!isGroup) {
-        // 私聊用户等同 admin 权限组
-        role = 'privateUser';
+        // 仅机器人好友的私聊等同 admin 权限组 (sub_type: friend=好友, group=临时会话)
+        if (event.sub_type === 'friend') {
+            role = 'privateUser';
+        }
     } else if (isAdmin(event)) {
         role = 'admin';
     }
@@ -63,18 +66,9 @@ function isAdmin(event: OB11Message): boolean {
 }
 
 /**
- * 获取超级管理员 QQ 号列表（解析自配置 adminUser, 逗号分隔）
- */
-function getAdminUsers(): string[] {
-    return (pluginState.config.adminUser ?? '')
-        .split(',')
-        .map((str) => str.trim())
-        .filter(Boolean);
-}
-
-/**
  * 判断指定 QQ 号是否为超级管理员
+ * 名单来自配置 adminUsers (sanitizeConfig 已预解析为数组)
  */
 export function isSuperAdmin(qq: string): boolean {
-    return getAdminUsers().includes(qq);
+    return pluginState.config.adminUsers.includes(qq);
 }

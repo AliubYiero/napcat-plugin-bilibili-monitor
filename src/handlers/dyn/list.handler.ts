@@ -1,7 +1,7 @@
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
 import { biliDynamicStoreService } from '../../services/dyn/store.service';
-import { sendReplyByToInfo } from '../message.handler';
+import { sendReplyByToInfo } from '../utils';
 
 /**
  * 查看当前会话正在监听动态的主播列表

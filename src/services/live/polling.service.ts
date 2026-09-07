@@ -25,7 +25,7 @@ import {
     type OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
-import { sendReplyByToInfo } from '../../handlers/message.handler';
+import { sendReplyByToInfo } from '../../handlers/utils';
 import { buildChangeMessage } from './pushCard.service';
 
 /** B站接口单次最大请求房间数 */

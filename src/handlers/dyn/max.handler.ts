@@ -9,7 +9,7 @@
 
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import { sendReply } from '../message.handler';
+import { sendReply } from '../utils';
 import { getUserRole } from '../../core/admin';
 import { biliDynamicStoreService } from '../../services/dyn/store.service';
 import {

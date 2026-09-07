@@ -6,7 +6,7 @@
 
 import type { OB11Message } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
-import { sendReply, createImageMessage } from '../message.handler';
+import { sendReply, createImageMessage } from '../utils';
 import {
     loginService,
     LoginSessionStatus,

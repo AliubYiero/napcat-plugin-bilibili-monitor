@@ -53,7 +53,7 @@
 
 ### 监听上限（仅超级管理员）
 
-超级管理员在配置项 `adminUser` 中配置（逗号分隔的 QQ 号列表）。`live max` 与 `dyn max` 形态一致：
+超级管理员在配置项 `adminUsers` 中配置（逗号分隔的 QQ 号列表，运行期以数组形式可用）。`live max` 与 `dyn max` 形态一致：
 
 | 指令 | 说明 |
 |------|------|
@@ -68,11 +68,10 @@
 | `enabled` | 插件全局开关 | `true` |
 | `debug` | 调试模式，输出详细日志 | `false` |
 | `commandPrefix` | 指令前缀 | `#bili` |
-| `cooldownSeconds` | 同一命令冷却时间（秒），0 不限制 | `0` |
 | `pollIntervalSeconds` | 直播状态轮询间隔（秒） | `60` |
 | `dynPollIntervalSeconds` | 动态轮询间隔（秒） | `300` |
 | `pushTypes` | 需要推送的变化类型（多选） | 全部类型 |
-| `adminUser` | 超级管理员 QQ 号（逗号分隔） | 空 |
+| `adminUsers` | 超级管理员 QQ 号（逗号分隔，WebUI 输入；运行期为数组） | 空 |
 
 配置可在 NapCat WebUI 插件配置面板中修改。
 

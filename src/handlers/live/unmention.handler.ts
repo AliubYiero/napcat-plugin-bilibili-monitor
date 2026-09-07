@@ -1,7 +1,7 @@
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
 import { biliLiveStoreService } from '../../services/live/store.service';
-import { sendReply } from '../message.handler';
+import { sendReply } from '../utils';
 
 /**
  * 取消开播 @ 提醒订阅（仅群聊）

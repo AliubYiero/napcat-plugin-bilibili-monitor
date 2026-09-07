@@ -1,7 +1,7 @@
 import { OB11Message } from 'napcat-types/napcat-onebot';
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { getUserRole, UserRole } from '../core/admin';
-import { sendReply } from './message.handler';
+import { sendReply } from './utils';
 import { addLiveHandler } from './live/add.handler';
 import { removeLiveHandler } from './live/remove.handler';
 import { listLiveHandler } from './live/list.handler';
@@ -50,7 +50,7 @@ interface InstructionDefinition {
     /**
      * 形态化作用域规则 (按参数个数匹配), 用于同一指令不同参数形态
      * 绑定不同作用域/权限的情况 (如 live max)。设置后指令级 scope 失效,
-     * 未命中任何形态时放行, 由 handler 自行校验参数
+     * 未命中任何形态时静默返回, 不进入 handler
      */
     scopeRules?: ScopeRule[];
 }
@@ -64,7 +64,10 @@ const ROLE_LEVEL: Record<UserRole['role'], number> = {
 };
 
 /**
- * 指令注册表: 模块 -> 子指令 -> 定义
+ * 指令注册表: 支持一级/二级两种命名空间形态
+ * - 二级: 模块 -> 子指令 -> 定义 (如 `#bili live add`)
+ * - 一级: 模块名下同名子指令的简写 (如 `#bili help` 等价于 `#bili live help`
+ *   之类的一级直达指令)
  */
 const instructionSetMapper: Record<
     string,
@@ -206,10 +209,19 @@ function hasRole(
 }
 
 /**
+ * 一级指令注册表: 指令名 -> 定义 (如 `#bili help` 这类无模块前缀的直达指令)
+ */
+const rootInstructionSetMapper: Record<string, InstructionDefinition> = {};
+
+/**
  * 指令统一处理逻辑
  * 分发前校验用户角色与指令作用域:
  * - 权限不足时静默忽略
  * - 作用域不满足时回复提示
+ *
+ * 命名空间支持一级/二级两种形态:
+ * - 二级: `模块 → 子指令`, args 前两位为模块名与子指令名
+ * - 一级: args 首位即指令名, 直接查一级注册表
  */
 export const instructionHandler = (
     ctx: NapCatPluginContext,
@@ -219,43 +231,64 @@ export const instructionHandler = (
     const [arg1, arg2, ...commands] = args.map((str) =>
         str.toLocaleLowerCase(),
     );
-    if (!arg1 || !arg2) {
+    if (!arg1) {
         return;
     }
 
+    // 二级命名空间: 模块 → 子指令
     const subCommandInstruction = instructionSetMapper[arg1];
-    if (!subCommandInstruction) {
+    if (subCommandInstruction) {
+        if (!arg2) {
+            return;
+        }
+        const definition = subCommandInstruction[arg2];
+        if (!definition) {
+            return;
+        }
+        dispatch(ctx, event, definition, commands);
         return;
     }
 
-    const definition = subCommandInstruction[arg2];
-    if (!definition) {
+    // 一级命名空间: 指令名直接命中
+    const rootDefinition = rootInstructionSetMapper[arg1];
+    if (!rootDefinition) {
         return;
     }
+    dispatch(ctx, event, rootDefinition, [arg2, ...commands]);
+};
 
+/**
+ * 校验角色与作用域后执行指令定义
+ * 所有命名空间形态共用的分发终点
+ */
+function dispatch(
+    ctx: NapCatPluginContext,
+    event: OB11Message,
+    definition: InstructionDefinition,
+    commands: string[],
+): void {
     const { role } = getUserRole(event);
     const messageType = event.message_type as InstructionScope;
 
-    // 形态化作用域: 按参数个数匹配, 未命中形态直接放行
+    // 形态化作用域: 按参数个数匹配, 未命中形态静默返回
     if (definition.scopeRules) {
         const rule = definition.scopeRules.find(
             (item) => item.args === commands.length,
         );
-        if (rule) {
-            if (
-                !hasRole(
-                    role,
-                    rule.requiredRole ??
-                        definition.requiredRole ??
-                        'user',
-                )
-            ) {
-                return;
-            }
-            if (rule.scope !== messageType) {
-                void sendScopeNotice(ctx, event, rule.scope);
-                return;
-            }
+        if (!rule) {
+            return;
+        }
+        if (
+            !hasRole(
+                role,
+                rule.requiredRole ?? definition.requiredRole ?? 'user',
+            )
+        ) {
+            return;
+        }
+        if (rule.scope !== messageType) {
+            void sendScopeNotice(ctx, event, rule.scope);
+            return;
         }
     } else {
         if (!hasRole(role, definition.requiredRole ?? 'user')) {
@@ -268,7 +301,7 @@ export const instructionHandler = (
     }
 
     definition.handler(ctx, event, commands);
-};
+}
 
 /** 作用域不满足时的提示 (异步发送, 不阻塞分发) */
 async function sendScopeNotice(
