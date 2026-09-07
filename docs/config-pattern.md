@@ -1,19 +1,19 @@
 # NapCat 插件配置范式
 
-本文是 NapCat 插件配置层的通用范式, 覆盖配置从声明到生效的全链路。以本项目 (napcat-plugin-bilibili-monitor) 为参考实现, 示例均摘录自真实代码。
+本文是 NapCat 插件配置层的通用范式, 覆盖配置从声明到生效的全链路: 类型定义、默认值与 Schema、清洗、运行时读写。遵循此范式时, 四环节分散在四个位置 (本文以本项目 `src/types.ts`、`src/config.ts`、`src/core/state.ts` 的 `sanitizeConfig` 等为参照实现)。
 
 ## 全链路总览
 
 一个配置项从声明到生效经过四个环节, 缺一不可:
 
 ```
-(a) 类型定义          src/types.ts        PluginConfig / GroupConfig
-(b) 默认值 + Schema   src/config.ts       DEFAULT_CONFIG / buildConfigSchema
-(c) 清洗              src/core/state.ts   sanitizeConfig
-(d) 运行时读写        src/core/state.ts   loadConfig / saveConfig / updateConfig
+(a) 类型定义          类型文件          PluginConfig / GroupConfig
+(b) 默认值 + Schema   配置文件          DEFAULT_CONFIG / buildConfigSchema
+(c) 清洗              全局状态文件      sanitizeConfig
+(d) 运行时读写        全局状态文件      loadConfig / saveConfig / updateConfig
 ```
 
-四处分散是插件框架的结构所致 (Schema 构建器需要 ctx、清洗需要独立纯函数、类型需要独立于运行时), 属于可接受的设计。范式文档不试图消除它, 而是用 checklist 保证四处同步。
+四处分散是插件框架的结构所致 (Schema 构建器需要 ctx、清洗需要独立纯函数、类型需要独立于运行时), 属于可接受的设计。范式不试图消除它, 而是用 checklist 保证四处同步。
 
 ## 核心约束: 三处一致 + 写入铁律
 
@@ -28,7 +28,7 @@
 
 - `loadConfig`: 读盘后经 `sanitizeConfig`; 文件不存在则写入默认配置落盘; 解析失败回退默认配置并记日志, 不抛错。
 - `replaceConfig(config)`: 入口统一 `sanitizeConfig(config)` 后再保存。
-- `updateConfig(partial)`: 仅限内部可信调用方使用 (字段已被上游清洗或来自 `DEFAULT_CONFIG` ); 若来源不可信, 先清洗。
+- `updateConfig(partial)`: 仅限内部可信调用方使用 (字段已被上游清洗或来自 `DEFAULT_CONFIG`); 若来源不可信, 先清洗。
 
 ## 清洗规则分类表
 
@@ -71,7 +71,7 @@ if (Array.isArray(raw.pushTypes)) {
 }
 ```
 
-字符串列表 (本项目为 `adminUsers`, 逗号分隔转数组):
+字符串列表 (以"逗号分隔的管理员名单"为例):
 
 ```ts
 if (typeof rawAdminUsers === 'string') {
@@ -110,34 +110,42 @@ if (isObject(raw.groupConfigs)) {
 
 Schema 由 `buildConfigSchema(ctx, ...)` 在运行时构建 (构建器方法挂在 `ctx.NapCatConfig` 上), 静态配置项遵循:
 
-- 控件类型与字段类型一一对应: boolean → 开关, text → 文本, number → 数字,select/multiSelect → 单选/多选。文本控件收集到的是字符串, 若逻辑字段是列表 (如 `adminUsers`), 由清洗层负责转换, Schema 描述里写清输入格式。
+- 控件类型与字段类型一一对应: boolean → 开关, text → 文本, number → 数字, select/multiSelect → 单选/多选。文本控件收集到的是字符串, 若逻辑字段是列表 (如管理员名单), 由清洗层负责转换, Schema 描述里写清输入格式。
 - 多选的候选值列表应有单一来源 (如 `VALID_PUSH_TYPES` 常量), 默认值与 Schema options 都从它派生, 避免两处硬编码。
 - 每个控件写 `description` 说明业务含义与生效时机 (如 "修改后下一轮生效")。
 
 ### Schema 的静态/动态边界
 
-Schema 中允许出现运行时数据, 但只允许进入 **展示块** (`html` /`plainText`), 不得进入可保存配置项。通用规则:
+Schema 中允许出现运行时数据, 但只允许进入 **展示块** (`html` / `plainText`), 不得进入可保存配置项。通用规则:
 
-1. Schema 构建函数接受可选的运行时快照参数 (如`buildConfigSchema(ctx, loginStatus)`), 快照为空时跳过对应展示块。
+1. Schema 构建函数接受可选的运行时快照参数 (如 `buildConfigSchema(ctx, loginStatus)`), 快照为空时跳过对应展示块。
 2. 运行时状态 (登录信息、统计等) 只渲染为 HTML 展示块, 不参与配置保存。
 3. 外部状态变化后需要刷新展示块时, 通过状态回调重建整个 Schema。
+
+⚠️ Schema 构建函数需要运行时数据时, **必须参数注入, 禁止配置模块静态 import 业务模块**——否则形成循环引用, 默认配置对象在模块加载期即触发 TDZ 错误。见 `docs/adr/0005-config-schema-runtime-data-injection.md`。
 
 ## 会话级配置与启用开关
 
 会话级配置 (群配置) 是 `Record<会话ID, GroupConfig>` 形态的嵌套配置项, 清洗时逐字段走标量规则。启用开关遵循三条规则:
 
-1. **单一查询入口**。提供 `pluginState.isGroupEnabled(groupId)` 之类的唯一判定函数, 业务代码不得散落读取`groupConfigs[id].enabled`。
-2. **宽松判定**。判定式为 `enabled !== false`——缺失字段视为启用, 零配置可用。插件必须显式声明自己选择"默认开启"还是"默认关闭", 见 `CONTEXT.md`。
+1. **单一查询入口**。提供 `pluginState.isGroupEnabled(groupId)` 之类的唯一判定函数, 业务代码不得散落读取 `groupConfigs[id].enabled`。
+2. **宽松判定**。判定式为 `enabled !== false`——缺失字段视为启用, 零配置可用。插件必须显式声明自己选择"默认开启"还是"默认关闭" (领域决策, 记入 `CONTEXT.md` 与 ADR)。
 3. **入口短路**。消息处理在最前端做开关检查, 禁用的会话直接忽略消息, 不进入指令解析。
 
 开关的修改入口 (指令 / WebUI) 由插件自选, 范式不强制。
 
 ## 新增配置项 checklist
 
-- [ ] `src/types.ts`: `PluginConfig` (或 `GroupConfig`) 加字段 + 注释
-- [ ] `src/config.ts`: `DEFAULT_CONFIG` 加默认值
-- [ ] `src/config.ts`: `buildConfigSchema` 加控件 (描述写清格式与生效时机)
-- [ ] `src/core/state.ts`: `sanitizeConfig` 按形态分类加清洗分支
+- [ ] 类型文件: `PluginConfig` (或 `GroupConfig`) 加字段 + 注释
+- [ ] 配置文件: `DEFAULT_CONFIG` 加默认值
+- [ ] 配置文件: `buildConfigSchema` 加控件 (描述写清格式与生效时机)
+- [ ] 全局状态文件: `sanitizeConfig` 按形态分类加清洗分支
 - [ ] 若是枚举: 候选值抽常量, Schema 与清洗共用
 - [ ] 若是会话级字段: 确认 `isGroupEnabled` 式单一入口仍覆盖
-- [ ] 若语义有默认值选择 (尤其是启用开关): 在 ADR 与 CONTEXT.md 中声明
+- [ ] 若语义有默认值选择 (尤其是启用开关): 在 ADR 与 `CONTEXT.md` 中声明
+
+## 与其他范式的关系
+
+- 与**生命周期铁律**的关系: 配置读盘发生在 `plugin_init` 之后, 清洗是纯函数可在任何时机调用; Schema 构建需要 ctx, 只能在运行期进行。见 `development-pattern.md`。
+- 与**指令分发范式**的关系: 接收层读取前缀与群启用状态都来自配置, 运行期生效; 会话开关在消息入口最前端短路。见 `instruction-pattern.md`。
+- 与**领域建模纪律**的关系: 启用开关等默认值语义是领域决策, 定型时记入 `CONTEXT.md` 并按需补 ADR (本项目见 `docs/adr/0006-group-enabled-default.md`)。
