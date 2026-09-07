@@ -10,6 +10,10 @@
 **帮助版本 (HelpVariant)**:
 帮助指令输出的内容版本,由角色与会话类型共同决定,而非仅由角色决定:群聊超管与群管理员/私聊用户输出 Admin 版,仅私聊超管输出 SuperAdmin 版。_Avoid_: 按角色一一对应帮助版本
 
+**群启用开关 (group enabled)**:
+群级启用开关 (`GroupConfig.enabled`), 语义为默认开启: 未配置或字段缺失视为启用, 仅显式 `false` 禁用 (宽松判定 `enabled !== false`)。判定入口唯一 (`isGroupEnabled`), 消息入口最前端短路。修改入口当前仅 WebUI。
+_Avoid_: 默认关闭, 散落读取 enabled
+
 **主播 (uid)**:
 被监控的 Bilibili 用户,以 mid 标识。插件对每个主播记录其直播间状态并推送变化。
 _Avoid_: UP主, 用户, 房间号

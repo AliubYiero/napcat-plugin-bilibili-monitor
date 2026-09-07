@@ -89,6 +89,7 @@ index.ts (生命周期)
 ## 其他文档
 
 - `docs/store-pattern.md` — store 层数据读写范式（正反例）
+- `docs/config-pattern.md` — 配置层通用范式（类型/默认值/Schema/清洗四环节、新增配置项 checklist、会话级启用开关）
 - `docs/instruction-pattern.md` — 指令分发范式（消息接收、注册表、四档权限模型、作用域校验）
 - `docs/help-output-pattern.md` — 指令帮助输出全链路范式
 - `docs/adr/` — 架构决策记录（SVG 渲染、离线变化检测、配置 Schema 注入运行时数据等）
