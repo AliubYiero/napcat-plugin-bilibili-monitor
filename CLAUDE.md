@@ -14,6 +14,7 @@ pnpm run build          # 构建插件(vite build,输出 dist/)
 pnpm run watch          # watch 构建
 pnpm run typecheck      # tsc --noEmit(类型检查,无 lint/test 命令;详见 ADR 0003)
 pnpm run format         # biome format --write
+pnpm run help:generate  # 通过 napcat-help-generate 服务 API 生成帮助图片与文本(详见 docs/help-output-pattern.md)
 pnpm run build:webui    # 构建前端(src/webui 独立子项目,React + Tailwind)
 pnpm run dev:webui      # 前端开发服务器
 ```
@@ -34,7 +35,7 @@ pnpm run dev:webui      # 前端开发服务器
 | 配置全链路(四环节、清洗、Schema、会话开关) | `docs/config-pattern.md` |
 | 指令分发(接收→分发→执行、四档权限、作用域) | `docs/instruction-pattern.md` |
 | 消息发送(发送工具、消息段工厂) | `docs/message-send-pattern.md` |
-| 帮助输出(cmd.json → 产物 → 变体) | `docs/help-output-pattern.md` |
+| 帮助输出(cmd 权威源 → API 生成 → 变体) | `docs/help-output-pattern.md` |
 | 领域术语(含 _Avoid_ 反用词) | `CONTEXT.md` |
 | 架构决策记录 | `docs/adr/` |
 
@@ -80,7 +81,7 @@ index.ts (生命周期)
 
 ### 指令注册
 
-新增指令在 `src/handlers/instruction.handler.ts` 的 `instructionSetMapper`(模块 → 子指令 → 定义)注册,可声明 `requiredRole` / `scope`,或用 `scopeRules` 按参数个数区分形态权限(如 `live max`)。帮助图片位于 `src/assets/*.png`,部署到 data 目录上级的 assets。
+新增指令在 `src/handlers/instruction.handler.ts` 的 `instructionSetMapper`(模块 → 子指令 → 定义)注册,可声明 `requiredRole` / `scope`,或用 `scopeRules` 按参数个数区分形态权限(如 `live max`)。帮助图片位于 `src/assets/*.png`,部署到 data 目录上级的 assets。帮助文本与图片由 `pnpm run help:generate` 从 `scripts/generateHelp/cmds/` 权威源生成(`src/handlers/*/helpText.generated.ts` 为生成文件,禁止手改)。
 
 ### 配置
 
