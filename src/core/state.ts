@@ -41,8 +41,7 @@ function sanitizeConfig(raw: unknown): PluginConfig {
         out.commandPrefix = raw.commandPrefix;
     // 处理 adminUsers - 从字符串（WebUI/旧配置）或数组（配置文件）转换为数组
     // 兼容旧字段 adminUser（逗号分隔字符串）
-    const rawAdminUsers =
-        raw.adminUsers ?? raw.adminUser;
+    const rawAdminUsers = raw.adminUsers ?? raw.adminUser;
     if (typeof rawAdminUsers === 'string') {
         out.adminUsers = rawAdminUsers
             .split(',')

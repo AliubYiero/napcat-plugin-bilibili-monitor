@@ -13,6 +13,7 @@ import { sendReplyByToInfo } from '../../handlers/utils';
 import { getLiveLimit, isLiveLimitReached } from './limit.service';
 import { api_getStatusInfoByUids } from '../../api/getStatusInfoByUids';
 import { buildChangeMessage } from './pushCard.service';
+import { biliOnlineMonitorService } from './onlineMonitor.service';
 
 /**
  * Bilibili 直播变化监听器
@@ -130,7 +131,16 @@ class BiliLiveStoreService {
             const message = isRemoved
                 ? `已停止监听主播「${uname || uid}」(${uid})`
                 : `未找到主播「${uname || uid}」(${uid}) 的监听信息, 移除失败`;
-            await sendReplyByToInfo(pluginState.ctx, toInfo, message);
+            // 级联移除同接监听（附属功能不独立存活）
+            let cascadeNote = '';
+            if (isRemoved && this.onlineCascadeRemove(uid, toInfo)) {
+                cascadeNote = '\n(该主播的同接监听已一并关闭)';
+            }
+            await sendReplyByToInfo(
+                pluginState.ctx,
+                toInfo,
+                message + cascadeNote,
+            );
         } catch (e) {
             const errorMessage = `主播 ${uid} 移除监听失败`;
             pluginState.ctx.logger.error(errorMessage, e);
@@ -154,6 +164,23 @@ class BiliLiveStoreService {
                         t.type === toInfo.type && t.id === toInfo.id,
                 ),
             );
+    }
+
+    /**
+     * 判断该主播是否对指定会话开启了直播状态监听
+     */
+    hasInLiveMonitor(
+        uid: string,
+        toInfo: BiliLiveMonitorToInfo,
+    ): boolean {
+        return this.biliLiveStore.has(uid, toInfo);
+    }
+
+    /**
+     * 获取全部直播监听记录（供附属功能查询主播名等）
+     */
+    listAll(): BiliLiveMonitor[] {
+        return this.biliLiveStore.get();
     }
 
     /**
@@ -248,6 +275,20 @@ class BiliLiveStoreService {
         return (
             pluginState.config.pushTypes?.includes('start_stream') ??
             true
+        );
+    }
+
+    /**
+     * 级联移除同接监听
+     * 与 onlineMonitor.service 存在模块循环, 但此处仅在运行期调用, ESM 下安全
+     */
+    private onlineCascadeRemove(
+        uid: string,
+        toInfo: BiliLiveMonitorToInfo,
+    ): boolean {
+        return biliOnlineMonitorService.cascadeRemoveIfPresent(
+            uid,
+            toInfo,
         );
     }
 

@@ -27,6 +27,7 @@ import {
 } from 'napcat-types/napcat-onebot';
 import { sendReplyByToInfo } from '../../handlers/utils';
 import { buildChangeMessage } from './pushCard.service';
+import { onlineSnapshotService } from './onlineSnapshots.service';
 
 /** B站接口单次最大请求房间数 */
 const MAX_ROOM_IDS_PER_REQUEST = 100;
@@ -107,10 +108,22 @@ export class BiliLivePollingService {
                 return;
             }
             await this.pollOnce();
+            // 直播状态更新完成后顺带采集同接快照（跟随轮询节拍, 无独立定时器）
+            await this.captureOnlineSnapshots();
         } catch (err) {
             pluginState.logger.error('轮询执行出错:', err);
         } finally {
             this.scheduleNext();
+        }
+    }
+
+    /** 对"开播且开启同接监听"的主播串行采集同接快照（失败静默） */
+    private async captureOnlineSnapshots(): Promise<void> {
+        try {
+            const uids = this.liveStore.get().map((m) => m.uid);
+            await onlineSnapshotService.captureBatch(uids);
+        } catch (err) {
+            pluginState.logger.warn('同接数批量采集出错:', err);
         }
     }
 
@@ -165,6 +178,13 @@ export class BiliLivePollingService {
                     const roomInfo = mapToRoomInfo(roomStatus);
                     if (roomInfo) {
                         this.roomStore.updateOrAdd(roomInfo);
+                        // 累积观众：轮询接口 online 为累积观看人数, 每轮覆盖更新
+                        if (roomInfo.live_status === 'streaming') {
+                            this.roomStore.updateAccumulatedAudience(
+                                String(roomInfo.uid),
+                                roomStatus.online,
+                            );
+                        }
                     } else {
                         pluginState.logger.debug(
                             `忽略无效的直播间数据 (uid: ${roomStatus?.uid})`,
@@ -188,6 +208,9 @@ export class BiliLivePollingService {
             pluginState.logger.debug(
                 `收到直播间变化事件: uid=${uid}, type=${type}`,
             );
+
+            // 同接监听的运行时数据维护（先于推送, 供推送读取计算）
+            this.maintainOnlineRuntimeData(event);
 
             // 1. 过滤未启用的推送类型
             const pushTypes = pluginState.config.pushTypes;
@@ -226,7 +249,7 @@ export class BiliLivePollingService {
                 pluginState.logger.debug(
                     `推送 ${type} 通知到 ${toInfo.type}: ${toInfo.id}（uid=${uid}）`,
                 );
-                
+
                 // 开播事件: 群目标存在开播 @ 订阅时, 按 10 人一组额外发送 @ 提醒
                 if (
                     event.type === 'start_stream' &&
@@ -243,15 +266,79 @@ export class BiliLivePollingService {
                         );
                     }
                 }
-                
+
                 await sendReplyByToInfo(
                     pluginState.ctx,
                     toInfo,
                     message,
                 );
             }
+
+            // 5. 下播推送完成后清理同接运行时数据（推送时仍需读取快照计算平均同接）
+            if (event.type === 'end_stream') {
+                this.roomStore.clearRuntimeData(event.uid);
+            }
         } catch (err) {
             pluginState.logger.error('处理直播间变化事件出错:', err);
+        }
+    }
+
+    /**
+     * 同接监听运行时数据维护：
+     * - 开播：触发首点同接采集
+     * - 直播中改标题/分区：将变更前内容记入直播内容历史
+     * - 下播：先把最后一段内容补录进历史（endTime = 下播时间）,
+     *   推送完成后再清空快照/历史并重置累计观众（见 afterPushCleanup）
+     */
+    private maintainOnlineRuntimeData(event: ChangeEvent): void {
+        try {
+            const nowSec = Math.floor(Date.now() / 1000);
+            const old = event.oldRoomInfo;
+
+            switch (event.type) {
+                case 'start_stream': {
+                    // 兜底清理上一场的残留（end_stream 推送未启用时不会触发清理）
+                    this.roomStore.clearRuntimeData(event.uid);
+                    void onlineSnapshotService.captureOnStart(
+                        event.uid,
+                    );
+                    break;
+                }
+                case 'title_changed':
+                case 'area_changed': {
+                    if (!old) break;
+                    this.roomStore.pushLiveContent(event.uid, {
+                        title: old.title,
+                        parent_area_name: old.parent_area_name,
+                        area_name: old.area_name,
+                        startTime: old.live_time,
+                        endTime: nowSec,
+                    });
+                    break;
+                }
+                case 'end_stream': {
+                    if (!old) break;
+                    const contents =
+                        this.roomStore.get(event.uid)?.liveContents ??
+                        [];
+                    const lastEnd =
+                        contents.length > 0
+                            ? contents[contents.length - 1].endTime
+                            : old.live_time;
+                    this.roomStore.pushLiveContent(event.uid, {
+                        title: old.title,
+                        parent_area_name: old.parent_area_name,
+                        area_name: old.area_name,
+                        startTime: lastEnd,
+                        endTime: nowSec,
+                    });
+                    break;
+                }
+                default:
+                    break;
+            }
+        } catch (err) {
+            pluginState.logger.warn('同接运行时数据维护出错:', err);
         }
     }
 }

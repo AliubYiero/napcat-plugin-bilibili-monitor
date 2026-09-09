@@ -105,6 +105,8 @@ async function ensureServer(port: number): Promise<void> {
         cwd: GENERATOR_ROOT,
         stdio: 'ignore',
         detached: false,
+        // Windows 下 Node v20.12+ 对 .cmd 的 spawn 强制要求 shell
+        shell: process.platform === 'win32',
     });
     child.on('error', (err) => {
         console.error(

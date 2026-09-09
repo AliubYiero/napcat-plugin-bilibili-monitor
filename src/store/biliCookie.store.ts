@@ -174,7 +174,9 @@ export class BiliCookieStore {
     private async notifyAdmins(): Promise<boolean> {
         const adminList = pluginState.config.adminUsers;
 
-        const { sendPrivateMessage } = await import('../handlers/utils');
+        const { sendPrivateMessage } = await import(
+            '../handlers/utils'
+        );
         for (const adminId of adminList) {
             await sendPrivateMessage(
                 pluginState.ctx,

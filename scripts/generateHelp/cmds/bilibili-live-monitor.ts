@@ -56,12 +56,33 @@ export const bilibiliLiveMonitor: Cmd = {
             ],
         },
         {
+            groupName: '同接监听指令',
+            instructions: [
+                {
+                    cmd: '#bili live online add <主播uid>',
+                    desc: '添加主播到同接数监听列表',
+                },
+                {
+                    cmd: '#bili live online remove <主播uid>',
+                    desc: '从同接数监听列表移除主播',
+                },
+                {
+                    cmd: '#bili live online list',
+                    desc: '查看当前正在监听同接数的主播列表',
+                },
+            ],
+        },
+        {
             groupName: '监听管理指令',
             isAdmin: true,
             instructions: [
                 {
                     cmd: '#bili live max',
                     desc: '查看当前会话直播状态监听上限',
+                },
+                {
+                    cmd: '#bili live online max',
+                    desc: '查看当前会话直播同接监听上限',
                 },
             ],
         },
@@ -71,12 +92,22 @@ export const bilibiliLiveMonitor: Cmd = {
             instructions: [
                 {
                     cmd: '#bili live max <监听数>',
-                    desc: '设置当前群直播状态监听上限',
+                    desc: '设置当前群聊直播状态监听上限',
                     onlyGroup: true,
                 },
                 {
                     cmd: '#bili live max <监听数> <group|private> <id>',
                     desc: '修改指定会话直播状态监听上限',
+                    onlyPrivate: true,
+                },
+                {
+                    cmd: '#bili live online max <监听数>',
+                    desc: '设置当前群聊直播同接监听上限',
+                    onlyGroup: true,
+                },
+                {
+                    cmd: '#bili live online max <监听数> <group|private> <id>',
+                    desc: '修改指定会话直播同接监听上限',
                     onlyPrivate: true,
                 },
             ],

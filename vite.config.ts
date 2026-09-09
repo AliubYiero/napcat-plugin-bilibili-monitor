@@ -149,8 +149,8 @@ function copyAssetsPlugin() {
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, __dirname, '');
-    let enabledNapcatHmrPlugin: Plugin | undefined ;
-    if ( mode === 'deploy') {
+    let enabledNapcatHmrPlugin: Plugin | undefined;
+    if (mode === 'deploy') {
         enabledNapcatHmrPlugin = napcatHmrPlugin({
             webui: {
                 distDir: './src/webui/dist',
@@ -158,7 +158,7 @@ export default defineConfig(({ mode }) => {
             },
             wsUrl: env.WS_URL,
             token: env.TOKEN,
-        })
+        });
     }
     return {
         resolve: {

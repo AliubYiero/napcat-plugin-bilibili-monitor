@@ -19,6 +19,10 @@ import { loginHandler } from './user/login.handler';
 import { logoutHandler } from './user/logout.handler';
 import { statusHandler } from './user/status.handler';
 import { helpUserHandler } from './user/help.handler';
+import { addOnlineHandler } from './live/online/add.handler';
+import { removeOnlineHandler } from './live/online/remove.handler';
+import { listOnlineHandler } from './live/online/list.handler';
+import { maxOnlineHandler } from './live/online/max.handler';
 
 /** 指令作用域 */
 type InstructionScope = 'group' | 'private';
@@ -61,6 +65,62 @@ const ROLE_LEVEL: Record<UserRole['role'], number> = {
     admin: 1,
     privateUser: 2,
     superAdmin: 3,
+};
+
+/**
+ * 三级命名空间注册表: 模块 -> 中间层 -> 子指令 -> 定义
+ * 中间层为纯路由前缀 (如 `online`), 不携带权限/作用域属性,
+ * 权限与作用域完全由叶子指令声明。匹配优先于二级注册表。
+ */
+const nestedInstructionSetMapper: Record<
+    string,
+    Record<string, Record<string, InstructionDefinition>>
+> = {
+    live: {
+        online: {
+            /**
+             * 添加主播到同接数监听列表 (直播监听的附属功能)
+             */
+            add: { handler: addOnlineHandler },
+            /**
+             * 从同接数监听列表移除主播
+             */
+            remove: { handler: removeOnlineHandler },
+            /**
+             * 查看当前正在监听同接数的主播列表
+             */
+            list: { handler: listOnlineHandler },
+            /**
+             * 查看/设置同接监听上限
+             * 形态与 live max 对称, 默认上限群 1 / 私 0
+             */
+            max: {
+                handler: maxOnlineHandler,
+                scopeRules: [
+                    {
+                        args: 0,
+                        scope: 'group',
+                        requiredRole: 'admin',
+                    },
+                    {
+                        args: 0,
+                        scope: 'private',
+                        requiredRole: 'admin',
+                    },
+                    {
+                        args: 1,
+                        scope: 'group',
+                        requiredRole: 'superAdmin',
+                    },
+                    {
+                        args: 3,
+                        scope: 'private',
+                        requiredRole: 'superAdmin',
+                    },
+                ],
+            },
+        },
+    },
 };
 
 /**
@@ -211,7 +271,10 @@ function hasRole(
 /**
  * 一级指令注册表: 指令名 -> 定义 (如 `#bili help` 这类无模块前缀的直达指令)
  */
-const rootInstructionSetMapper: Record<string, InstructionDefinition> = {};
+const rootInstructionSetMapper: Record<
+    string,
+    InstructionDefinition
+> = {};
 
 /**
  * 指令统一处理逻辑
@@ -219,9 +282,11 @@ const rootInstructionSetMapper: Record<string, InstructionDefinition> = {};
  * - 权限不足时静默忽略
  * - 作用域不满足时回复提示
  *
- * 命名空间支持一级/二级两种形态:
+ * 命名空间支持一级/二级/三级三种形态:
+ * - 三级: `模块 → 中间层 → 子指令`, 中间层为纯路由前缀 (如 live online add)
  * - 二级: `模块 → 子指令`, args 前两位为模块名与子指令名
  * - 一级: args 首位即指令名, 直接查一级注册表
+ * 三级优先匹配, 未命中回落二级
  */
 export const instructionHandler = (
     ctx: NapCatPluginContext,
@@ -233,6 +298,19 @@ export const instructionHandler = (
     );
     if (!arg1) {
         return;
+    }
+
+    // 三级命名空间: 模块 → 中间层 → 子指令 (优先匹配)
+    const nestedModule = nestedInstructionSetMapper[arg1];
+    if (nestedModule && arg2) {
+        const [arg3, ...restCommands] = commands;
+        if (arg3) {
+            const nestedDefinition = nestedModule[arg2]?.[arg3];
+            if (nestedDefinition) {
+                dispatch(ctx, event, nestedDefinition, restCommands);
+                return;
+            }
+        }
     }
 
     // 二级命名空间: 模块 → 子指令
@@ -281,7 +359,9 @@ function dispatch(
         if (
             !hasRole(
                 role,
-                rule.requiredRole ?? definition.requiredRole ?? 'user',
+                rule.requiredRole ??
+                    definition.requiredRole ??
+                    'user',
             )
         ) {
             return;

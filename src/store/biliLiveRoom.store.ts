@@ -9,6 +9,7 @@ export function mapToRoomInfo(
     room: RoomStatusInfo,
 ): BiliLiveRoomInfo | null {
     if (!room || typeof room.uid !== 'number') return null;
+    // 运行时字段（liveContents 等）此处留空, 由事件/采集层填充
     return {
         room_id: room.room_id,
         uid: room.uid,
@@ -22,8 +23,25 @@ export function mapToRoomInfo(
         avatar: room.face || '',
         cover_from_user: room.cover_from_user || '',
         keyframe: room.keyframe || '',
+        liveContents: [],
+        accumulatedAudience: 0,
+        onlineSnapshots: [],
     };
 }
+
+/** 直播内容记录：一次连续的标题+分区区间 */
+export interface BiliLiveContent {
+    title: string;
+    parent_area_name: string;
+    area_name: string;
+    /** 内容开始时间戳（秒）：首个内容为开播时间，其余为上一内容的结束时间 */
+    startTime: number;
+    /** 内容结束时间戳（秒）：变更（或下播）事件发生的时间 */
+    endTime: number;
+}
+
+/** 同接数快照：[同接数, 采集时间戳（秒）] */
+export type BiliOnlineSnapshot = [number, number];
 
 /** 直播间信息（与接口对齐） */
 export interface BiliLiveRoomInfo {
@@ -41,6 +59,12 @@ export interface BiliLiveRoomInfo {
     cover_from_user?: string;
     /** 直播间关键帧 url（直播画面截图，可能为空） */
     keyframe?: string;
+    /** 直播内容历史记录（不含当前内容，当前内容即顶层 title/分区字段；下播时补录最后一段） */
+    liveContents: BiliLiveContent[];
+    /** 累计观众（轮询接口 online 字段覆盖更新，下播重置 0） */
+    accumulatedAudience: number;
+    /** 实时同接数快照序列（开播时抓首点，轮询节拍追加，下播推送后清空） */
+    onlineSnapshots: BiliOnlineSnapshot[];
 }
 
 /** 变化类型枚举 */
@@ -126,8 +150,16 @@ export class BiliLiveRoomStore {
             return false;
         }
 
-        // 覆盖数据
-        this.data[uid] = { ...roomInfo };
+        // 覆盖数据：接口映射不携带运行时字段, 保留旧的采集/内容记录
+        this.data[uid] = {
+            ...roomInfo,
+            liveContents: oldInfo.liveContents ?? [],
+            accumulatedAudience:
+                roomInfo.accumulatedAudience ||
+                oldInfo.accumulatedAudience ||
+                0,
+            onlineSnapshots: oldInfo.onlineSnapshots ?? [],
+        };
         this.saveToFile();
 
         // 触发所有监听器（每个变化类型分别触发）
@@ -142,6 +174,48 @@ export class BiliLiveRoomStore {
         });
 
         return true;
+    }
+
+    // ========== 运行时字段更新（不触发变化事件） ==========
+
+    /** 更新累计观众（轮询每轮覆盖，未开播或无记录时忽略） */
+    updateAccumulatedAudience(uid: string, online: number): void {
+        const info = this.data[uid];
+        if (!info || online <= 0) return;
+        if (info.accumulatedAudience === online) return;
+        info.accumulatedAudience = online;
+        this.saveToFile();
+    }
+
+    /** 追加一条同接数快照（无记录时忽略） */
+    appendOnlineSnapshot(
+        uid: string,
+        snapshot: BiliOnlineSnapshot,
+    ): void {
+        const info = this.data[uid];
+        if (!info) return;
+        info.onlineSnapshots.push(snapshot);
+        this.saveToFile();
+    }
+
+    /** 将一段直播内容记入历史（uid 字符串由调用方给定） */
+    pushLiveContent(uid: string, content: BiliLiveContent): void {
+        const info = this.data[uid];
+        if (!info) return;
+        info.liveContents.push(content);
+        this.saveToFile();
+    }
+
+    /**
+     * 下播后清理运行时数据：清空同接快照与内容历史，重置累计观众
+     */
+    clearRuntimeData(uid: string): void {
+        const info = this.data[uid];
+        if (!info) return;
+        info.liveContents = [];
+        info.accumulatedAudience = 0;
+        info.onlineSnapshots = [];
+        this.saveToFile();
     }
 
     // ========== 变化监听 ==========
