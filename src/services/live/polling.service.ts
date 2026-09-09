@@ -16,6 +16,7 @@ import {
 } from '../../store/biliLive.store';
 import {
     BiliLiveRoomStore,
+    type BiliLiveContent,
     type ChangeEvent,
     mapToRoomInfo,
 } from '../../store/biliLiveRoom.store';
@@ -284,6 +285,34 @@ export class BiliLivePollingService {
     }
 
     /**
+     * 将一段直播内容记入历史，写入前与历史末条做重复检测：
+     * 同一次 updateOrAdd 可能因标题+分区同时变化触发多个事件，
+     * 各事件携带同一份 oldRoomInfo，会导致相同内容被写入多次。
+     * 判定键：title + parent_area_name + area_name + startTime 全部相同。
+     */
+    private pushLiveContentDeduped(
+        uid: string,
+        content: BiliLiveContent,
+    ): void {
+        const contents =
+            this.roomStore.get(uid)?.liveContents ?? [];
+        const last = contents[contents.length - 1];
+        if (
+            last &&
+            last.title === content.title &&
+            last.parent_area_name === content.parent_area_name &&
+            last.area_name === content.area_name &&
+            last.startTime === content.startTime
+        ) {
+            pluginState.logger.debug(
+                `直播内容历史重复写入，跳过 uid=${uid}`,
+            );
+            return;
+        }
+        this.roomStore.pushLiveContent(uid, content);
+    }
+
+    /**
      * 同接监听运行时数据维护：
      * - 开播：触发首点同接采集
      * - 直播中改标题/分区：将变更前内容记入直播内容历史
@@ -307,7 +336,7 @@ export class BiliLivePollingService {
                 case 'title_changed':
                 case 'area_changed': {
                     if (!old) break;
-                    this.roomStore.pushLiveContent(event.uid, {
+                    this.pushLiveContentDeduped(event.uid, {
                         title: old.title,
                         parent_area_name: old.parent_area_name,
                         area_name: old.area_name,
@@ -325,7 +354,7 @@ export class BiliLivePollingService {
                         contents.length > 0
                             ? contents[contents.length - 1].endTime
                             : old.live_time;
-                    this.roomStore.pushLiveContent(event.uid, {
+                    this.pushLiveContentDeduped(event.uid, {
                         title: old.title,
                         parent_area_name: old.parent_area_name,
                         area_name: old.area_name,

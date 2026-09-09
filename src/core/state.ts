@@ -98,27 +98,23 @@ function sanitizeConfig(raw: unknown): PluginConfig {
 // ==================== 插件全局状态类 ====================
 
 class PluginState {
-    /** NapCat 插件上下文（init 后可用） */
-    private _ctx: NapCatPluginContext | null = null;
-
     /** 插件配置 */
     config: PluginConfig = { ...DEFAULT_CONFIG };
-
     /** 插件启动时间戳 */
     startTime: number = 0;
-
     /** 机器人自身 QQ 号 */
     selfId: string = '';
-
     /** 活跃的定时器 Map: jobId -> NodeJS.Timeout */
     timers: Map<string, ReturnType<typeof setInterval>> = new Map();
-
     /** 运行时统计 */
     stats = {
         processed: 0,
         todayProcessed: 0,
         lastUpdateDay: new Date().toDateString(),
     };
+
+    /** NapCat 插件上下文（init 后可用） */
+    private _ctx: NapCatPluginContext | null = null;
 
     /** 获取上下文（确保已初始化） */
     get ctx(): NapCatPluginContext {
@@ -148,28 +144,6 @@ class PluginState {
     }
 
     /**
-     * 获取机器人自身 QQ 号（异步，init 时自动调用）
-     */
-    private async fetchSelfId(): Promise<void> {
-        try {
-            const res = (await this.ctx.actions.call(
-                'get_login_info',
-                {},
-                this.ctx.adapterName,
-                this.ctx.pluginManager.config,
-            )) as { user_id?: number | string };
-            if (res?.user_id) {
-                this.selfId = String(res.user_id);
-                this.logger.debug(
-                    '(｡·ω·｡) 机器人 QQ: ' + this.selfId,
-                );
-            }
-        } catch (e) {
-            this.logger.warn('(；′⌒`) 获取机器人 QQ 号失败:', e);
-        }
-    }
-
-    /**
      * 清理（在 plugin_cleanup 中调用）
      */
     cleanup(): void {
@@ -183,22 +157,12 @@ class PluginState {
         this._ctx = null;
     }
 
-    // ==================== 数据目录 ====================
-
-    /** 确保数据目录存在 */
-    private ensureDataDir(): void {
-        const dataPath = this.ctx.dataPath;
-        if (!fs.existsSync(dataPath)) {
-            fs.mkdirSync(dataPath, { recursive: true });
-        }
-    }
-
     /** 获取数据文件完整路径 */
     getDataFilePath(filename: string): string {
         return path.join(this.ctx.dataPath, filename);
     }
 
-    // ==================== 通用数据文件读写 ====================
+    // ==================== 数据目录 ====================
 
     /**
      * 读取 JSON 数据文件
@@ -225,13 +189,14 @@ class PluginState {
      * 保存 JSON 数据文件
      * @param filename 数据文件名
      * @param data 要保存的数据
+     * @param space 要保存的数据
      */
-    saveDataFile<T>(filename: string, data: T): void {
+    saveDataFile<T>(filename: string, data: T, space: number = 0): void {
         const filePath = this.getDataFilePath(filename);
         try {
             fs.writeFileSync(
                 filePath,
-                JSON.stringify(data, null, 2),
+                JSON.stringify(data, null, space),
                 'utf-8',
             );
         } catch (e) {
@@ -242,7 +207,7 @@ class PluginState {
         }
     }
 
-    // ==================== 配置管理 ====================
+    // ==================== 通用数据文件读写 ====================
 
     /**
      * 从磁盘加载配置
@@ -298,6 +263,8 @@ class PluginState {
         }
     }
 
+    // ==================== 配置管理 ====================
+
     /**
      * 合并更新配置
      */
@@ -335,8 +302,6 @@ class PluginState {
         return this.config.groupConfigs[groupId]?.enabled !== false;
     }
 
-    // ==================== 统计 ====================
-
     /**
      * 增加处理计数
      */
@@ -350,12 +315,12 @@ class PluginState {
         this.stats.processed++;
     }
 
-    // ==================== 工具方法 ====================
-
     /** 获取运行时长（毫秒） */
     getUptime(): number {
         return Date.now() - this.startTime;
     }
+
+    // ==================== 统计 ====================
 
     /** 获取格式化的运行时长 */
     getUptimeFormatted(): string {
@@ -369,6 +334,38 @@ class PluginState {
         if (h > 0) return `${h}小时${m % 60}分钟`;
         if (m > 0) return `${m}分钟${s % 60}秒`;
         return `${s}秒`;
+    }
+
+    // ==================== 工具方法 ====================
+
+    /**
+     * 获取机器人自身 QQ 号（异步，init 时自动调用）
+     */
+    private async fetchSelfId(): Promise<void> {
+        try {
+            const res = (await this.ctx.actions.call(
+                'get_login_info',
+                {},
+                this.ctx.adapterName,
+                this.ctx.pluginManager.config,
+            )) as { user_id?: number | string };
+            if (res?.user_id) {
+                this.selfId = String(res.user_id);
+                this.logger.debug(
+                    '(｡·ω·｡) 机器人 QQ: ' + this.selfId,
+                );
+            }
+        } catch (e) {
+            this.logger.warn('(；′⌒`) 获取机器人 QQ 号失败:', e);
+        }
+    }
+
+    /** 确保数据目录存在 */
+    private ensureDataDir(): void {
+        const dataPath = this.ctx.dataPath;
+        if (!fs.existsSync(dataPath)) {
+            fs.mkdirSync(dataPath, { recursive: true });
+        }
     }
 }
 
