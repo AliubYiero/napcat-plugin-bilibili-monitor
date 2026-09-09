@@ -41,6 +41,7 @@ const LiveType = {
     STOP_LIVE: 1,
     CHANGE_LIVE_PARTITION: 2,
     CHANGE_LIVE_TITLE: 3,
+    RESTART_LIVE: 4,
 } as const;
 
 /** 卡片最小宽度 */
@@ -200,11 +201,20 @@ export function renderFirstLine(
                     ? `[${formatTime(latest.live_time * 1000)}] 「${latest.uname}」 开始了直播 「${latest.title}」`
                     : `[${time}] 「${latest.uname}」 开始了直播 「${latest.title}」`
                 : null;
+        case 'restart_stream':
+            // 与开播事件一致：显示新一场的开播时间
+            return latest
+                ? latest.live_time > 0
+                    ? `[${formatTime(latest.live_time * 1000)}] 「${latest.uname}」 重新开播了 「${latest.title}」`
+                    : `[${time}] 「${latest.uname}」 重新开播了 「${latest.title}」`
+                : null;
         case 'end_stream': {
             if (!old) return null;
-            // 追加本次直播时长（开播时间缺失时省略）
-            const durationSec =
-                Math.floor(Date.now() / 1000) - old.live_time;
+            // 追加本次直播时长（开播时间缺失时省略）；
+            // 重新开播触发的结束信息以新开播时间为结束时刻
+            const endTimeSec =
+                event.endTimeSec ?? Math.floor(Date.now() / 1000);
+            const durationSec = endTimeSec - old.live_time;
             const durationText =
                 durationSec > 0
                     ? `，直播时长 ${formatDuration(durationSec)}`
@@ -270,15 +280,41 @@ export function renderTextMessage(
                 },
             ];
         }
+        case 'restart_stream': {
+            // 行结构同 start_stream: 携带最新标题/分区/链接与封面图
+            if (!latest) return null;
+            const text = [
+                firstLine,
+                `标题: ${latest.title}`,
+                `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
+                `链接: ${roomUrl(latest.room_id)}`,
+            ].join('\n');
+            const imageUrl =
+                latest.cover_from_user || latest.keyframe;
+            if (!imageUrl) return text;
+            return [
+                {
+                    type: 'text' as OB11MessageDataType.text,
+                    data: { text },
+                },
+                {
+                    type: 'image' as OB11MessageDataType.image,
+                    data: { file: imageUrl },
+                },
+            ];
+        }
         case 'end_stream': {
             if (!old) return null;
             const { averageOnline } = computeOnlineStats(
                 event,
                 roomStore,
             );
+            // 重新开播触发的结束信息以新开播时间为结束时刻
+            const endTimeSec =
+                event.endTimeSec ?? nowSec;
             return [
                 firstLine,
-                durationLine(old.live_time, nowSec),
+                durationLine(old.live_time, endTimeSec),
                 `标题: ${old.title}`,
                 `分区: ${formatArea(old.parent_area_name, old.area_name)}`,
                 onlineLine(averageOnline),
@@ -367,6 +403,7 @@ interface OnlineStatResult {
  * - 改标题/改分区：取上一段直播内容区间的平均同接数
  *   （区间 = liveContents 最后一段, 由事件维护层刚补录的旧内容）
  * - 下播：取直播全程平均（剪切直播开始后前 5 分钟）
+ * - 重新开播：复用下播口径, 结束时刻为新的开播时间
  * - 无快照或剪切后无数据时 averageOnline 为 null（不显示）
  */
 function computeOnlineStats(
@@ -381,14 +418,15 @@ function computeOnlineStats(
     const contents = info.liveContents ?? [];
 
     if (event.type === 'end_stream') {
-        // 直播全程：区间 [开播时间, 下播时间], 剪切开播预热期
+        // 直播全程：区间 [开播时间, 下播时间], 剪切开播预热期；
+        // 重新开播触发的结束信息以新开播时间为结束时刻
         const old = event.oldRoomInfo;
         const startTime = old?.live_time || 0;
         if (startTime > 0 && snapshots.length > 0) {
             result.averageOnline = calcAverageOnline(
                 snapshots,
                 startTime,
-                Math.floor(Date.now() / 1000),
+                event.endTimeSec ?? Math.floor(Date.now() / 1000),
                 SNAPSHOT_INTERVAL_TOLERANCE_SEC,
                 ONLINE_TRIM_START_SEC,
             );
@@ -501,6 +539,8 @@ function mapChangeType(type: ChangeType): number | null {
     switch (type) {
         case 'start_stream':
             return LiveType.START_LIVE;
+        case 'restart_stream':
+            return LiveType.RESTART_LIVE;
         case 'end_stream':
             return LiveType.STOP_LIVE;
         case 'title_changed':
@@ -550,6 +590,8 @@ function renderSubTitle(type: number): string {
     switch (type) {
         case LiveType.START_LIVE:
             return '开始了直播';
+        case LiveType.RESTART_LIVE:
+            return '重新开播了';
         case LiveType.STOP_LIVE:
             return '结束了直播';
         case LiveType.CHANGE_LIVE_PARTITION:

@@ -213,6 +213,12 @@ export class BiliLivePollingService {
             // 同接监听的运行时数据维护（先于推送, 供推送读取计算）
             this.maintainOnlineRuntimeData(event);
 
+            // 重新开播: 独立处理（先推结束信息, 再推重新开播卡片）
+            if (event.type === 'restart_stream') {
+                await this.handleRestart(event);
+                return;
+            }
+
             // 1. 过滤未启用的推送类型
             const pushTypes = pluginState.config.pushTypes;
             if (!pushTypes || !pushTypes.includes(type)) {
@@ -285,6 +291,90 @@ export class BiliLivePollingService {
     }
 
     /**
+     * 重新开播事件处理：
+     * 1. 视为上一场直播结束, 推送一次结束信息
+     *    （时长/同接平均的结束时刻取新开播时间）
+     * 2. 推送完成后清理旧场运行时数据（快照/历史/累计观众）
+     * 3. 触发新一场首点同接采集, 再推送重新开播卡片
+     *
+     * 两段推送互为独立通知, 各自捕获错误, 单段失败不影响另一段;
+     * 都受 restart_stream 推送类型门控, 门控关闭时仍执行运行时清理
+     */
+    private async handleRestart(event: ChangeEvent): Promise<void> {
+        const { uid } = event;
+        const pushTypes = pluginState.config.pushTypes;
+        const pushEnabled =
+            !!pushTypes && pushTypes.includes('restart_stream');
+
+        const monitor = this.liveStore.get().find((m) => m.uid === uid);
+        if (!monitor || monitor.to.length === 0) {
+            pluginState.logger.debug(
+                `主播 ${uid} 未绑定推送目标, 跳过重新开播推送`,
+            );
+            return;
+        }
+
+        if (pushEnabled) {
+            // 1. 推送上一场的结束信息（结束时 = 新开播时间）
+            try {
+                const endEvent: ChangeEvent = {
+                    ...event,
+                    type: 'end_stream',
+                    endTimeSec: event.newValue as number,
+                };
+                const endMessage = await buildChangeMessage(
+                    endEvent,
+                    this.roomStore,
+                );
+                if (endMessage) {
+                    for (const toInfo of monitor.to) {
+                        await sendReplyByToInfo(
+                            pluginState.ctx,
+                            toInfo,
+                            endMessage,
+                        );
+                    }
+                }
+            } catch (err) {
+                pluginState.logger.error(
+                    `推送重新开播(结束信息)失败 uid=${uid}:`,
+                    err,
+                );
+            }
+
+            // 2. 推送完成后清理旧场运行时数据（快照/历史/累计观众）
+            this.roomStore.clearRuntimeData(uid);
+        }
+
+        // 3. 触发新一场首点同接采集（不受门控影响）
+        void onlineSnapshotService.captureOnStart(uid);
+
+        // 4. 推送重新开播卡片
+        if (pushEnabled) {
+            try {
+                const restartMessage = await buildChangeMessage(
+                    event,
+                    this.roomStore,
+                );
+                if (restartMessage) {
+                    for (const toInfo of monitor.to) {
+                        await sendReplyByToInfo(
+                            pluginState.ctx,
+                            toInfo,
+                            restartMessage,
+                        );
+                    }
+                }
+            } catch (err) {
+                pluginState.logger.error(
+                    `推送重新开播卡片失败 uid=${uid}:`,
+                    err,
+                );
+            }
+        }
+    }
+
+    /**
      * 将一段直播内容记入历史，写入前与历史末条做重复检测：
      * 同一次 updateOrAdd 可能因标题+分区同时变化触发多个事件，
      * 各事件携带同一份 oldRoomInfo，会导致相同内容被写入多次。
@@ -316,6 +406,8 @@ export class BiliLivePollingService {
      * 同接监听运行时数据维护：
      * - 开播：触发首点同接采集
      * - 直播中改标题/分区：将变更前内容记入直播内容历史
+     * - 重新开播：补录旧场最后一段内容（endTime = 新开播时间）,
+     *   清理与采集在 handleRestart 中按推送顺序处理
      * - 下播：先把最后一段内容补录进历史（endTime = 下播时间）,
      *   推送完成后再清空快照/历史并重置累计观众（见 afterPushCleanup）
      */
@@ -342,6 +434,21 @@ export class BiliLivePollingService {
                         area_name: old.area_name,
                         startTime: old.live_time,
                         endTime: nowSec,
+                    });
+                    break;
+                }
+                case 'restart_stream': {
+                    if (!old) break;
+                    // 上一场结束时刻 = 新开播时间（轮询间隙内的
+                    // 精确下播时刻拿不到, 取新开播时间近似）
+                    const restartEnd =
+                        (event.newValue as number) || nowSec;
+                    this.pushLiveContentDeduped(event.uid, {
+                        title: old.title,
+                        parent_area_name: old.parent_area_name,
+                        area_name: old.area_name,
+                        startTime: old.live_time,
+                        endTime: restartEnd,
                     });
                     break;
                 }

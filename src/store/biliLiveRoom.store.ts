@@ -67,10 +67,14 @@ export interface BiliLiveRoomInfo {
     onlineSnapshots: BiliOnlineSnapshot[];
 }
 
+/** 重新开播判定窗口（秒）：两次开播时间在此窗口内视为重新开播 */
+export const RESTART_WINDOW_SEC = 5 * 60;
+
 /** 变化类型枚举 */
 export type ChangeType =
     | 'start_stream' // 开始直播（offline → streaming）
     | 'end_stream' // 结束直播（streaming → offline）
+    | 'restart_stream' // 重新开播（直播中 live_time 变化且在窗口内）
     | 'title_changed' // 标题变化（直播中）
     | 'area_changed' // 分区变化（父分区或子分区变化，直播中）
     | 'offline_title_changed' // 标题变化（未直播）
@@ -84,6 +88,12 @@ export interface ChangeEvent {
     newValue?: any;
     /** 变更前的完整直播间信息（结束直播时取开播时间等旧值用） */
     oldRoomInfo?: BiliLiveRoomInfo;
+    /**
+     * 结束时刻覆盖（秒）：重新开播触发的结束信息中，
+     * 上一场的结束时刻为新的开播时间（轮询间隙内的精确下播时刻拿不到），
+     * 缺省为当前时间
+     */
+    endTimeSec?: number;
 }
 
 /** 监听器类型 */
@@ -146,6 +156,19 @@ export class BiliLiveRoomStore {
         // 存在时，逐个比对字段
         const changes = this.detectChanges(oldInfo, roomInfo);
         if (changes.length === 0) {
+            // 超过重新开播窗口的 live_time 变化：检测层不发事件，
+            // 旧场数据属于未观测到的"黑箱直播"，静默清理后覆盖
+            if (
+                oldInfo.live_status === 'streaming' &&
+                roomInfo.live_status === 'streaming' &&
+                oldInfo.live_time > 0 &&
+                roomInfo.live_time > 0 &&
+                oldInfo.live_time !== roomInfo.live_time
+            ) {
+                this.data[uid] = roomInfo;
+                this.saveToFile();
+                this.clearRuntimeData(uid);
+            }
             // 无变化，不覆盖（但也可以覆盖，视业务需求，此处不覆盖以节省性能）
             return false;
         }
@@ -265,6 +288,9 @@ export class BiliLiveRoomStore {
      *
      * - 直播状态变化（开始/结束直播）始终触发，并吞掉同一次比对到的
      *   标题/分区差异（状态推送本身已携带最新状态）
+     * - 直播中 live_time 变化视为重新开播：窗口内触发 restart_stream
+     *   （吞掉同次标题/分区差异）；超过窗口或新开播时间为 0（接口
+     *   异常）不触发事件，由轮询层静默处理旧场数据
      * - 状态不变时，标题/分区变化按当前直播状态区分事件类型：
      *   直播中为 title_changed/area_changed，未直播为 offline_* 变体
      */
@@ -302,6 +328,25 @@ export class BiliLiveRoomStore {
                     newValue: 'offline',
                 });
             }
+            return changes;
+        }
+
+        // 1.5 重新开播检测（直播中 live_time 变化）
+        if (
+            newStatus === 'streaming' &&
+            newInfo.live_time > 0 &&
+            oldInfo.live_time > 0 &&
+            oldInfo.live_time !== newInfo.live_time
+        ) {
+            const gap = newInfo.live_time - oldInfo.live_time;
+            if (Math.abs(gap) <= RESTART_WINDOW_SEC) {
+                changes.push({
+                    type: 'restart_stream',
+                    oldValue: oldInfo.live_time,
+                    newValue: newInfo.live_time,
+                });
+            }
+            // 超过窗口（含负向修正）不触发事件，吞掉同次字段差异
             return changes;
         }
 

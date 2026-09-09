@@ -56,6 +56,7 @@ export function buildLoginStatusHtml(
 export const VALID_PUSH_TYPES: ChangeType[] = [
     'start_stream',
     'end_stream',
+    'restart_stream',
     'title_changed',
     'area_changed',
     'offline_title_changed',
@@ -133,6 +134,7 @@ export function buildConfigSchema(
             [
                 { value: 'start_stream', label: '开始直播' },
                 { value: 'end_stream', label: '结束直播' },
+                { value: 'restart_stream', label: '重新开播' },
                 { value: 'title_changed', label: '修改标题' },
                 { value: 'area_changed', label: '修改分区' },
                 {
