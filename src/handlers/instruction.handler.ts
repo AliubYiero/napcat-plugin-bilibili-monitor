@@ -23,6 +23,7 @@ import { addOnlineHandler } from './live/online/add.handler';
 import { removeOnlineHandler } from './live/online/remove.handler';
 import { listOnlineHandler } from './live/online/list.handler';
 import { maxOnlineHandler } from './live/online/max.handler';
+import { showOnlineHandler } from './live/online/show.handler';
 
 /** 指令作用域 */
 type InstructionScope = 'group' | 'private';
@@ -90,6 +91,11 @@ const nestedInstructionSetMapper: Record<
              * 查看当前正在监听同接数的主播列表
              */
             list: { handler: listOnlineHandler },
+            /**
+             * 输出主播同接变化图表
+             * 无参快捷形式: 当前会话同接监听仅 1 个时直接输出
+             */
+            show: { handler: showOnlineHandler },
             /**
              * 查看/设置同接监听上限
              * 形态与 live max 对称, 默认上限群 1 / 私 0

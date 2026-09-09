@@ -29,6 +29,10 @@ import {
 import { sendReplyByToInfo } from '../../handlers/utils';
 import { buildChangeMessage } from './pushCard.service';
 import { onlineSnapshotService } from './onlineSnapshots.service';
+import {
+    buildOnlineChartImageMessage,
+    type OnlineChartData,
+} from './onlineChart.service';
 
 /** B站接口单次最大请求房间数 */
 const MAX_ROOM_IDS_PER_REQUEST = 100;
@@ -283,6 +287,10 @@ export class BiliLivePollingService {
 
             // 5. 下播推送完成后清理同接运行时数据（推送时仍需读取快照计算平均同接）
             if (event.type === 'end_stream') {
+                await this.pushOnlineChart(
+                    event,
+                    monitor.to,
+                );
                 this.roomStore.clearRuntimeData(event.uid);
             }
         } catch (err) {
@@ -342,7 +350,8 @@ export class BiliLivePollingService {
                 );
             }
 
-            // 2. 推送完成后清理旧场运行时数据（快照/历史/累计观众）
+            // 2. 推送本场同接变化图表, 之后清理旧场运行时数据（快照/历史/累计观众）
+            await this.pushOnlineChart(event, monitor.to);
             this.roomStore.clearRuntimeData(uid);
         }
 
@@ -371,6 +380,65 @@ export class BiliLivePollingService {
                     err,
                 );
             }
+        }
+    }
+
+    /**
+     * 推送本场同接变化图表（纯图片, 渲染一次复用 base64）：
+     * 挂在下播/重新开播链路的结束信息之后、运行时数据清理之前,
+     * 仅对开启了同接监听的主播触发（快照不足 2 点时静默跳过,
+     * 渲染失败也静默, 不回退文本）
+     *
+     * 数据源分工：快照与内容历史取自存储（事件维护层刚补录最后一段）;
+     * 标题/分区/开播时间取变更前信息（下播后 live_time 为 0,
+     * restart 时存储顶层字段已是新场）
+     */
+    private async pushOnlineChart(
+        event: ChangeEvent,
+        toList: BiliLiveMonitorToInfo[],
+    ): Promise<void> {
+        try {
+            const { uid } = event;
+            const stored = this.roomStore.get(uid);
+            if (!stored) return;
+            const old = event.oldRoomInfo;
+            const snapshots = stored.onlineSnapshots ?? [];
+            if (snapshots.length < 2) return;
+
+            const endTimeSec =
+                event.type === 'restart_stream'
+                    ? (event.newValue as number)
+                    : event.endTimeSec;
+            const data: OnlineChartData = {
+                uname: old?.uname || stored.uname,
+                liveTimeSec: old?.live_time || 0,
+                endTimeSec:
+                    endTimeSec && endTimeSec > 0
+                        ? endTimeSec
+                        : Math.floor(Date.now() / 1000),
+                title: old?.title ?? stored.title,
+                parentAreaName:
+                    old?.parent_area_name ??
+                    stored.parent_area_name,
+                areaName: old?.area_name ?? stored.area_name,
+                liveContents: stored.liveContents ?? [],
+                onlineSnapshots: snapshots,
+            };
+            const message =
+                await buildOnlineChartImageMessage(data);
+            if (!message) return;
+            for (const toInfo of toList) {
+                await sendReplyByToInfo(
+                    pluginState.ctx,
+                    toInfo,
+                    message,
+                );
+            }
+        } catch (err) {
+            pluginState.logger.warn(
+                `推送同接变化图表出错 uid=${event.uid}:`,
+                err,
+            );
         }
     }
 

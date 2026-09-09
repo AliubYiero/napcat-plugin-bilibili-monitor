@@ -70,6 +70,14 @@ export const bilibiliLiveMonitor: Cmd = {
                     cmd: '#bili live online list',
                     desc: '查看当前正在监听同接数的主播列表',
                 },
+                {
+                    cmd: '#bili live online show <主播uid>',
+                    desc: '查看主播本场直播的同接数变化图表',
+                },
+                {
+                    cmd: '#bili live online show',
+                    desc: '查看当前监听主播的同接数变化图表 (仅监听 1 个主播时可用)',
+                },
             ],
         },
         {
