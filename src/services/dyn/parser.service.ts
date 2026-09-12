@@ -8,7 +8,9 @@
 
 import type {
     BiliDynamic,
+    DescInfo,
     LiveRcmdContent,
+    RichTextNode,
 } from '../../store/BiliDynamic.type';
 import { formatArea, roomUrl } from '../../utils/format';
 
@@ -86,15 +88,7 @@ function formatDynTime(pubTs: number): string {
 
 /** 表情文本 → 图片 URL 映射（gif 优先, 回退静态图标） */
 function extractEmojiMap(
-    nodes: {
-        type?: string;
-        text?: string;
-        emoji?: {
-            text?: string;
-            gif_url?: string;
-            icon_url?: string;
-        } | null;
-    }[],
+    nodes: RichTextNode[],
 ): Record<string, string> {
     const map: Record<string, string> = {};
     for (const node of nodes) {
@@ -105,6 +99,82 @@ function extractEmojiMap(
         map[key] = url;
     }
     return map;
+}
+
+/** 节点是否携带图片（不判 type 名, 只看 pics 是否非空） */
+function hasPics(node: RichTextNode): boolean {
+    return (node?.pics?.length ?? 0) > 0;
+}
+
+/** 一份正文数据是否有内容（文本或富文本节点任一非空） */
+function hasContent(desc: DescInfo | null | undefined): boolean {
+    return (
+        (desc?.text ?? '').length > 0 ||
+        (desc?.rich_text_nodes?.length ?? 0) > 0
+    );
+}
+
+/**
+ * 挑选正文文本与其富文本节点
+ * 主来源有内容时整体采用, 否则整体回落到备来源。
+ * 文本与节点必须同源: 不可文本取 summary、节点取 desc
+ * （那样会拿 desc 的节点去重建 summary 的正文）。空数组同样会回落,
+ * 区别于 `??` 仅在 null/undefined 时回落。
+ */
+function pickBody(
+    primary: DescInfo | null | undefined,
+    secondary?: DescInfo | null,
+): { text: string; nodes: RichTextNode[] } {
+    const source = hasContent(primary) ? primary : secondary;
+    return {
+        text: source?.text ?? '',
+        nodes: source?.rich_text_nodes ?? [],
+    };
+}
+
+/** 提取节点中的图片 URL（节点顺序 + 节点内顺序） */
+function extractRichTextPics(nodes: RichTextNode[]): string[] {
+    const urls: string[] = [];
+    for (const node of nodes) {
+        if (!hasPics(node)) continue;
+        for (const pic of node.pics) {
+            if (pic?.src) urls.push(pic.src);
+        }
+    }
+    return urls;
+}
+
+/** 全部节点（含图片节点）的文本拼接是否覆盖原文 */
+function coversText(text: string, nodes: RichTextNode[]): boolean {
+    const all = nodes.map((node) => node.text ?? '').join('');
+    return cleanText(all) === cleanText(text);
+}
+
+/**
+ * 剔除正文中图片节点的占位文本（形如「查看图片(6)」）
+ *
+ * 以节点序列重建正文: 带图节点整体丢弃, 其余节点（含表情节点）的
+ * text 原样保留, 故表情内嵌切分不受影响。
+ * 前提: rich_text_nodes 覆盖全文。节点缺失时退回原文。
+ *
+ * 重建结果为空时须区分两种情形, 否则会把纯图动态的占位文本当成正文
+ * 推出去: 正文本来就只有图 (空即正确答案), 与节点未覆盖全文 (重建
+ * 会吞掉正文)。以"全部节点文本拼接是否等于原文"判定, 相等即节点
+ * 覆盖全文, 信任重建结果。
+ */
+function stripPictureNodes(
+    text: string,
+    nodes: RichTextNode[],
+): string {
+    if (nodes.length === 0) return cleanText(text);
+    const rebuilt = nodes
+        .filter((node) => !hasPics(node))
+        .map((node) => node.text ?? '')
+        .join('');
+    if (!rebuilt && text && !coversText(text, nodes)) {
+        return cleanText(text);
+    }
+    return cleanText(rebuilt);
 }
 
 /** 秒数 → hh:mm:ss（超过 1 小时）或 mm:ss */
@@ -134,17 +204,17 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
     // 转发动态：转发内容 + 分隔线 + 原动态
     if (item.type === 'DYNAMIC_TYPE_FORWARD' && item.orig) {
         const orig = parseOrigCard(item.orig);
+        const body = pickBody(dynamicModule?.desc);
+        const nodes = body.nodes;
         return {
             id: item.id_str,
             kind: 'forward',
             headline: `${timeText} 「${name}」 转发了动态`,
-            texts: [
-                cleanText(dynamicModule?.desc?.text ?? ''),
-            ].filter((t) => t.length > 0),
-            emojiMap: extractEmojiMap(
-                dynamicModule?.desc?.rich_text_nodes ?? [],
+            texts: [stripPictureNodes(body.text, nodes)].filter(
+                (t) => t.length > 0,
             ),
-            images: [],
+            emojiMap: extractEmojiMap(nodes),
+            images: extractRichTextPics(nodes),
             separator: FORWARD_SEPARATOR,
             origCard: orig,
             // 转发动态无 OPUS jump_url, 手动拼接
@@ -207,21 +277,23 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
                 `时长: ${formatVideoDuration(archive.duration_text)}`,
             );
         }
+        // 投稿文案（desc）与转发语同源, 同样走剔除与配图提取
+        const body = pickBody(dynamicModule?.desc);
+        const nodes = body.nodes;
+        const dynText = stripPictureNodes(body.text, nodes);
         return {
             id: item.id_str,
             kind: 'video',
             headline: `${timeText} 「${name}」 投稿了视频`,
             // 动态行（desc.text）存在时放最前
-            ...(dynamicModule?.desc?.text
-                ? {
-                      texts: [
-                          `动态: ${cleanText(dynamicModule.desc.text)}`,
-                          ...texts,
-                      ],
-                  }
+            ...(dynText
+                ? { texts: [`动态: ${dynText}`, ...texts] }
                 : { texts }),
-            emojiMap: {},
-            images: archive?.cover ? [archive.cover] : [],
+            emojiMap: extractEmojiMap(nodes),
+            images: [
+                ...(archive?.cover ? [archive.cover] : []),
+                ...extractRichTextPics(nodes),
+            ],
             separator: null,
             origCard: null,
             jumpUrl,
@@ -232,8 +304,11 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
     // 投稿专栏/文章（实际以 OPUS 承载）
     if (item.type === 'DYNAMIC_TYPE_ARTICLE') {
         const opus = major?.opus;
+        // 正文以 summary 为准, 不跨到 desc 取节点
+        const body = pickBody(opus?.summary);
+        const nodes = body.nodes;
         const title = opus?.title ?? '';
-        const summary = cleanText(opus?.summary?.text ?? '');
+        const summary = stripPictureNodes(body.text, nodes);
         const jumpUrl = normalizeUrl(
             opus?.jump_url ||
                 item.basic?.jump_url ||
@@ -244,12 +319,11 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
             kind: 'article',
             headline: `${timeText} 「${name}」 投稿了文章`,
             texts: [title, summary].filter((t) => t.length > 0),
-            emojiMap: extractEmojiMap(
-                opus?.summary?.rich_text_nodes ?? [],
-            ),
-            images: (opus?.pics ?? [])
-                .map((pic) => pic.url)
-                .filter(Boolean),
+            emojiMap: extractEmojiMap(nodes),
+            images: [
+                ...(opus?.pics ?? []).map((pic) => pic.url),
+                ...extractRichTextPics(nodes),
+            ].filter(Boolean),
             separator: null,
             origCard: null,
             jumpUrl,
@@ -264,22 +338,18 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
         item.type === 'DYNAMIC_TYPE_WORD'
     ) {
         const opus = major?.opus;
-        // 标题存在 → 标题行; 内容取 summary.text 或 desc.text
+        // 标题存在 → 标题行; 正文以 summary 为主, 整体为 empty 时回落 desc
+        const body = pickBody(opus?.summary, dynamicModule?.desc);
+        const nodes = body.nodes;
         const title = opus?.title ?? '';
-        const bodyText = cleanText(
-            opus?.summary?.text || dynamicModule?.desc?.text || '',
-        );
+        const bodyText = stripPictureNodes(body.text, nodes);
         const jumpUrl = normalizeUrl(
             opus?.jump_url ||
                 item.basic?.jump_url ||
                 buildDynJumpUrl(item.id_str),
         );
         // 表情包: 从 rich_text_nodes 提取 emoji 文本 → 图片映射
-        const emojiMap = extractEmojiMap(
-            opus?.summary?.rich_text_nodes ??
-                dynamicModule?.desc?.rich_text_nodes ??
-                [],
-        );
+        const emojiMap = extractEmojiMap(nodes);
         return {
             id: item.id_str,
             kind: title ? 'opus' : 'text',
@@ -288,6 +358,7 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
             emojiMap,
             images: [
                 ...(opus?.pics ?? []).map((pic) => pic.url),
+                ...extractRichTextPics(nodes),
             ].filter(Boolean),
             separator: null,
             origCard: null,
@@ -296,15 +367,20 @@ export function parseBiliDynamic(item: BiliDynamic): ParsedDyn {
         };
     }
 
-    // 兜底: 尝试 desc.text
-    const fallbackText = cleanText(dynamicModule?.desc?.text ?? '');
+    // 兜底: 尝试 desc
+    const fallbackBody = pickBody(dynamicModule?.desc);
+    const fallbackNodes = fallbackBody.nodes;
+    const fallbackText = stripPictureNodes(
+        fallbackBody.text,
+        fallbackNodes,
+    );
     return {
         id: item.id_str,
         kind: 'fallback',
         headline: `${timeText} 「${name}」 发送了动态`,
         texts: fallbackText ? [fallbackText] : [],
-        emojiMap: {},
-        images: [],
+        emojiMap: extractEmojiMap(fallbackNodes),
+        images: extractRichTextPics(fallbackNodes),
         separator: null,
         origCard: null,
         jumpUrl: buildDynJumpUrl(item.id_str),
@@ -363,23 +439,22 @@ function parseOrigCard(orig: BiliDynamic): ParsedDynCard {
 
     // 原动态为图文/纯文本
     const opus = major?.opus;
+    // 正文以 summary 为主, 整体为空时回落 desc
+    const body = pickBody(
+        opus?.summary,
+        orig.modules.module_dynamic?.desc,
+    );
+    const nodes = body.nodes;
     const title = opus?.title ?? '';
-    const bodyText = cleanText(
-        opus?.summary?.text ||
-            orig.modules.module_dynamic?.desc?.text ||
-            '',
-    );
-    const emojiMap = extractEmojiMap(
-        opus?.summary?.rich_text_nodes ??
-            orig.modules.module_dynamic?.desc?.rich_text_nodes ??
-            [],
-    );
+    const bodyText = stripPictureNodes(body.text, nodes);
+    const emojiMap = extractEmojiMap(nodes);
     return {
         headline: `${timeText} 「${name}」`,
         texts: [title, bodyText].filter((t) => t.length > 0),
         emojiMap,
-        images: [...(opus?.pics ?? []).map((pic) => pic.url)].filter(
-            Boolean,
-        ),
+        images: [
+            ...(opus?.pics ?? []).map((pic) => pic.url),
+            ...extractRichTextPics(nodes),
+        ].filter(Boolean),
     };
 }

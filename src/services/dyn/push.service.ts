@@ -2,7 +2,9 @@
  * 动态推送服务
  *
  * 输入解析后的 ParsedDyn + 目标列表，组装消息段并发送：
- * - 普通动态: 文本 segments + 图片 segments（图片在最后）
+ * - 普通动态: 单段落，文本段后跟该段配图
+ * - 转发动态: 两段落，「转发语 + 其配图」在前，分隔线后接
+ *   「原动态文本 + 其配图」
  * - LIVE_RCMD: 逐目标判断，已在 live store 监听该主播的目标跳过
  *   (由直播推送负责)，否则复用 buildChangeMessage 开播卡片
  */
@@ -74,6 +76,19 @@ function toSegments(
     return segments;
 }
 
+/** 图片 URL 列表 → OB11 图片消息段 */
+function toImageSegments(urls: string[]): OB11MessageData[] {
+    // 沿用字面量: createImageMessage 返回 OB11PostSendMsg['message']
+    // 联合类型, 放进数组仍需断言, 与工厂函数无实质差别
+    return urls.map(
+        (url) =>
+            ({
+                type: 'image' as OB11MessageDataType.image,
+                data: { file: url },
+            }) as OB11MessageData,
+    );
+}
+
 /** 组装普通动态的推送消息（文本 + 表情内嵌图片 + 内容图片） */
 export function buildDynMessage(
     dyn: ParsedDyn,
@@ -107,34 +122,31 @@ export function buildDynMessage(
 
     const mainText = lines.join('\n');
     const origText = origLines.join('\n');
-    const images = [...dyn.images];
-    if (dyn.origCard) {
-        images.push(...dyn.origCard.images);
-    }
+    const origImages = dyn.origCard?.images ?? [];
 
     // 文本为空且无图片时无法构成消息
-    if (!mainText.trim() && !origText.trim() && images.length === 0)
+    if (
+        !mainText.trim() &&
+        !origText.trim() &&
+        dyn.images.length === 0 &&
+        origImages.length === 0
+    )
         return null;
 
-    const parts = splitByEmojiMap(mainText, dyn.emojiMap);
-    if (origText) {
-        parts.push(
-            ...splitByEmojiMap(
-                origText,
-                dyn.origCard?.emojiMap ?? {},
+    // 按段落组装: 每段 = 文本段 + 该段配图
+    const segments: OB11MessageData[] = [
+        ...toSegments(splitByEmojiMap(mainText, dyn.emojiMap)),
+        ...toImageSegments(dyn.images),
+    ];
+    if (dyn.origCard) {
+        segments.push(
+            ...toSegments(
+                splitByEmojiMap(origText, dyn.origCard.emojiMap),
             ),
+            ...toImageSegments(origImages),
         );
     }
-    return [
-        ...toSegments(parts),
-        ...images.map(
-            (url) =>
-                ({
-                    type: 'image' as OB11MessageDataType.image,
-                    data: { file: url },
-                }) as OB11MessageData,
-        ),
-    ];
+    return segments;
 }
 
 /**

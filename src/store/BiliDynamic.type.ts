@@ -312,8 +312,19 @@ export interface RichTextNode {
     emoji: EmojiInfo | null;
     goods: any | null;
     style: any | null;
-    pics: any[];
+    pics: RichTextPicture[];
     video: any | null;
+}
+
+// 富文本图片节点携带的图片
+// 注意: 字段名 (src/live_src) 与 OPUS 的 Picture (url/live_url) 不同,
+// 此处照抄 B 站返回, 不做统一
+export interface RichTextPicture {
+    src: string;
+    width: number;
+    height: number;
+    size: number;
+    live_src: string;
 }
 
 // 表情信息
