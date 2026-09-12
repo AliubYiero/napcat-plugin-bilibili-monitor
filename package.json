@@ -34,9 +34,10 @@
         "axios": "^1.19.0",
         "napcat-plugin-debug-cli": "^1.2.8",
         "qrcode": "^1.5.4",
-        "typescript": "^5.9.3",
         "tsx": "^4.20.6",
+        "typescript": "^5.9.3",
         "vite": "^6.4.1",
+        "vitest": "^5.0.0",
         "ws": "^8.19.0"
     },
     "scripts": {
@@ -47,6 +48,9 @@
         "build:webui": "cd src/webui && pnpm install && pnpm run build",
         "dev:webui": "cd src/webui && pnpm run dev",
         "typecheck": "tsc --noEmit",
+        "typecheck:test": "tsx scripts/typecheck/index.ts",
+        "test": "vitest run",
+        "test:watch": "vitest",
         "help:generate": "tsx scripts/generateHelp/index.ts",
         "format": "biome format --write"
     }

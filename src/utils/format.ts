@@ -19,12 +19,15 @@ export function formatDuration(seconds: number): string {
     return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-/** 复合分区文本: 父-子;父为空或等于子只显示子;都为空显示"未知分区" */
+/**
+ * 复合分区文本: 父 - 子
+ * 任一侧为空时只显示另一侧;两侧相同只显示子;都为空显示"未知分区"
+ */
 export function formatArea(parent?: string, area?: string): string {
     const parentName = parent?.trim() || '';
     const areaName = area?.trim() || '';
     if (!parentName && !areaName) return '未知分区';
-    if (!parentName || parentName === areaName)
+    if (!parentName || !areaName || parentName === areaName)
         return areaName || parentName;
     return `${parentName} - ${areaName}`;
 }

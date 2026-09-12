@@ -28,8 +28,9 @@ function isObject(v: unknown): v is Record<string, unknown> {
 /**
  * 配置清洗函数
  * 确保从文件读取的配置符合预期类型，防止运行时错误
+ * 纯函数: 输入 unknown, 输出保证符合 PluginConfig (见 config-pattern.md)
  */
-function sanitizeConfig(raw: unknown): PluginConfig {
+export function sanitizeConfig(raw: unknown): PluginConfig {
     if (!isObject(raw))
         return { ...DEFAULT_CONFIG, groupConfigs: {} };
 
@@ -48,8 +49,10 @@ function sanitizeConfig(raw: unknown): PluginConfig {
             .map((id) => id.trim())
             .filter((id) => id.length > 0);
     } else if (Array.isArray(rawAdminUsers)) {
+        // 与字符串路径同样 trim 并剔除空白段: 消费侧会逐个发私聊,
+        // 残留的空白条目会变成一次注定失败的发送
         out.adminUsers = rawAdminUsers
-            .map((id) => String(id))
+            .map((id) => String(id).trim())
             .filter((id) => id.length > 0);
     } else {
         out.adminUsers = [...DEFAULT_CONFIG.adminUsers];

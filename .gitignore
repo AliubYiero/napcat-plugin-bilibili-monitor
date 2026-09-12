@@ -51,6 +51,9 @@ coverage
 *.lcov
 .nyc_output
 
+# Test tooling artifacts
+.vitest/
+
 # Temporary files
 *.tmp
 *.temp
