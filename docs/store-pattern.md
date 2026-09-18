@@ -107,16 +107,46 @@ export const xxxStore = XxxStore.getInstance();
 
 该写法之所以容易长期没被发现, 是因为它把"构造时不读文件 + `ensureLoaded()` 兜底"绑定在一起; 一旦有人把读文件挪进构造函数 (直觉上很自然), 插件就会在 import 阶段崩溃。正确范式从结构上杜绝了这个隐患。
 
+## 文件顶层格式与基类选择
+
+数据文件的顶层格式统一为:
+
+```jsonc
+{ "version": 1, "data": /* 数组 或 Record<string, T> */ }
+```
+
+- 常量与包裹/解包逻辑在 `store/storeFile.ts` (纯函数模块, 零依赖, 不得 import 任何 store)。
+- **写入侧强制包裹; 读取侧兼容未包裹的旧裸结构** —— 读到旧结构时按原样使用并告警,
+  下次写入自动升级。这是防"迁移没跑成导致静默清空"的兜底。
+- 结构不符时回退为空值 (数组 / 空表) 并记 error 日志, 不抛错。
+
+基类按数据形状二选一, 二者是**兄弟关系而非父子**:
+
+| 基类 | 数据形状 | 示例 |
+| --- | --- | --- |
+| `BaseStore<T>` | `T[]` | `biliLiveMonitor.store.ts` |
+| `BaseRecordStore<T>` | `Record<string, T>` (键通常为 uid) | `biliDynRuntime.store.ts` |
+
+硬抽共同父类会让两边的方法签名都变形 (`getAll` 返回引用 vs 浅拷贝、`addItem` 追加 vs `set` 覆盖),
+差异不足以撑起抽象。需要在不落盘的前提下做内存剪枝时, 子类直接用 `BaseRecordStore` 暴露的
+`protected data`。
+
+带状态机语义的 store (如 `biliLiveRoom.store.ts` 有变化检测与监听器) 不强行继承基类,
+只复用 `storeFile.ts` 的常量与解包工具即可。
+
+数据文件拓扑与命名见 `docs/adr/0007-store-file-topology.md`, **不得自行新增或合并文件**。
+
 ## 标准范式清单
 
 新建一个 store 时按以下步骤:
 
-1. 继承列表型基类 (如 `BaseStore<T>`), 或自建类并依赖全局状态的键值读写方法 (如 `loadDataFile / saveDataFile`)。
-2. `private constructor()`, 构造函数内**不做任何文件读取** (列表型由基类构造统一加载, 因其发生在延迟实例化之后所以安全)。
+1. 继承列表型基类 `BaseStore<T>` 或键值型基类 `BaseRecordStore<T>`, 或自建类并依赖全局状态的键值读写方法 (如 `loadDataFile / saveDataFile`)。
+2. `private constructor()`, 构造函数内**不做任何文件读取** (由基类构造统一加载, 因其发生在延迟实例化之后所以安全)。
 3. 提供 `static getInstance()`, 内部持有 `private static instance`。
 4. 文件只 `export class`, **不**导出实例常量。
 5. 使用方 (service / handler) 通过 getter 缓存或直接调用 `getInstance()` 在方法内部获取实例。
 6. 数据写入后统一走立即持久化方法 (如 `saveToFile()`), 不做批量延迟落盘。
+7. 空数组字段在写入前删掉 (`delete`), 不落盘 `[]`: 缺省与"空"在领域上语义不同。
 
 ## 与其他范式的关系
 

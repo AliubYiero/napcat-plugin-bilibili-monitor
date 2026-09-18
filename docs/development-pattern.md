@@ -65,6 +65,7 @@ ADR 记录"难逆转、无上下文会意外、真实权衡"三类决策, 每份
 | 0004 离线变化检测 | 推翻 0002: 未直播时同样检测标题/分区变化, 独立事件类型 | 轮询比对与变化事件的实现 |
 | 0005 配置 Schema 运行时注入 | Schema 构建参数注入运行时数据, 禁止 config 模块静态 import 业务模块 (避免循环引用) | config-pattern 的 Schema 静态/动态边界 |
 | 0006 群启用默认开启 | `enabled !== false` 宽松判定, 入口最前端短路 | config-pattern 的会话级开关、instruction-pattern 的接收层 |
+| 0007 数据文件拓扑 | 按业务域拆分 6 个文件, 统一 `{ version: 1, data }` 包裹, 一次性迁移 | store-pattern 的文件划分与版本约定 |
 
 ## 尚未成文的区域
 

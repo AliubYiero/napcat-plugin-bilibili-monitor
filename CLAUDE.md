@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-NapCat 插件(QQ 机器人),监听 Bilibili 直播与动态并推送通知:直播开播/下播、标题/分区变化,动态发布推送(含图文/转发/视频/文章/表情包等类型解析)。推送内容为 SVG 渲染的卡片图片(渲染失败回退纯文本)。TypeScript,pnpm,Vite 构建为单文件 ESM(`dist/index.mjs`),无测试框架。动态/视频监听需要 B 站登录(Cookie),通过私聊扫码登录(`#bili user login`)。
+NapCat 插件(QQ 机器人),监听 Bilibili 直播与动态并推送通知:直播开播/下播、标题/分区变化,动态发布推送(含图文/转发/视频/文章/表情包等类型解析)。推送内容为 SVG 渲染的卡片图片(渲染失败回退纯文本)。TypeScript,pnpm,Vite 构建为单文件 ESM(`dist/index.mjs`)。动态/视频监听需要 B 站登录(Cookie),通过私聊扫码登录(`#bili user login`)。
 
 ## 常用命令
 
@@ -12,12 +12,16 @@ NapCat 插件(QQ 机器人),监听 Bilibili 直播与动态并推送通知:直�
 pnpm install            # 安装依赖
 pnpm run build          # 构建插件(vite build,输出 dist/)
 pnpm run watch          # watch 构建
-pnpm run typecheck      # tsc --noEmit(类型检查,无 lint/test 命令;详见 ADR 0003)
+pnpm test               # vitest(纯函数 + store 层;测试与 src/ 平级在 test/)
+pnpm run typecheck      # tsc --noEmit(受依赖包影响恒非零退出,详见 ADR 0003)
+pnpm run typecheck:test # 过滤依赖噪音后的类型检查(含 src 与 test),以此判定类型是否通过
 pnpm run format         # biome format --write
 pnpm run help:generate  # 通过 napcat-help-generate 服务 API 生成帮助图片与文本(详见 docs/help-output-pattern.md)
 pnpm run build:webui    # 构建前端(src/webui 独立子项目,React + Tailwind)
 pnpm run dev:webui      # 前端开发服务器
 ```
+
+无 lint 命令,Biome 以 `npx biome check src/ test/` 直接跑(与 `format` 共用配置)。
 
 调试/热重载依赖 NapCat 端的 `napcat-plugin-debug` 插件,通过 `.env` 中的 `WS_URL` 与 `TOKEN` 连接远程 NapCat 实例。vite.config.ts 中的 `napcatHmrPlugin` 负责构建后自动部署并热重载。
 
@@ -54,10 +58,10 @@ index.ts (生命周期)
   → handlers/    指令解析与处理(message.handler 解析/CD → instruction.handler 分发 → live|dyn|user 子指令 handler)
   → services/    业务逻辑
       live: 轮询 polling、监听数据 store、上限 limit、卡片推送 pushCard
-      dyn:  轮询 polling、解析 parser(纯函数)、推送 push、上限 limit
+      dyn:  轮询 polling、解析 parser(纯函数)、推送 push、上限 limit、运行时快照 runtime
       user: 扫码登录 login(二维码生成/轮询/会话互斥)
       通用: WebUI API 路由 api.service、SVG 渲染 svgRender.service
-  → store/       持久化层(JSON 文件读写)
+  → store/       持久化层(JSON 文件读写;含 migration/ 一次性旧数据迁移)
   → api/         B 站 HTTP 接口封装(baseRequest / authRequest,authRequest 携带登录 Cookie;登录态查询 getNavInfo、动态 getDynamicFeed、扫码 qrcodeLogin)
 ```
 
@@ -65,7 +69,26 @@ index.ts (生命周期)
 
 - 文件名一律小驼峰(`pushCard.service.ts`、`helpMessage.ts`),类型后缀(`.handler` / `.service` / `.store`)保留;类、接口、type 别名用大驼峰。
 - services / handlers 按模块分子文件夹(`live/`、`dyn/`、`user/`),文件名不再带模块前缀——目录已表达模块归属(如 `services/live/polling.service.ts` 而非 `services/bili-live-polling.service.ts`)。
-- 例外:`src/store/` 不分模块子目录,文件保留 `bili` 前缀(`biliLive.store.ts`);`BaseStore.ts`、`BiliDynamic.type.ts` 按类型名命名,不适用小驼峰规则。
+- 例外:`src/store/` 不按模块分子目录,文件保留 `bili` 前缀(`biliLiveMonitor.store.ts`);`BaseStore.ts` / `BaseRecordStore.ts` / `storeFile.ts` / `BiliDynamic.type.ts` 按类型或角色命名,不适用小驼峰规则。
+
+### 数据文件与存储
+
+数据文件按业务域划分为 6 个(拓扑与命名见 `docs/adr/0007-store-file-topology.md`,**不得自行新增或合并**):
+
+| 数据文件 | Store |
+| --- | --- |
+| `bilibiliCookie.json` | `BiliCookieStore`(不包裹 `version`,不参与迁移) |
+| `bilibiliLimits.json` | `BiliLimitStore`(三类会话上限合并,按 kind 区分) |
+| `bilibiliLiveMonitors.json` | `BiliLiveMonitorStore`(直播监听 + 同接监听) |
+| `bilibiliDynMonitors.json` | `BiliDynMonitorStore`(动态监听配置) |
+| `bilibiliDynRuntimeData.json` | `BiliDynRuntimeStore`(动态运行时快照 `cachedIds`) |
+| `bilibiliLiveRoomData.json` | `BiliLiveRoomStore`(直播间运行时快照) |
+
+- 除 Cookie 外统一 `{ version: 1, data: ... }` 包裹;数组型继承 `BaseStore<T>`,键值型继承 `BaseRecordStore<T>`,包裹逻辑在 `store/storeFile.ts`。
+- 上限语义:字段缺省 = 跟随全局默认,`0` 是有效覆盖值;用户设置后显式存储,即使等于全局默认。读值统一走各 kind 的 `getXxxLimit()`(服务层封装回落),调用点不得自行回落。
+- 同接监听依附于直播监听:`to` 为空即整条删除(`onlineTo` 一并删),不存在只有 `onlineTo` 没有 `to` 的记录。
+- 动态缓存 FIFO 上限 100,拉到一页即整页记录;孤立 uid 在启动时内存清理,不立即落盘。
+- 迁移在 `plugin_init` 中、任何 store 实例化之前执行,失败抛错阻止插件启动;旧文件备份为 `<原文件名>.YYYYMMDDHHmmss.bak`。
 
 ### 全局状态
 
