@@ -33,7 +33,13 @@ import { handleMessage } from './handlers/message.handler';
 import { registerApiRoutes } from './services/api.service';
 import { BiliLivePollingService } from './services/live/polling.service';
 import { BiliDynamicPollingService } from './services/dyn/polling.service';
+import { initDynRuntime } from './services/dyn/runtime.service';
 import { BiliCookieStore } from './store/biliCookie.store';
+import {
+    formatMigrationSummary,
+    runDataMigration,
+} from './store/migration/run';
+import { MigrationValidationError } from './store/migration/plan';
 import type { LoginStatusInfo } from './config';
 import type { PluginConfig } from './types';
 
@@ -70,29 +76,55 @@ export const plugin_init: PluginModule['plugin_init'] = async (
 
         ctx.logger.info('插件初始化中...');
 
-        // 2. 生成配置 Schema（用于 NapCat WebUI 配置面板, 含登录状态静态块）
+        // 2. 旧数据迁移: 必须早于任何 store 实例化 (下面的 rebuildConfigUI
+        //    就会 new BiliCookieStore)。失败时抛错阻止插件启动, 旧文件保持原样。
+        const migration = runDataMigration();
+        if (migration.status === 'migrated') {
+            ctx.logger.info(formatMigrationSummary(migration.plan));
+        } else {
+            ctx.logger.debug('数据文件已是最新格式, 跳过迁移');
+        }
+        for (const warning of migration.warnings) {
+            ctx.logger.warn(warning);
+        }
+
+        // 3. 清理动态运行时的孤立 uid (需动态监听与运行时两个 store 已就绪)
+        initDynRuntime();
+
+        // 4. 生成配置 Schema（用于 NapCat WebUI 配置面板, 含登录状态静态块）
         cachedCtx = ctx;
         rebuildConfigUI(ctx);
 
-        // 3. 注册 WebUI 页面和静态资源
+        // 5. 注册 WebUI 页面和静态资源
         // registerWebUI(ctx);
 
-        // 4. 注册 API 路由
+        // 6. 注册 API 路由
         registerApiRoutes(ctx);
 
-        // 5. 登录状态变化时重建配置 Schema (刷新 WebUI 登录块)
+        // 7. 登录状态变化时重建配置 Schema (刷新 WebUI 登录块)
         BiliCookieStore.getInstance().onLoginStateChange(() => {
             if (cachedCtx) rebuildConfigUI(cachedCtx);
         });
 
-        // 6. 启动轮询服务（监听直播间状态变化并推送）
+        // 8. 启动轮询服务（监听直播间状态变化并推送）
         BiliLivePollingService.getInstance().start();
-        // 7. 启动动态轮询服务（监听主播动态发布并推送）
+        // 9. 启动动态轮询服务（监听主播动态发布并推送）
         BiliDynamicPollingService.getInstance().start();
 
         ctx.logger.info('插件初始化完成');
     } catch (error) {
-        ctx.logger.error('插件初始化失败:', error);
+        // 迁移失败等初始化异常必须向上抛: 吞掉错误会让插件带着
+        // 不完整/不可信的数据继续运行
+        ctx.logger.error('插件初始化失败, 插件不会启动:', error);
+        if (error instanceof MigrationValidationError) {
+            for (const issue of error.issues) {
+                ctx.logger.error(
+                    `旧数据类型错误: ${issue.file} ${issue.path}.${issue.field} 期望 string, 实际 ${issue.actual}`,
+                );
+            }
+        }
+        // 抛给 NapCat: 旧文件保持原样, 新文件不写, 插件不启动
+        throw error;
     }
 };
 
