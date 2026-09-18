@@ -19,9 +19,9 @@ import {
     MAX_ONLINE_LIMIT,
     MIN_ONLINE_LIMIT,
     getOnlineLimit,
+    listOnlineLimits,
     setOnlineLimit,
 } from '../../../services/live/onlineLimit.service';
-import { BiliLiveOnlineLimitStore } from '../../../store/biliLiveOnlineLimit.store';
 
 const usageText = [
     '用法:',
@@ -103,7 +103,7 @@ async function replyLimitInfo(
         toInfo.type === 'private' &&
         getUserRole(event).role === 'superAdmin'
     ) {
-        const limits = BiliLiveOnlineLimitStore.getInstance().list();
+        const limits = listOnlineLimits();
         if (limits.length > 0) {
             lines.push(
                 '\n自定义上限的会话:',

@@ -18,9 +18,9 @@ import {
     MAX_LIMIT,
     MIN_LIMIT,
     getLiveLimit,
+    listLiveLimits,
     setLiveLimit,
 } from '../../services/live/limit.service';
-import { BiliLiveLimitStore } from '../../store/biliLiveLimit.store';
 
 const usageText = [
     '用法:',
@@ -104,7 +104,7 @@ async function replyLimitInfo(
         toInfo.type === 'private' &&
         getUserRole(event).role === 'superAdmin'
     ) {
-        const limits = getLimitStore().list();
+        const limits = listLiveLimits();
         if (limits.length > 0) {
             lines.push(
                 '\n自定义上限的会话:',
@@ -121,15 +121,6 @@ async function replyLimitInfo(
     }
 
     await sendReply(ctx, event, lines.join('\n'));
-}
-
-/** 惰性获取上限存储（避免模块加载期触达未初始化的 pluginState.ctx） */
-let _limitStore: BiliLiveLimitStore | null = null;
-function getLimitStore(): BiliLiveLimitStore {
-    if (!_limitStore) {
-        _limitStore = BiliLiveLimitStore.getInstance();
-    }
-    return _limitStore;
 }
 
 /**

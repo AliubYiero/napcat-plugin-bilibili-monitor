@@ -13,7 +13,7 @@ import {
     BiliLiveRoomStore,
     type BiliOnlineSnapshot,
 } from '../../store/biliLiveRoom.store';
-import { BiliOnlineMonitorStore } from '../../store/biliOnlineMonitor.store';
+import { BiliLiveMonitorStore } from '../../store/biliLiveMonitor.store';
 import { api_getOnlineGoldRank } from '../../api/getOnlineGoldRank';
 
 /** 相邻同接采集请求的间隔（毫秒） */
@@ -67,7 +67,7 @@ export function calcAverageOnline(
 export class BiliOnlineSnapshotService {
     private static instance: BiliOnlineSnapshotService | null = null;
     private _roomStore: BiliLiveRoomStore | null = null;
-    private _monitorStore: BiliOnlineMonitorStore | null = null;
+    private _monitorStore: BiliLiveMonitorStore | null = null;
 
     private get roomStore(): BiliLiveRoomStore {
         if (!this._roomStore) {
@@ -76,9 +76,9 @@ export class BiliOnlineSnapshotService {
         return this._roomStore;
     }
 
-    private get monitorStore(): BiliOnlineMonitorStore {
+    private get monitorStore(): BiliLiveMonitorStore {
         if (!this._monitorStore) {
-            this._monitorStore = BiliOnlineMonitorStore.getInstance();
+            this._monitorStore = BiliLiveMonitorStore.getInstance();
         }
         return this._monitorStore;
     }
@@ -96,7 +96,7 @@ export class BiliOnlineSnapshotService {
      * 仅当该主播开启了同接监听时执行
      */
     async captureOnStart(uid: string): Promise<void> {
-        if (!this.monitorStore.has(uid)) return;
+        if (!this.monitorStore.hasOnline(uid))return;
         await this.captureOne(uid);
     }
 
@@ -110,7 +110,7 @@ export class BiliOnlineSnapshotService {
             // 仅采集开播中的主播（下播不发请求）
             const room = this.roomStore.get(uid);
             if (!room || room.live_status !== 'streaming') continue;
-            if (!this.monitorStore.has(uid)) continue;
+            if (!this.monitorStore.hasOnline(uid))continue;
 
             if (!isFirst) {
                 await sleep(SNAPSHOT_REQUEST_INTERVAL_MS);

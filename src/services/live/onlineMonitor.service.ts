@@ -4,13 +4,15 @@
  * 同接监听是直播状态监听的附属功能：
  * - online add 前置校验：该主播必须在当前会话的直播监听列表中
  * - 上限校验：当前会话同接监听数未达上限（默认群 1 / 私 0）
- * - 级联语义：直播监听 remove 时级联移除同接监听（由调用方触发）
+ * - 级联语义：直播监听 remove 时级联移除同接监听（由 store 的 remove 完成）
  */
 
 import { pluginState } from '../../core/state';
-import type { BiliLiveMonitorToInfo } from '../../store/biliLive.store';
-import { BiliOnlineMonitorStore } from '../../store/biliOnlineMonitor.store';
-import { BiliLiveRoomStore } from '../../store/biliLiveRoom.store';
+import {
+    type BiliLiveMonitor,
+    type BiliLiveMonitorToInfo,
+    BiliLiveMonitorStore,
+} from '../../store/biliLiveMonitor.store';
 import { sendReplyByToInfo } from '../../handlers/utils';
 import { biliLiveStoreService } from './store.service';
 import {
@@ -19,26 +21,18 @@ import {
 } from './onlineLimit.service';
 
 class BiliOnlineMonitorService {
-    private _store: BiliOnlineMonitorStore | null = null;
-    private _roomStore: BiliLiveRoomStore | null = null;
+    private _store: BiliLiveMonitorStore | null = null;
 
-    private get store(): BiliOnlineMonitorStore {
+    private get store(): BiliLiveMonitorStore {
         if (!this._store) {
-            this._store = BiliOnlineMonitorStore.getInstance();
+            this._store = BiliLiveMonitorStore.getInstance();
         }
         return this._store;
     }
 
-    private get roomStore(): BiliLiveRoomStore {
-        if (!this._roomStore) {
-            this._roomStore = BiliLiveRoomStore.getInstance();
-        }
-        return this._roomStore;
-    }
-
     /** 指定会话的同接监听列表 */
-    list(toInfo: BiliLiveMonitorToInfo) {
-        return this.store.listForTarget(toInfo);
+    list(toInfo: BiliLiveMonitorToInfo): BiliLiveMonitor[] {
+        return this.store.listForOnlineTarget(toInfo);
     }
 
     /** 添加同接监听（含直播监听前置与上限校验），并回复结果 */
@@ -55,7 +49,7 @@ class BiliOnlineMonitorService {
             }
 
             // 重复添加检查
-            if (this.store.hasForTarget(uid, toInfo)) {
+            if (this.store.hasOnlineForTarget(uid, toInfo)) {
                 const uname = this.getUname(uid);
                 await sendReplyByToInfo(
                     pluginState.ctx,
@@ -82,7 +76,7 @@ class BiliOnlineMonitorService {
             }
 
             const uname = this.getUname(uid);
-            this.store.add(uid, uname, toInfo);
+            this.store.addOnline(uid, toInfo);
             await sendReplyByToInfo(
                 pluginState.ctx,
                 toInfo,
@@ -103,7 +97,7 @@ class BiliOnlineMonitorService {
     async remove(uid: string, toInfo: BiliLiveMonitorToInfo) {
         try {
             const uname = this.getUname(uid);
-            const removed = this.store.remove(uid, toInfo);
+            const removed = this.store.removeOnline(uid, toInfo);
             const message = removed
                 ? `已关闭主播「${uname || uid}」(${uid}) 的同接监听`
                 : `主播「${uname || uid}」(${uid}) 未开启同接监听, 移除失败`;
@@ -119,27 +113,9 @@ class BiliOnlineMonitorService {
         }
     }
 
-    /**
-     * 直播监听移除时的级联移除（静默, 不单独回复）
-     * @returns 是否发生了级联移除
-     */
-    cascadeRemoveIfPresent(
-        uid: string,
-        toInfo: BiliLiveMonitorToInfo,
-    ): boolean {
-        return this.store.remove(uid, toInfo);
-    }
-
-    /** 查询主播名称（同接记录优先, 其次直播监听记录） */
+    /** 查询主播名称 (直播与同接同存于一条记录) */
     private getUname(uid: string): string {
-        const fromOnline = this.store
-            .get()
-            .find((m) => m.uid === uid)?.uname;
-        if (fromOnline) return fromOnline;
-        const monitor = biliLiveStoreService
-            .listAll()
-            .find((m) => m.uid === uid);
-        return monitor?.uname ?? '';
+        return this.store.getByUid(uid)?.uname ?? '';
     }
 }
 

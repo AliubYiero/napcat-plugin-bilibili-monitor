@@ -2,8 +2,8 @@ import { pluginState } from '../../core/state';
 import {
     type BiliLiveMonitor,
     type BiliLiveMonitorToInfo,
-    BiliLiveStore,
-} from '../../store/biliLive.store';
+    BiliLiveMonitorStore,
+} from '../../store/biliLiveMonitor.store';
 import {
     BiliLiveRoomStore,
     type ChangeEvent,
@@ -13,20 +13,19 @@ import { sendReplyByToInfo } from '../../handlers/utils';
 import { getLiveLimit, isLiveLimitReached } from './limit.service';
 import { api_getStatusInfoByUids } from '../../api/getStatusInfoByUids';
 import { buildChangeMessage } from './pushCard.service';
-import { biliOnlineMonitorService } from './onlineMonitor.service';
 
 /**
  * Bilibili 直播变化监听器
  */
 class BiliLiveStoreService {
-    private _biliLiveStore: BiliLiveStore | null = null;
+    private _monitorStore: BiliLiveMonitorStore | null = null;
 
     /** 惰性获取存储实例（避免模块加载期触达未初始化的 pluginState.ctx） */
-    private get biliLiveStore(): BiliLiveStore {
-        if (!this._biliLiveStore) {
-            this._biliLiveStore = BiliLiveStore.getInstance();
+    private get monitorStore(): BiliLiveMonitorStore {
+        if (!this._monitorStore) {
+            this._monitorStore = BiliLiveMonitorStore.getInstance();
         }
-        return this._biliLiveStore;
+        return this._monitorStore;
     }
 
     private _roomStore: BiliLiveRoomStore | null = null;
@@ -45,7 +44,7 @@ class BiliLiveStoreService {
     async add(uid: string, toInfo: BiliLiveMonitorToInfo) {
         try {
             // 检查 UID 是否已存在在存储中
-            const hasUid = this.biliLiveStore.has(uid, toInfo);
+            const hasUid = this.monitorStore.has(uid, toInfo);
             if (
                 !hasUid &&
                 isLiveLimitReached(toInfo, this.list(toInfo).length)
@@ -96,7 +95,7 @@ class BiliLiveStoreService {
                 this.roomStore.updateOrAdd(roomInfo);
             }
 
-            this.biliLiveStore.add(uid, liveInfo.uname, toInfo);
+            this.monitorStore.add(uid, liveInfo.uname, toInfo);
             await sendReplyByToInfo(
                 pluginState.ctx,
                 toInfo,
@@ -127,15 +126,20 @@ class BiliLiveStoreService {
     async remove(uid: string, toInfo: BiliLiveMonitorToInfo) {
         try {
             const uname = this.getUname(uid);
-            const isRemoved = this.biliLiveStore.remove(uid, toInfo);
+            // 移除前记录同接状态: 移除后该目标已不在记录中, 无从判断
+            const hadOnline = this.monitorStore.hasOnlineForTarget(
+                uid,
+                toInfo,
+            );
+            const isRemoved = this.monitorStore.remove(uid, toInfo);
             const message = isRemoved
                 ? `已停止监听主播「${uname || uid}」(${uid})`
                 : `未找到主播「${uname || uid}」(${uid}) 的监听信息, 移除失败`;
-            // 级联移除同接监听（附属功能不独立存活）
-            let cascadeNote = '';
-            if (isRemoved && this.onlineCascadeRemove(uid, toInfo)) {
-                cascadeNote = '\n(该主播的同接监听已一并关闭)';
-            }
+            // 级联移除同接监听（附属功能不独立存活, 由 store.remove 一并完成）
+            const cascadeNote =
+                isRemoved && hadOnline
+                    ? '\n(该主播的同接监听已一并关闭)'
+                    : '';
             await sendReplyByToInfo(
                 pluginState.ctx,
                 toInfo,
@@ -156,14 +160,7 @@ class BiliLiveStoreService {
      * 获取指定会话正在监听的主播列表
      */
     list(toInfo: BiliLiveMonitorToInfo): BiliLiveMonitor[] {
-        return this.biliLiveStore
-            .get()
-            .filter((monitor) =>
-                monitor.to.some(
-                    (t) =>
-                        t.type === toInfo.type && t.id === toInfo.id,
-                ),
-            );
+        return this.monitorStore.listForLiveTarget(toInfo);
     }
 
     /**
@@ -173,25 +170,21 @@ class BiliLiveStoreService {
         uid: string,
         toInfo: BiliLiveMonitorToInfo,
     ): boolean {
-        return this.biliLiveStore.has(uid, toInfo);
+        return this.monitorStore.has(uid, toInfo);
     }
 
     /**
      * 获取全部直播监听记录（供附属功能查询主播名等）
      */
     listAll(): BiliLiveMonitor[] {
-        return this.biliLiveStore.get();
+        return this.monitorStore.get();
     }
 
     /**
      * 根据 UID 获取已保存的主播名称, 未保存时返回空字符串
      */
     private getUname(uid: string): string {
-        return (
-            this.biliLiveStore
-                .get()
-                .find((monitor) => monitor.uid === uid)?.uname ?? ''
-        );
+        return this.monitorStore.getByUid(uid)?.uname ?? '';
     }
 
     /**
@@ -203,7 +196,7 @@ class BiliLiveStoreService {
         qq: string,
     ) {
         try {
-            if (!this.biliLiveStore.has(uid, toInfo)) {
+            if (!this.monitorStore.has(uid, toInfo)) {
                 await sendReplyByToInfo(
                     pluginState.ctx,
                     toInfo,
@@ -212,7 +205,7 @@ class BiliLiveStoreService {
                 return;
             }
             const uname = this.getUname(uid);
-            const isAdded = this.biliLiveStore.addMention(
+            const isAdded = this.monitorStore.addMention(
                 uid,
                 toInfo,
                 qq,
@@ -240,7 +233,7 @@ class BiliLiveStoreService {
         qq: string,
     ) {
         try {
-            if (!this.biliLiveStore.has(uid, toInfo)) {
+            if (!this.monitorStore.has(uid, toInfo)) {
                 await sendReplyByToInfo(
                     pluginState.ctx,
                     toInfo,
@@ -249,7 +242,7 @@ class BiliLiveStoreService {
                 return;
             }
             const uname = this.getUname(uid);
-            const isRemoved = this.biliLiveStore.removeMention(
+            const isRemoved = this.monitorStore.removeMention(
                 uid,
                 toInfo,
                 qq,
@@ -275,20 +268,6 @@ class BiliLiveStoreService {
         return (
             pluginState.config.pushTypes?.includes('start_stream') ??
             true
-        );
-    }
-
-    /**
-     * 级联移除同接监听
-     * 与 onlineMonitor.service 存在模块循环, 但此处仅在运行期调用, ESM 下安全
-     */
-    private onlineCascadeRemove(
-        uid: string,
-        toInfo: BiliLiveMonitorToInfo,
-    ): boolean {
-        return biliOnlineMonitorService.cascadeRemoveIfPresent(
-            uid,
-            toInfo,
         );
     }
 

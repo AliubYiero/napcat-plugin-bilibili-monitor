@@ -9,26 +9,27 @@
 
 import { pluginState } from '../../core/state';
 import {
-    BiliDynamicStore,
+    BiliDynMonitorStore,
     type BiliDynamicMonitor,
     type BiliDynamicMonitorToInfo,
-} from '../../store/biliDynamic.store';
+} from '../../store/biliDynMonitor.store';
 import { BiliCookieStore } from '../../store/biliCookie.store';
 import { api_getDynamicFeed } from '../../api/getDynamicFeed';
 import { parseBiliDynamic } from './parser.service';
 import { buildDynMessage } from './push.service';
 import { getDynLimit, isDynLimitReached } from './limit.service';
+import { addDynCachedIds, removeDynRuntime } from './runtime.service';
 import { sendReplyByToInfo } from '../../handlers/utils';
 import type { OB11PostSendMsg } from 'napcat-types/napcat-onebot';
 
 /** 动态监听服务（导出实例，内部惰性实例化 store，遵循 store-pattern） */
 export class BiliDynamicStoreService {
-    private _dynStore: BiliDynamicStore | null = null;
+    private _dynStore: BiliDynMonitorStore | null = null;
 
-    /** 惰性获取存储实例 */
-    private get dynStore(): BiliDynamicStore {
+    /** 惰性获取监听存储实例 */
+    private get dynStore(): BiliDynMonitorStore {
         if (!this._dynStore) {
-            this._dynStore = BiliDynamicStore.getInstance();
+            this._dynStore = BiliDynMonitorStore.getInstance();
         }
         return this._dynStore;
     }
@@ -84,8 +85,8 @@ export class BiliDynamicStoreService {
 
             // 写入 store (缓存为空 -> 轮询服务按首绑处理, 只记录不推送)
             store.add(uid, uname, toInfo);
-            // 立即首拉记录缓存 (不推送)
-            store.addCacheIds(
+            // 立即首拉记录缓存 (不推送, 时机与拆分前一致)
+            addDynCachedIds(
                 uid,
                 items.map((it) => it.id_str),
             );
@@ -108,6 +109,10 @@ export class BiliDynamicStoreService {
         try {
             const uname = this.getUname(uid);
             const isRemoved = this.dynStore.remove(uid, toInfo);
+            // 整条记录已删除 → 同步清理该 uid 的运行时快照
+            if (isRemoved && !this.dynStore.getByUid(uid)) {
+                removeDynRuntime(uid);
+            }
             const message = isRemoved
                 ? `已停止监听主播「${uname || uid}」(${uid}) 的动态`
                 : `未找到主播「${uname || uid}」(${uid}) 的动态监听信息, 移除失败`;
@@ -182,10 +187,7 @@ export class BiliDynamicStoreService {
 
     /** 根据 UID 获取已保存的主播名称 */
     getUname(uid: string): string {
-        return (
-            this.dynStore.get().find((m) => m.uid === uid)?.uname ??
-            ''
-        );
+        return this.dynStore.getByUid(uid)?.uname ?? '';
     }
 }
 

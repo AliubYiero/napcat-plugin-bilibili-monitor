@@ -16,8 +16,8 @@ import type {
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
 import { sendReplyByToInfo } from '../../handlers/utils';
-import type { BiliDynamicMonitorToInfo } from '../../store/biliDynamic.store';
-import { BiliLiveStore } from '../../store/biliLive.store';
+import type { BiliDynamicMonitorToInfo } from '../../store/biliDynMonitor.store';
+import { BiliLiveMonitorStore } from '../../store/biliLiveMonitor.store';
 import { BiliLiveRoomStore } from '../../store/biliLiveRoom.store';
 import { buildChangeMessage } from '../live/pushCard.service';
 import type { ParsedDyn } from './parser.service';
@@ -191,7 +191,7 @@ function isLiveMonitored(
     uid: string,
     toInfo: BiliDynamicMonitorToInfo,
 ): boolean {
-    return BiliLiveStore.getInstance().has(uid, toInfo);
+    return BiliLiveMonitorStore.getInstance().has(uid, toInfo);
 }
 
 /**

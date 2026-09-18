@@ -18,9 +18,9 @@ import {
     MAX_LIMIT,
     MIN_LIMIT,
     getDynLimit,
+    listDynLimits,
     setDynLimit,
 } from '../../services/dyn/limit.service';
-import { BiliDynLimitStore } from '../../store/biliDynLimit.store';
 
 const usageText = [
     '用法:',
@@ -104,7 +104,7 @@ async function replyLimitInfo(
         toInfo.type === 'private' &&
         getUserRole(event).role === 'superAdmin'
     ) {
-        const limits = BiliDynLimitStore.getInstance().list();
+        const limits = listDynLimits();
         if (limits.length > 0) {
             lines.push(
                 '\n自定义动态上限的会话:',

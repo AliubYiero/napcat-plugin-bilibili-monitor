@@ -11,14 +11,15 @@
  */
 import { pluginState } from '../../core/state';
 import {
-    BiliDynamicStore,
+    BiliDynMonitorStore,
     type BiliDynamicMonitor,
-} from '../../store/biliDynamic.store';
+} from '../../store/biliDynMonitor.store';
 import { BiliCookieStore } from '../../store/biliCookie.store';
 import { api_getDynamicFeed } from '../../api/getDynamicFeed';
 import type { BiliDynamicItem } from '../../api/getDynamicFeed';
 import { parseBiliDynamic } from './parser.service';
 import { pushDynToTargets } from './push.service';
+import { addDynCachedIds, getDynCachedIds } from './runtime.service';
 
 /** 默认轮询间隔（秒），配置缺失时兜底 */
 const DEFAULT_DYN_POLL_INTERVAL = 300;
@@ -38,12 +39,12 @@ export class BiliDynamicPollingService {
     private running = false;
     private stopped = false;
 
-    private _dynStore: BiliDynamicStore | null = null;
+    private _dynStore: BiliDynMonitorStore | null = null;
 
-    /** 惰性获取动态存储 */
-    private get dynStore(): BiliDynamicStore {
+    /** 惰性获取动态监听存储 */
+    private get dynStore(): BiliDynMonitorStore {
         if (!this._dynStore) {
-            this._dynStore = BiliDynamicStore.getInstance();
+            this._dynStore = BiliDynMonitorStore.getInstance();
         }
         return this._dynStore;
     }
@@ -151,11 +152,15 @@ export class BiliDynamicPollingService {
      * 首绑（cachedIds 为空 = 从未拉取过）只记录缓存不推送。
      */
     private async processMonitor(uid: string): Promise<void> {
-        const monitor = this.dynStore.findItem((m) => m.uid === uid);
+        const monitor = this.dynStore.getByUid(uid);
         if (!monitor) return;
 
-        // 首绑判定：cachedIds 为空 = 从未拉取过
-        const firstBind = monitor.cachedIds.length === 0;
+        // 请求前取一次缓存快照: 本轮所有"是否已推送"的判定都基于它,
+        // 避免本轮写入缓存后污染同一轮的判定。
+        // 快照必须在 await 之前取, 否则首绑判定永假。
+        const cachedIds = getDynCachedIds(uid);
+        // 首绑判定：缓存为空 = 从未拉取过
+        const firstBind = cachedIds.length === 0;
 
         const resp = await api_getDynamicFeed(uid);
         if (resp.code !== 0 || !resp.data?.items) {
@@ -176,7 +181,7 @@ export class BiliDynamicPollingService {
 
         // 先在写缓存之前，用本轮拉取前的缓存状态判定新动态
         const newNormal = normal.filter(
-            (it) => !monitor.cachedIds.includes(it.id_str),
+            (it) => !cachedIds.includes(it.id_str),
         );
         // 置顶动态最新判定：更新于第二条（去除置顶后首条）才视为新动态
         const secondPubTs = Number(
@@ -188,10 +193,10 @@ export class BiliDynamicPollingService {
                     Number(it.modules.module_author?.pub_ts ?? 0) >
                     secondPubTs,
             )
-            .filter((it) => !monitor.cachedIds.includes(it.id_str));
+            .filter((it) => !cachedIds.includes(it.id_str));
 
         // 全量记录缓存（置顶也记录，避免取消置顶后重复推送）
-        this.dynStore.addCacheIds(
+        addDynCachedIds(
             uid,
             items.map((it) => it.id_str),
         );

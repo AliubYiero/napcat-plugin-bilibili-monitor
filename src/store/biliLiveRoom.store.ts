@@ -1,6 +1,7 @@
 // BiliLiveRoomStore.ts
 import { pluginState } from '../core/state';
 import type { RoomStatusInfo } from '../api/getStatusInfoByUids';
+import { isPlainObject, unwrapData, wrapData } from './storeFile';
 
 const ROOM_DATA_FILENAME = 'bilibiliLiveRoomData.json';
 
@@ -8,11 +9,18 @@ const ROOM_DATA_FILENAME = 'bilibiliLiveRoomData.json';
 export function mapToRoomInfo(
     room: RoomStatusInfo,
 ): BiliLiveRoomInfo | null {
-    if (!room || typeof room.uid !== 'number') return null;
+    if (!room) return null;
+    // 内部 uid 一律为字符串 (接口返回数字, 也容忍偶发的字符串形式)
+    const rawUid = room.uid as unknown;
+    if (typeof rawUid !== 'number' && typeof rawUid !== 'string') {
+        return null;
+    }
+    const uid = String(rawUid);
+    if (uid === '') return null;
     // 运行时字段（liveContents 等）此处留空, 由事件/采集层填充
     return {
         room_id: room.room_id,
-        uid: room.uid,
+        uid,
         // live_status: 0 未开播, 1 正在直播, 2 轮播中；仅 1 视为 streaming
         live_status: room.live_status === 1 ? 'streaming' : 'offline',
         title: room.title || '',
@@ -46,7 +54,8 @@ export type BiliOnlineSnapshot = [number, number];
 /** 直播间信息（与接口对齐） */
 export interface BiliLiveRoomInfo {
     room_id: number;
-    uid: number;
+    /** 主播 uid (字符串形式, 与记录的键一致) */
+    uid: string;
     live_status: 'streaming' | 'offline';
     title: string;
     parent_area_name: string;
@@ -388,23 +397,58 @@ export class BiliLiveRoomStore {
 
     // ========== 工具 ==========
 
-    /** 从文件加载数据 */
+    /**
+     * 从文件加载数据
+     *
+     * 顶层为 `{ version: 1, data: Record<uid, BiliLiveRoomInfo> }` (见 storeFile.ts)。
+     * 逐条归一化 uid 为字符串: 旧数据里该字段是数字, 迁移已统一,
+     * 这里是运行期防线 (告警并归一, 不抛错以免影响轮询)。
+     */
     private loadFromFile(): void {
-        this.data = pluginState.loadDataFile<
-            Record<string, BiliLiveRoomInfo>
-        >(ROOM_DATA_FILENAME, {});
-        // 确保数据类型正确（防止文件损坏）
-        if (
-            typeof this.data !== 'object' ||
-            this.data === null ||
-            Array.isArray(this.data)
-        ) {
+        const unwrapped = unwrapData(
+            pluginState.loadDataFile<unknown>(ROOM_DATA_FILENAME, undefined),
+        );
+        if (!unwrapped) {
             this.data = {};
+            return;
         }
+        if (unwrapped.legacy) {
+            pluginState.logger.warn(
+                `数据文件 ${ROOM_DATA_FILENAME} 为旧结构, 本次按原样读取, 写入后自动升级`,
+            );
+        }
+        if (!isPlainObject(unwrapped.data)) {
+            pluginState.logger.error(
+                `数据文件 ${ROOM_DATA_FILENAME} 结构异常, 已回退为空表`,
+            );
+            this.data = {};
+            return;
+        }
+
+        const data: Record<string, BiliLiveRoomInfo> = {};
+        for (const [key, value] of Object.entries(unwrapped.data)) {
+            if (!isPlainObject(value)) continue;
+            const rawUid = value.uid as unknown;
+            if (
+                typeof rawUid !== 'number' &&
+                typeof rawUid !== 'string'
+            ) {
+                pluginState.logger.warn(
+                    `直播间快照 uid 非法, 已丢弃 (key=${key})`,
+                );
+                continue;
+            }
+            const uid = String(rawUid);
+            data[uid] = { ...(value as BiliLiveRoomInfo), uid };
+        }
+        this.data = data;
     }
 
     /** 保存数据到文件 */
     private saveToFile(): void {
-        pluginState.saveDataFile(ROOM_DATA_FILENAME, this.data);
+        pluginState.saveDataFile(
+            ROOM_DATA_FILENAME,
+            wrapData(this.data),
+        );
     }
 }

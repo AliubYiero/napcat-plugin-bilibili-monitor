@@ -11,9 +11,9 @@
  */
 import { pluginState } from '../../core/state';
 import {
-    BiliLiveStore,
+    BiliLiveMonitorStore,
     type BiliLiveMonitorToInfo,
-} from '../../store/biliLive.store';
+} from '../../store/biliLiveMonitor.store';
 import {
     BiliLiveRoomStore,
     type BiliLiveContent,
@@ -49,12 +49,12 @@ export class BiliLivePollingService {
 
     private constructor() {}
 
-    private _liveStore: BiliLiveStore | null = null;
+    private _liveStore: BiliLiveMonitorStore | null = null;
 
     /** 惰性获取监控存储（延迟到 plugin_init 之后实例化） */
-    private get liveStore(): BiliLiveStore {
+    private get liveStore(): BiliLiveMonitorStore {
         if (!this._liveStore) {
-            this._liveStore = BiliLiveStore.getInstance();
+            this._liveStore = BiliLiveMonitorStore.getInstance();
         }
         return this._liveStore;
     }
@@ -186,7 +186,7 @@ export class BiliLivePollingService {
                         // 累积观众：轮询接口 online 为累积观看人数, 每轮覆盖更新
                         if (roomInfo.live_status === 'streaming') {
                             this.roomStore.updateAccumulatedAudience(
-                                String(roomInfo.uid),
+                                roomInfo.uid,
                                 roomStatus.online,
                             );
                         }
@@ -233,9 +233,7 @@ export class BiliLivePollingService {
             }
 
             // 2. 查询该主播绑定的推送目标
-            const monitor = this.liveStore
-                .get()
-                .find((m) => m.uid === uid);
+            const monitor = this.liveStore.getByUid(uid);
             if (!monitor || monitor.to.length === 0) {
                 pluginState.logger.debug(
                     `主播 ${uid} 未绑定推送目标, 跳过`,
@@ -314,7 +312,7 @@ export class BiliLivePollingService {
         const pushEnabled =
             !!pushTypes && pushTypes.includes('restart_stream');
 
-        const monitor = this.liveStore.get().find((m) => m.uid === uid);
+        const monitor = this.liveStore.getByUid(uid);
         if (!monitor || monitor.to.length === 0) {
             pluginState.logger.debug(
                 `主播 ${uid} 未绑定推送目标, 跳过重新开播推送`,

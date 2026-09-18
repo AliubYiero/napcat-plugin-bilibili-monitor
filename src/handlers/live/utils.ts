@@ -1,5 +1,5 @@
 import { OB11Message } from 'napcat-types/napcat-onebot';
-import type { BiliLiveMonitorToInfo } from '../../store/biliLive.store';
+import type { BiliLiveMonitorToInfo } from '../../store/biliLiveMonitor.store';
 
 /**
  * 从消息事件构造会话推送目标信息

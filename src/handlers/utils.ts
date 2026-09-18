@@ -13,7 +13,7 @@ import {
 } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { pluginState } from '../core/state';
-import { BiliLiveMonitorToInfo } from '../store/biliLive.store';
+import type { BiliLiveMonitorToInfo } from '../store/biliLiveMonitor.store';
 
 /**
  * 发送消息（通用）
