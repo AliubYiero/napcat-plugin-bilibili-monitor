@@ -129,6 +129,22 @@ napcat-plugin-bilibili-monitor/
 
 ## 快速开始
 
+### 依赖
+
+本插件依赖外部渲染插件 [napcat-plugin-svg-render](https://github.com/AliubYiero/napcat-plugin-svg-convert)（用于将 SVG 卡片渲染为图片，默认端口 `6099`），需先安装并启用，且版本 **≥ 1.1.0**（宽度计算依赖其 `fontFamily` 参数透传）。渲染插件不可用或渲染失败时，推送会自动回退纯文本。
+
+图片渲染默认使用思源黑体（Noto Sans CJK SC）。**若渲染宿主系统未安装思源黑体，文本尺寸计算会出错，可能导致图片渲染错行、溢出等不可预计的情况**，请先安装字体：
+
+```bash
+# Linux
+sudo apt install fonts-noto-cjk
+
+# macOS
+brew install --cask font-source-han-sans
+```
+
+Windows 需手动下载并安装思源黑体（Noto Sans CJK SC / Source Han Sans）字体文件。
+
 ### 安装
 
 从 GitHub Release 下载 zip 包，解压到 NapCat 的 `plugins` 目录，或通过插件索引安装。

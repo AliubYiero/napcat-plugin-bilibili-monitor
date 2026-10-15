@@ -65,6 +65,10 @@ _Avoid_: 封面图 (封面是卡片内的一个元素,不是整张卡片)
 **渲染回退 (render fallback)**:
 渲染插件不可用或渲染失败时,通知自动退回纯文本形式的行为。卡片推送优先,回退兜底。
 
+**渲染字体 (render font)**:
+卡片与同接图表 SVG 使用的字体族,首选思源黑体 (Noto Sans CJK SC)。字体栈与宽度计算字体由 `svgRender.service.ts` 的常量统一提供,须安装于渲染宿主(`fonts-noto-cjk`),否则文本尺寸计算偏差会导致错行溢出。
+_Avoid_: 默认字体 (含糊,未指明是思源黑体还是渲染插件内置默认的思源宋体)
+
 **同接数 (onlineNum)**:
 直播间的实时观众人数,取自高能榜接口 getOnlineGoldRank 的 `onlineNum` 字段(免登录)。平均同接数为快照的时间加权平均,`Math.round` 取整显示。
 _Avoid_: 在线人数(轮询接口 `get_status_info_by_uids` 的 `online` 字段是累积观看人数,不是同接数), 人气值

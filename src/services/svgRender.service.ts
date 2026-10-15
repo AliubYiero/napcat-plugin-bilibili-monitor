@@ -1,3 +1,14 @@
+/**
+ * 度量字体族 (字体宽度计算的权威字体, 须为渲染插件已注册的族名或别名)
+ */
+export const MEASURE_FONT_FAMILY = 'Noto Sans CJK SC';
+
+/**
+ * 渲染字体族 CSS 栈 (SVG 根元素的 font-family)
+ * 首选与度量字体保持一致, 其余为宿主字体回退
+ */
+export const RENDER_FONT_FAMILY = `'${MEASURE_FONT_FAMILY}','Noto Sans SC','Microsoft YaHei',sans-serif`;
+
 export class SvgRenderService {
     constructor(private baseUrl: string = 'http://127.0.0.1:6099') {}
 
@@ -57,13 +68,15 @@ export class SvgRenderService {
     }
 
     /**
-     * 预计字符宽度 (半角字符的计算通过微软雅黑字体的宽度进行计算)
+     * 预计字符宽度 (基于渲染插件的字体度量数据, 默认思源黑体)
      * @param text 计算宽度的文本
      * @param fontSize 字体大小
+     * @param fontFamily 字体族名或别名 (须为渲染插件已注册的字体, 默认与渲染字体一致)
      */
     async calculateTextWidth(
         text: string,
         fontSize: number = 16,
+        fontFamily: string = MEASURE_FONT_FAMILY,
     ): Promise<{
         success: boolean;
         totalWidth?: number;
@@ -80,6 +93,7 @@ export class SvgRenderService {
                 body: JSON.stringify({
                     text: text,
                     fontSize: fontSize,
+                    fontFamily: fontFamily,
                 }),
             });
 

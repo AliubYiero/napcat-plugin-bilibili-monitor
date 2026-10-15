@@ -66,6 +66,7 @@ ADR 记录"难逆转、无上下文会意外、真实权衡"三类决策, 每份
 | 0005 配置 Schema 运行时注入 | Schema 构建参数注入运行时数据, 禁止 config 模块静态 import 业务模块 (避免循环引用) | config-pattern 的 Schema 静态/动态边界 |
 | 0006 群启用默认开启 | `enabled !== false` 宽松判定, 入口最前端短路 | config-pattern 的会话级开关、instruction-pattern 的接收层 |
 | 0007 数据文件拓扑 | 按业务域拆分 6 个文件, 统一 `{ version: 1, data }` 包裹, 一次性迁移 | store-pattern 的文件划分与版本约定 |
+| 0008 SVG 渲染字体 | 改用思源黑体, 字体栈由常量统一, 宽度计算传 `fontFamily` 与渲染对齐 | services 渲染链路的字体取值与度量一致性 |
 
 ## 尚未成文的区域
 

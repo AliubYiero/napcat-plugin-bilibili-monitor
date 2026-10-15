@@ -18,7 +18,10 @@ import {
     type OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
-import { svgRenderService } from '../svgRender.service';
+import {
+    RENDER_FONT_FAMILY,
+    svgRenderService,
+} from '../svgRender.service';
 
 /** 图表最小宽度 */
 const CHART_MIN_WIDTH = 800;
@@ -249,7 +252,7 @@ export function generateOnlineChartSvg(
     // 组装 SVG
     const lines: string[] = [];
     lines.push(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" font-family="'PingFang SC','Microsoft YaHei',sans-serif">`,
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" font-family="${RENDER_FONT_FAMILY}">`,
     );
     lines.push(`<rect width="100%" height="100%" fill="white"/>`);
 

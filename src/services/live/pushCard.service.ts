@@ -25,7 +25,10 @@ import {
     type OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
-import { svgRenderService } from '../svgRender.service';
+import {
+    RENDER_FONT_FAMILY,
+    svgRenderService,
+} from '../svgRender.service';
 import {
     calcAverageOnline,
     SNAPSHOT_INTERVAL_TOLERANCE_SEC,
@@ -683,7 +686,7 @@ function generateSvgContent(
 
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${cardWidth + 2}" height="${CARD_HEIGHT + 2}"
      viewBox="0 0 ${cardWidth + 2} ${CARD_HEIGHT + 2}"
-     font-family="'PingFang SC','Microsoft YaHei',sans-serif">
+     font-family="${RENDER_FONT_FAMILY}">
 <defs>
 	<!-- 头像圆形裁剪 -->
 	<clipPath id="avatarClip">
