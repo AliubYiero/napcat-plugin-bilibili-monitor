@@ -100,7 +100,7 @@ index.ts (生命周期)
 
 ### 推送卡片与解析
 
-直播/动态变化通知由 `services/live/pushCard.service.ts` / `services/dyn/push.service.ts` 生成 SVG,经 `svgRender.service.ts` 调用渲染插件转图片发送;渲染不可用/失败时自动回退纯文本。渲染字体为思源黑体(常量 `RENDER_FONT_FAMILY`,须安装于渲染宿主,否则尺寸计算偏差会错行溢出),宽度计算用 `MEASURE_FONT_FAMILY` 对齐。新增推送字段需同时改卡片模板与文本回退。动态解析集中在 `parser.service.ts`(纯函数模块,无 IO,吸收全部动态类型模板/置顶判断/零宽字符清理/链接拼接逻辑)。
+直播/动态变化通知由 `services/live/pushCard.service.ts` / `services/dyn/push.service.ts` 生成 SVG,经 `svgRender.service.ts` 调用渲染插件转图片发送;渲染不可用/失败时自动回退纯文本。渲染字体为思源黑体(常量 `RENDER_FONT_FAMILY`,须安装于渲染宿主,否则尺寸计算偏差会错行溢出),宽度计算用 `MEASURE_FONT_FAMILY` 对齐。新增推送字段需同时改卡片模板与文本回退。动态解析集中在 `parser.service.ts`(纯函数模块,无 IO,吸收全部动态类型模板/置顶判断/零宽字符清理/链接拼接逻辑)。单 uid 动态拉取与推送抽在 `services/dyn/fetchUidDynamic.service.ts`,常态动态轮询与开播前预取共用它(内部 per-uid in-flight 互斥去重);开播推送时若该主播也在动态监听,先跑一次该预取,使新动态先于开播通知发出(见 `services/live/polling.service.ts`)。
 
 ### 指令注册
 

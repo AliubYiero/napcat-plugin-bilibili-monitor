@@ -14,6 +14,8 @@ import {
     BiliLiveMonitorStore,
     type BiliLiveMonitorToInfo,
 } from '../../store/biliLiveMonitor.store';
+import { BiliDynMonitorStore } from '../../store/biliDynMonitor.store';
+import { fetchAndPushUidDynamic } from '../dyn/fetchUidDynamic.service';
 import {
     BiliLiveRoomStore,
     type BiliLiveContent,
@@ -241,7 +243,13 @@ export class BiliLivePollingService {
                 return;
             }
 
-            // 3. 渲染推送消息: 优先图片卡片, SVG 渲染失败时回退纯文本
+            // 3. 开播: 若该主播也在动态监听中, 先拉一次动态并推送,
+            //    保证新动态先于开播通知 (失败静默, 不阻断开播)
+            if (event.type === 'start_stream') {
+                await this.pushPendingDynamics(uid);
+            }
+
+            // 4. 渲染推送消息: 优先图片卡片, SVG 渲染失败时回退纯文本
             const message = await buildChangeMessage(
                 event,
                 this.roomStore,
@@ -253,7 +261,7 @@ export class BiliLivePollingService {
                 return;
             }
 
-            // 4. 逐个目标发送
+            // 5. 逐个目标发送
             for (const toInfo of monitor.to) {
                 pluginState.logger.debug(
                     `推送 ${type} 通知到 ${toInfo.type}: ${toInfo.id}（uid=${uid}）`,
@@ -283,7 +291,7 @@ export class BiliLivePollingService {
                 );
             }
 
-            // 5. 下播推送完成后清理同接运行时数据（推送时仍需读取快照计算平均同接）
+            // 6. 下播推送完成后清理同接运行时数据（推送时仍需读取快照计算平均同接）
             if (event.type === 'end_stream') {
                 await this.pushOnlineChart(
                     event,
@@ -293,6 +301,25 @@ export class BiliLivePollingService {
             }
         } catch (err) {
             pluginState.logger.error('处理直播间变化事件出错:', err);
+        }
+    }
+
+    /**
+     * 开播前预取: 该主播若在动态监听中, 复用一次常态动态轮询
+     * (拉一页 → 比对缓存 → 推送新动态), 使新动态先于开播通知发出。
+     * 不在动态监听中则直接返回; 任何失败都静默, 不阻断开播链路。
+     */
+    private async pushPendingDynamics(uid: string): Promise<void> {
+        try {
+            if (!BiliDynMonitorStore.getInstance().getByUid(uid)) {
+                return;
+            }
+            await fetchAndPushUidDynamic(uid, () => this.stopped);
+        } catch (err) {
+            pluginState.logger.warn(
+                `开播前预取主播 ${uid} 动态出错:`,
+                err,
+            );
         }
     }
 

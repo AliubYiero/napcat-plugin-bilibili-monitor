@@ -10,22 +10,12 @@
  * 因此使用惰性 getter。
  */
 import { pluginState } from '../../core/state';
-import {
-    BiliDynMonitorStore,
-    type BiliDynamicMonitor,
-} from '../../store/biliDynMonitor.store';
+import { BiliDynMonitorStore } from '../../store/biliDynMonitor.store';
 import { BiliCookieStore } from '../../store/biliCookie.store';
-import { api_getDynamicFeed } from '../../api/getDynamicFeed';
-import type { BiliDynamicItem } from '../../api/getDynamicFeed';
-import { parseBiliDynamic } from './parser.service';
-import { pushDynToTargets } from './push.service';
-import { addDynCachedIds, getDynCachedIds } from './runtime.service';
+import { fetchAndPushUidDynamic } from './fetchUidDynamic.service';
 
 /** 默认轮询间隔（秒），配置缺失时兜底 */
 const DEFAULT_DYN_POLL_INTERVAL = 300;
-
-/** 新动态推送间隔（ms） */
-const PUSH_INTERVAL_MS = 500;
 
 /**
  * 动态监听的间隔 (ms)
@@ -134,7 +124,11 @@ export class BiliDynamicPollingService {
 
         for (const uid of uniqueUids) {
             try {
-                await this.processMonitor(uid);
+                // 与开播前预取共用同一实现 (内部 in-flight 互斥去重)
+                await fetchAndPushUidDynamic(
+                    uid,
+                    () => this.stopped,
+                );
                 await sleep(MONITOR_INTERVAL_MS);
             } catch (err) {
                 // 单个主播失败不影响其他主播
@@ -145,94 +139,6 @@ export class BiliDynamicPollingService {
             }
         }
     }
-
-    /**
-     * 处理单个主播：拉取一页动态，比对缓存，
-     * 新动态按 pub_ts 从旧到新、间隔 500ms 推送。
-     * 首绑（cachedIds 为空 = 从未拉取过）只记录缓存不推送。
-     */
-    private async processMonitor(uid: string): Promise<void> {
-        const monitor = this.dynStore.getByUid(uid);
-        if (!monitor) return;
-
-        // 请求前取一次缓存快照: 本轮所有"是否已推送"的判定都基于它,
-        // 避免本轮写入缓存后污染同一轮的判定。
-        // 快照必须在 await 之前取, 否则首绑判定永假。
-        const cachedIds = getDynCachedIds(uid);
-        // 首绑判定：缓存为空 = 从未拉取过
-        const firstBind = cachedIds.length === 0;
-
-        const resp = await api_getDynamicFeed(uid);
-        if (resp.code !== 0 || !resp.data?.items) {
-            // -101 未登录 / -352 风控: 标记 Cookie 失效并中止
-            if (resp.code === -101 || resp.code === -352) {
-                void BiliCookieStore.getInstance().markExpired();
-                return;
-            }
-            pluginState.logger.warn(
-                `拉取主播 ${uid} 动态失败: code=${resp.code}, ${resp.message ?? ''}`,
-            );
-            return;
-        }
-
-        const items = resp.data.items;
-        const pinned = items.filter((it) => isPinned(it));
-        const normal = items.filter((it) => !isPinned(it));
-
-        // 先在写缓存之前，用本轮拉取前的缓存状态判定新动态
-        const newNormal = normal.filter(
-            (it) => !cachedIds.includes(it.id_str),
-        );
-        // 置顶动态最新判定：更新于第二条（去除置顶后首条）才视为新动态
-        const secondPubTs = Number(
-            normal[1]?.modules.module_author?.pub_ts ?? 0,
-        );
-        const newPinned = pinned
-            .filter(
-                (it) =>
-                    Number(it.modules.module_author?.pub_ts ?? 0) >
-                    secondPubTs,
-            )
-            .filter((it) => !cachedIds.includes(it.id_str));
-
-        // 全量记录缓存（置顶也记录，避免取消置顶后重复推送）
-        addDynCachedIds(
-            uid,
-            items.map((it) => it.id_str),
-        );
-
-        // 首绑只记录缓存不推送
-        if (firstBind) {
-            pluginState.logger.debug(
-                `主播 ${uid} 首次绑定，记录 ${items.length} 条动态到缓存，不推送`,
-            );
-            return;
-        }
-
-        const news = [...newPinned, ...newNormal];
-        if (news.length === 0) {
-            pluginState.logger.debug(`主播 ${uid} 本轮无新动态`);
-            return;
-        }
-
-        // 从旧到新推送，间隔 500ms
-        const sorted = news.sort(
-            (a, b) =>
-                Number(a.modules.module_author?.pub_ts ?? 0) -
-                Number(b.modules.module_author?.pub_ts ?? 0),
-        );
-        for (const item of sorted) {
-            if (this.stopped) return;
-            const parsed = parseBiliDynamic(item);
-            await pushDynToTargets(parsed, uid, monitor.to);
-            await sleep(PUSH_INTERVAL_MS);
-        }
-    }
-}
-
-/** 判断动态是否为置顶动态 */
-function isPinned(item: BiliDynamicItem): boolean {
-    return item.modules.module_tag?.text === '置顶';
 }
 
 /** 睡眠工具 */
