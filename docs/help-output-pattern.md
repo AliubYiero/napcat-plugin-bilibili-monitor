@@ -75,7 +75,7 @@ SuperAdmin 版可以包含**仅私聊可用**的指令 (`onlyPrivate`)。这直�
 生成脚本 `scripts/generateHelp/index.ts` (tsx 直跑), 流程:
 
 1. 读取渲染服务项目 `.env` 的 `PORT` (缺省 3366), `GET /api/cmds` 探活。
-2. 服务未运行则在渲染服务目录自动 `spawn pnpm start`, 轮询就绪 (30s 超时; 首次运行需先在该项目执行 `npx playwright install chromium`)。
+2. 服务未运行则在渲染服务目录自动 `spawn pnpm start`, 轮询就绪 (30s 超时; 首次运行需先在该项目执行 `npx playwright install chromium`)。生成结束后脚本树杀本次自启的实例 (Windows `taskkill /T /F`, POSIX 进程组 `SIGKILL`), 已在运行的实例不动。
 3. 对映射表 (`CMD_TARGETS`) 中每个 cmd: 以 API 传参模式提交完整 cmd 配置 (`cmd[0]` 优先于注册表 `ids`), 调用 `POST /api/text` (JSON) 与 `POST /api/images` (multipart, 手写解析, 二进制安全)。
 4. 落盘 (见下节)。
 

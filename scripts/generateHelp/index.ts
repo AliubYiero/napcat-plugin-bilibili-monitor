@@ -7,7 +7,11 @@
  * cmd 配置权威源在本项目 scripts/generateHelp/cmds/, 经 API 传参模式 (cmd 字段) 提交给上游服务渲染
  */
 
-import { spawn } from 'node:child_process';
+import {
+    type ChildProcess,
+    spawn,
+    spawnSync,
+} from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -88,13 +92,19 @@ function readGeneratorPort(): number {
     return 3366;
 }
 
+// 本脚本自启的上游服务句柄; owned=false 表示复用已在运行的实例, 结束时不得关闭
+interface ServerHandle {
+    owned: boolean;
+    child?: ChildProcess;
+}
+
 // 上游服务未运行时自动启动, 轮询就绪
-async function ensureServer(port: number): Promise<void> {
+async function ensureServer(port: number): Promise<ServerHandle> {
     if (await isServerUp(port)) {
         console.log(
             `[help:generate] 检测到上游服务已运行 (port ${port})`,
         );
-        return;
+        return { owned: false };
     }
 
     console.log(
@@ -104,31 +114,57 @@ async function ensureServer(port: number): Promise<void> {
     const child = spawn(bin, ['start'], {
         cwd: GENERATOR_ROOT,
         stdio: 'ignore',
-        detached: false,
+        // POSIX 下自成进程组, 便于结束时整组终止
+        detached: process.platform !== 'win32',
         // Windows 下 Node v20.12+ 对 .cmd 的 spawn 强制要求 shell
         shell: process.platform === 'win32',
     });
+
+    let spawnError: Error | null = null;
     child.on('error', (err) => {
-        console.error(
-            `[help:generate] 启动上游服务失败: ${err.message}\n` +
-                '请手动进入 napcat-help-generate 目录执行 pnpm start 后重试',
-        );
-        process.exit(1);
+        spawnError = err;
     });
 
     const startedAt = Date.now();
     while (Date.now() - startedAt < START_TIMEOUT_MS) {
+        if (spawnError) {
+            throw new Error(
+                `启动上游服务失败: ${spawnError.message}\n` +
+                    '请手动进入 napcat-help-generate 目录执行 pnpm start 后重试',
+            );
+        }
         if (await isServerUp(port)) {
             console.log('[help:generate] 上游服务已就绪');
-            return;
+            return { owned: true, child };
         }
         await sleep(POLL_INTERVAL_MS);
     }
-    console.error(
-        `[help:generate] 等待上游服务就绪超时 (${START_TIMEOUT_MS / 1000}s)\n` +
+    stopServer({ owned: true, child });
+    throw new Error(
+        `等待上游服务就绪超时 (${START_TIMEOUT_MS / 1000}s)\n` +
             '首次运行需在上游目录执行 npx playwright install chromium; 也可手动 pnpm start 后重试',
     );
-    process.exit(1);
+}
+
+// 关闭本脚本自启的上游服务 (整棵进程树); 复用实例与清理失败均静默放行
+function stopServer(handle: ServerHandle): void {
+    const pid = handle.child?.pid;
+    if (!handle.owned || !pid) {
+        return;
+    }
+    try {
+        if (process.platform === 'win32') {
+            spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+                stdio: 'ignore',
+            });
+        } else {
+            process.kill(-pid, 'SIGKILL');
+        }
+    } catch (err) {
+        console.warn(
+            `[help:generate] 关闭上游服务失败 (pid ${pid}): ${(err as Error).message}`,
+        );
+    }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -285,19 +321,26 @@ function writeHelpText(
 
 async function main(): Promise<void> {
     const port = readGeneratorPort();
-    await ensureServer(port);
+    const handle = await ensureServer(port);
 
-    for (const { cmd, handlerDir } of CMD_TARGETS) {
-        console.log(`[help:generate] 生成 ${cmd.id} ...`);
-        const texts = await fetchText(port, cmd);
-        const images = await fetchImages(port, cmd);
-        writeImages(cmd.id, images);
-        writeHelpText(cmd.id, handlerDir, texts);
+    try {
+        for (const { cmd, handlerDir } of CMD_TARGETS) {
+            console.log(`[help:generate] 生成 ${cmd.id} ...`);
+            const texts = await fetchText(port, cmd);
+            const images = await fetchImages(port, cmd);
+            writeImages(cmd.id, images);
+            writeHelpText(cmd.id, handlerDir, texts);
+        }
+        console.log('[help:generate] 全部完成');
+    } finally {
+        stopServer(handle);
     }
-    console.log('[help:generate] 全部完成');
 }
 
-main().catch((err) => {
-    console.error('[help:generate] 失败:', err);
-    process.exit(1);
-});
+main().then(
+    () => process.exit(0),
+    (err) => {
+        console.error('[help:generate] 失败:', err);
+        process.exit(1);
+    },
+);
