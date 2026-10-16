@@ -40,6 +40,8 @@ export interface PluginConfig {
 export interface GroupConfig {
     /** 是否启用此群的功能 */
     enabled?: boolean;
+    /** 是否开启本群开播 @全体成员提醒（缺省关闭，仅显式 true 生效） */
+    liveMentionAll?: boolean;
     // TODO: 在这里添加群级别的配置项
 }
 

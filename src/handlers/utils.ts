@@ -8,7 +8,9 @@
 
 import type {
     OB11Message,
+    OB11MessageAt,
     OB11MessageDataType,
+    OB11MessageText,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
@@ -204,4 +206,42 @@ export function createImageMessage(
         type: 'image' as OB11MessageDataType.image,
         data: { file },
     };
+}
+
+/**
+ * 创建文本消息段
+ */
+export function createTextMessage(text: string): OB11MessageText {
+    return {
+        type: 'text' as OB11MessageDataType.text,
+        data: { text },
+    };
+}
+
+/**
+ * 创建 @ 消息段
+ * @param qq 目标 QQ 号, 取固定值 'all' 即 @全体成员
+ * @param name 群昵称, @全体成员 时无需传入
+ */
+export function createAtMessage(
+    qq: string,
+    name?: string,
+): OB11MessageAt {
+    const data: OB11MessageAt['data'] = { qq };
+    if (name) data.name = name;
+    return { type: 'at' as OB11MessageDataType.at, data };
+}
+
+/**
+ * 在消息最前面插入 @全体成员 段
+ * 字符串消息升级为消息段数组 (纯 @全体成员 无正文在多数客户端渲染为空白,
+ * 故 @全体成员 后始终跟随原有文本)
+ */
+export function prependAtAllMessage(
+    message: OB11PostSendMsg['message'],
+): OB11PostSendMsg['message'] {
+    if (typeof message === 'string') {
+        return [createAtMessage('all'), createTextMessage(message)];
+    }
+    return [createAtMessage('all'), ...message];
 }

@@ -12,6 +12,7 @@ import { helpLiveHandler } from './live/help.handler';
 import { listLiveHandler } from './live/list.handler';
 import { maxLiveHandler } from './live/max.handler';
 import { mentionLiveHandler } from './live/mention.handler';
+import { mentionAllHandler } from './live/mentionAll.handler';
 import { addOnlineHandler } from './live/online/add.handler';
 import { listOnlineHandler } from './live/online/list.handler';
 import { maxOnlineHandler } from './live/online/max.handler';
@@ -19,6 +20,7 @@ import { removeOnlineHandler } from './live/online/remove.handler';
 import { showOnlineHandler } from './live/online/show.handler';
 import { removeLiveHandler } from './live/remove.handler';
 import { unmentionLiveHandler } from './live/unmention.handler';
+import { unmentionAllHandler } from './live/unmentionAll.handler';
 import { helpUserHandler } from './user/help.handler';
 import { loginHandler } from './user/login.handler';
 import { logoutHandler } from './user/logout.handler';
@@ -127,6 +129,26 @@ const nestedInstructionSetMapper: Record<
                         requiredRole: 'superAdmin',
                     },
                 ],
+            },
+        },
+        mention: {
+            /**
+             * 开启本群开播 @全体成员提醒 (仅群聊, 管理员)
+             */
+            all: {
+                handler: mentionAllHandler,
+                requiredRole: 'admin',
+                scope: 'group',
+            },
+        },
+        unmention: {
+            /**
+             * 关闭本群开播 @全体成员提醒 (仅群聊, 管理员)
+             */
+            all: {
+                handler: unmentionAllHandler,
+                requiredRole: 'admin',
+                scope: 'group',
             },
         },
     },

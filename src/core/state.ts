@@ -87,6 +87,8 @@ export function sanitizeConfig(raw: unknown): PluginConfig {
                 const cfg: GroupConfig = {};
                 if (typeof groupConfig.enabled === 'boolean')
                     cfg.enabled = groupConfig.enabled;
+                if (typeof groupConfig.liveMentionAll === 'boolean')
+                    cfg.liveMentionAll = groupConfig.liveMentionAll;
                 // TODO: 在这里添加你的群配置项清洗
                 out.groupConfigs[groupId] = cfg;
             }
@@ -307,6 +309,16 @@ class PluginState {
      */
     isGroupEnabled(groupId: string): boolean {
         return this.config.groupConfigs[groupId]?.enabled !== false;
+    }
+
+    /**
+     * 检查指定群是否开启开播 @全体成员提醒
+     * 默认关闭, 仅显式存为 true 才生效
+     */
+    isLiveMentionAllEnabled(groupId: string): boolean {
+        return (
+            this.config.groupConfigs[groupId]?.liveMentionAll === true
+        );
     }
 
     /**

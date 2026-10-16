@@ -10,14 +10,17 @@
  * 因此这里使用惰性 getter，避免模块加载期过早初始化抛错。
  */
 
-import type {
-    OB11MessageDataType,
-    OB11PostSendMsg,
-} from 'napcat-types/napcat-onebot';
+import type { OB11PostSendMsg } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { api_getStatusInfoByUids } from '../../api/getStatusInfoByUids';
+import { canSendAtAll } from '../../core/atAll';
 import { pluginState } from '../../core/state';
-import { sendReplyByToInfo } from '../../handlers/utils';
+import {
+    createAtMessage,
+    createTextMessage,
+    prependAtAllMessage,
+    sendReplyByToInfo,
+} from '../../handlers/utils';
 import { BiliDynMonitorStore } from '../../store/biliDynMonitor.store';
 import {
     BiliLiveMonitorStore,
@@ -278,10 +281,22 @@ export class BiliLivePollingService {
                     }
                 }
 
+                // 开播且本群开启 @全体成员提醒时, 机器人为管理员且当日
+                // 配额未用完方可在消息前置 @全体; 否则静默降级为普通消息
+                let outgoing: OB11PostSendMsg['message'] = message;
+                if (
+                    event.type === 'start_stream' &&
+                    toInfo.type === 'group' &&
+                    pluginState.isLiveMentionAllEnabled(toInfo.id) &&
+                    (await canSendAtAll(pluginState.ctx, toInfo.id))
+                ) {
+                    outgoing = prependAtAllMessage(message);
+                }
+
                 await sendReplyByToInfo(
                     pluginState.ctx,
                     toInfo,
-                    message,
+                    outgoing,
                 );
             }
 
@@ -582,14 +597,8 @@ async function sendMentionMessages(
     ) {
         const chunk = mentionUsers.slice(i, i + MENTION_GROUP_SIZE);
         const message: OB11PostSendMsg['message'] = [
-            ...chunk.map((qq) => ({
-                type: 'at' as OB11MessageDataType.at,
-                data: { qq },
-            })),
-            {
-                type: 'text' as OB11MessageDataType.text,
-                data: { text: `\n「${uname}」开始直播了` },
-            },
+            ...chunk.map((qq) => createAtMessage(qq)),
+            createTextMessage(`\n「${uname}」开始直播了`),
         ];
         await sendReplyByToInfo(ctx, toInfo, message);
     }

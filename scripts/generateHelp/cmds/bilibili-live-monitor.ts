@@ -16,6 +16,16 @@ export const bilibiliLiveMonitor: Cmd = {
                     cmd: '#bili live remove <主播uid>',
                     desc: '从直播状态监听列表移除主播',
                 },
+                {
+                    cmd: '#bili live mention all',
+                    desc: '开启本群开播 @全体成员提醒',
+                    onlyGroup: true,
+                },
+                {
+                    cmd: '#bili live unmention all',
+                    desc: '关闭本群开播 @全体成员提醒',
+                    onlyGroup: true,
+                },
             ],
         },
         {
