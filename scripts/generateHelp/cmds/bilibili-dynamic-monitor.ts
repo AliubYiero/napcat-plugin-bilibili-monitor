@@ -6,6 +6,7 @@ export const bilibiliDynamicMonitor: Cmd = {
     cmd: [
         {
             groupName: '核心指令',
+            isAdmin: true,
             instructions: [
                 {
                     cmd: '#bili dyn add <主播uid>',
@@ -15,6 +16,11 @@ export const bilibiliDynamicMonitor: Cmd = {
                     cmd: '#bili dyn remove <主播uid>',
                     desc: '从动态监听列表移除主播',
                 },
+            ],
+        },
+        {
+            groupName: '核心指令',
+            instructions: [
                 {
                     cmd: '#bili dyn latest <主播uid>',
                     desc: '查看主播最新一条动态',

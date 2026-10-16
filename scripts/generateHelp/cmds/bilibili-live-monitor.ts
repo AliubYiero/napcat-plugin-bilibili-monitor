@@ -6,6 +6,7 @@ export const bilibiliLiveMonitor: Cmd = {
     cmd: [
         {
             groupName: '核心指令',
+            isAdmin: true,
             instructions: [
                 {
                     cmd: '#bili live add <主播uid>',
@@ -15,6 +16,11 @@ export const bilibiliLiveMonitor: Cmd = {
                     cmd: '#bili live remove <主播uid>',
                     desc: '从直播状态监听列表移除主播',
                 },
+            ],
+        },
+        {
+            groupName: '核心指令',
+            instructions: [
                 {
                     cmd: '#bili live list',
                     desc: '查看当前正在监听直播状态的主播列表',
@@ -67,6 +73,7 @@ export const bilibiliLiveMonitor: Cmd = {
         },
         {
             groupName: '同接监听指令',
+            isAdmin: true,
             instructions: [
                 {
                     cmd: '#bili live online add <主播uid>',
@@ -76,6 +83,11 @@ export const bilibiliLiveMonitor: Cmd = {
                     cmd: '#bili live online remove <主播uid>',
                     desc: '从同接数监听列表移除主播',
                 },
+            ],
+        },
+        {
+            groupName: '同接监听指令',
+            instructions: [
                 {
                     cmd: '#bili live online list',
                     desc: '查看当前正在监听同接数的主播列表',

@@ -80,13 +80,16 @@ const nestedInstructionSetMapper: Record<
     live: {
         online: {
             /**
-             * 添加主播到同接数监听列表 (直播监听的附属功能)
+             * 添加主播到同接数监听列表 (直播监听的附属功能, 管理员)
              */
-            add: { handler: addOnlineHandler },
+            add: { handler: addOnlineHandler, requiredRole: 'admin' },
             /**
-             * 从同接数监听列表移除主播
+             * 从同接数监听列表移除主播 (管理员)
              */
-            remove: { handler: removeOnlineHandler },
+            remove: {
+                handler: removeOnlineHandler,
+                requiredRole: 'admin',
+            },
             /**
              * 查看当前正在监听同接数的主播列表
              */
@@ -141,13 +144,13 @@ const instructionSetMapper: Record<
 > = {
     live: {
         /**
-         * 添加直播间监听
+         * 添加直播间监听 (管理员)
          */
-        add: { handler: addLiveHandler },
+        add: { handler: addLiveHandler, requiredRole: 'admin' },
         /**
-         * 移除直播间监听
+         * 移除直播间监听 (管理员)
          */
-        remove: { handler: removeLiveHandler },
+        remove: { handler: removeLiveHandler, requiredRole: 'admin' },
         /**
          * 查看当前监听的主播列表
          */
@@ -191,13 +194,13 @@ const instructionSetMapper: Record<
     },
     dyn: {
         /**
-         * 添加主播动态监听
+         * 添加主播动态监听 (管理员)
          */
-        add: { handler: addDynHandler },
+        add: { handler: addDynHandler, requiredRole: 'admin' },
         /**
-         * 移除主播动态监听
+         * 移除主播动态监听 (管理员)
          */
-        remove: { handler: removeDynHandler },
+        remove: { handler: removeDynHandler, requiredRole: 'admin' },
         /**
          * 查看主播最新一条动态
          */

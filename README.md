@@ -26,19 +26,28 @@
 
 | 指令 | 说明 |
 |------|------|
-| `#bili live add <主播uid>` | 添加主播监听 |
-| `#bili live remove <主播uid>` | 移除主播监听 |
+| `#bili live add <主播uid>` | 添加主播监听（仅管理员） |
+| `#bili live remove <主播uid>` | 移除主播监听（仅管理员） |
 | `#bili live list` | 查看当前监听的主播列表 |
 | `#bili live mention <主播uid>` | 订阅主播开播 @ 提醒（仅群聊） |
 | `#bili live unmention <主播uid>` | 取消订阅开播 @ 提醒（仅群聊） |
 | `#bili live help` | 查看指令帮助 |
 
+### 同接监听
+
+| 指令 | 说明 |
+|------|------|
+| `#bili live online add <主播uid>` | 添加主播到同接数监听列表（仅管理员） |
+| `#bili live online remove <主播uid>` | 从同接数监听列表移除主播（仅管理员） |
+| `#bili live online list` | 查看当前正在监听同接数的主播列表 |
+| `#bili live online show <主播uid>` | 查看主播本场直播的同接数变化图表 |
+
 ### 动态监听
 
 | 指令 | 说明 |
 |------|------|
-| `#bili dyn add <主播uid>` | 添加主播到动态监听列表 |
-| `#bili dyn remove <主播uid>` | 从动态监听列表移除主播 |
+| `#bili dyn add <主播uid>` | 添加主播到动态监听列表（仅管理员） |
+| `#bili dyn remove <主播uid>` | 从动态监听列表移除主播（仅管理员） |
 | `#bili dyn latest <主播uid>` | 查看主播最新一条动态 |
 | `#bili dyn list` | 查看当前监听动态的主播列表 |
 | `#bili dyn help` | 查看动态监听指令帮助 |
