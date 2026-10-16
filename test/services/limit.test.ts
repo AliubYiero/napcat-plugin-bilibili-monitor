@@ -32,7 +32,10 @@ import {
     listDynLimits,
     setDynLimit,
 } from '../../src/services/dyn/limit.service';
-import { resetFakeState, setAdminUsers } from '../helpers/pluginState';
+import {
+    resetFakeState,
+    setAdminUsers,
+} from '../helpers/pluginState';
 
 const GROUP = { id: '100', type: 'group' } as const;
 const PRIVATE = { id: '200', type: 'private' } as const;

@@ -168,7 +168,10 @@ describe('detectChanges 七类变化事件', () => {
         store.updateOrAdd(makeRoom({ live_status: 'offline' }));
         const events = collectEvents();
         store.updateOrAdd(
-            makeRoom({ live_status: 'offline', area_name: '单机游戏' }),
+            makeRoom({
+                live_status: 'offline',
+                area_name: '单机游戏',
+            }),
         );
         expect(events.map((e) => e.type)).toEqual([
             'offline_area_changed',

@@ -313,8 +313,7 @@ export function renderTextMessage(
                 roomStore,
             );
             // 重新开播触发的结束信息以新开播时间为结束时刻
-            const endTimeSec =
-                event.endTimeSec ?? nowSec;
+            const endTimeSec = event.endTimeSec ?? nowSec;
             return [
                 firstLine,
                 durationLine(old.live_time, endTimeSec),

@@ -55,7 +55,11 @@ export const showOnlineHandler = async (
             return;
         }
         uid = monitors[0].uid;
-    } else if (!biliOnlineMonitorService.list(toInfo).some((m) => m.uid === uid)) {
+    } else if (
+        !biliOnlineMonitorService
+            .list(toInfo)
+            .some((m) => m.uid === uid)
+    ) {
         await sendReplyByToInfo(
             ctx,
             toInfo,

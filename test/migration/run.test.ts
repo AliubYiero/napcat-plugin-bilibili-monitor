@@ -24,10 +24,12 @@ const NOW = new Date(2026, 8, 19, 14, 30, 5);
 const STAMP = '20260919143005';
 
 /** 内存文件系统, 记录全部写操作以便断言顺序 */
-function createMemoryIo(options: {
-    files?: Record<string, unknown>;
-    corrupt?: string[];
-} = {}) {
+function createMemoryIo(
+    options: {
+        files?: Record<string, unknown>;
+        corrupt?: string[];
+    } = {},
+) {
     const files = new Map<string, unknown>();
     for (const [name, value] of Object.entries(options.files ?? {})) {
         files.set(name, structuredClone(value));
@@ -39,10 +41,16 @@ function createMemoryIo(options: {
         list: () => [...files.keys()],
         read(name) {
             if (corrupt.has(name)) {
-                return { status: 'invalid', error: 'Unexpected token' };
+                return {
+                    status: 'invalid',
+                    error: 'Unexpected token',
+                };
             }
             if (!files.has(name)) return { status: 'missing' };
-            return { status: 'ok', value: structuredClone(files.get(name)) };
+            return {
+                status: 'ok',
+                value: structuredClone(files.get(name)),
+            };
         },
         write(name, data) {
             calls.push(`write:${name}`);
@@ -85,15 +93,11 @@ const LEGACY_DIR: Record<string, unknown> = {
             cachedIds: ['a', 'b'],
         },
     ],
-    [LEGACY_FILES.liveLimits]: [
-        { id: '100', type: 'group', max: 5 },
-    ],
+    [LEGACY_FILES.liveLimits]: [{ id: '100', type: 'group', max: 5 }],
     [LEGACY_FILES.onlineLimits]: [
         { id: '100', type: 'group', max: 1 },
     ],
-    [LEGACY_FILES.dynLimits]: [
-        { id: '200', type: 'group', max: 0 },
-    ],
+    [LEGACY_FILES.dynLimits]: [{ id: '200', type: 'group', max: 0 }],
     [LEGACY_FILES.roomData]: {
         1: { room_id: 9527, uid: 1, live_status: 'streaming' },
     },
@@ -158,7 +162,13 @@ describe('全量迁移', () => {
         });
         expect(files.get(TARGET_FILES.roomData)).toEqual({
             version: 1,
-            data: { 1: { room_id: 9527, uid: '1', live_status: 'streaming' } },
+            data: {
+                1: {
+                    room_id: 9527,
+                    uid: '1',
+                    live_status: 'streaming',
+                },
+            },
         });
     });
 
@@ -169,7 +179,9 @@ describe('全量迁移', () => {
         const copyIndex = calls.indexOf(
             `copy:${LEGACY_FILES.roomData}->${LEGACY_FILES.roomData}.${STAMP}.bak`,
         );
-        const firstWrite = calls.findIndex((c) => c.startsWith('write:'));
+        const firstWrite = calls.findIndex((c) =>
+            c.startsWith('write:'),
+        );
         const firstRename = calls.findIndex((c) =>
             c.startsWith('rename:'),
         );
@@ -184,7 +196,9 @@ describe('全量迁移', () => {
         executeMigration(io, NOW);
         expect(
             files.get(`${LEGACY_FILES.roomData}.${STAMP}.bak`),
-        ).toEqual({ 1: { room_id: 9527, uid: 1, live_status: 'streaming' } });
+        ).toEqual({
+            1: { room_id: 9527, uid: 1, live_status: 'streaming' },
+        });
     });
 
     it('摘要文本包含各计数', () => {
@@ -220,20 +234,23 @@ describe('幂等', () => {
         });
         const result = executeMigration(io, NOW);
 
-        expect(
-            result.plan.writes.map((w) => w.name),
-        ).not.toContain(TARGET_FILES.limits);
+        expect(result.plan.writes.map((w) => w.name)).not.toContain(
+            TARGET_FILES.limits,
+        );
         // 已跳过的目标不消费其源: 三个上限文件保持原样, 不进备份
         expect(files.has(LEGACY_FILES.liveLimits)).toBe(true);
-        expect(
-            result.plan.backups.map((b) => b.from),
-        ).not.toContain(LEGACY_FILES.liveLimits);
+        expect(result.plan.backups.map((b) => b.from)).not.toContain(
+            LEGACY_FILES.liveLimits,
+        );
     });
 
     it('目标声明了未知版本时跳过并警告, 绝不覆盖', () => {
         const { io, files } = createMemoryIo({
             files: {
-                [TARGET_FILES.liveMonitors]: { version: 2, data: ['未来'] },
+                [TARGET_FILES.liveMonitors]: {
+                    version: 2,
+                    data: ['未来'],
+                },
                 [LEGACY_FILES.liveData]: [
                     {
                         uid: '1',
@@ -286,7 +303,9 @@ describe('失败时不做任何写入', () => {
             corrupt: [LEGACY_FILES.dynData],
         });
 
-        expect(() => executeMigration(io, NOW)).toThrow(MigrationError);
+        expect(() => executeMigration(io, NOW)).toThrow(
+            MigrationError,
+        );
         expect(calls).toEqual([]);
     });
 
@@ -298,9 +317,9 @@ describe('失败时不做任何写入', () => {
         const result = executeMigration(io, NOW);
 
         expect(result.warnings.join()).toContain('解析失败');
-        expect(
-            result.plan.writes.map((w) => w.name),
-        ).not.toContain(TARGET_FILES.limits);
+        expect(result.plan.writes.map((w) => w.name)).not.toContain(
+            TARGET_FILES.limits,
+        );
         expect(files.has(LEGACY_FILES.liveLimits)).toBe(true);
     });
 });

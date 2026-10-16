@@ -65,7 +65,8 @@ export function createFsMigrationIo(dataDir: string): MigrationIo {
         },
         read(name: string): ReadResult {
             const filePath = resolve(name);
-            if (!fs.existsSync(filePath)) return { status: 'missing' };
+            if (!fs.existsSync(filePath))
+                return { status: 'missing' };
             try {
                 const text = fs.readFileSync(filePath, 'utf-8');
                 return { status: 'ok', value: JSON.parse(text) };
@@ -111,7 +112,9 @@ const LEGACY_NAMES: ReadonlySet<string> = new Set(
  * @throws MigrationError / MigrationValidationError 时调用方应阻止插件启动
  */
 export function runDataMigration(dataDir?: string): MigrationResult {
-    const io = createFsMigrationIo(dataDir ?? pluginState.ctx.dataPath);
+    const io = createFsMigrationIo(
+        dataDir ?? pluginState.ctx.dataPath,
+    );
     return executeMigration(io, new Date());
 }
 
@@ -189,7 +192,8 @@ export function executeMigration(
     for (const write of plan.writes) io.write(write.name, write.data);
     // 3.3 其余旧文件重命名为备份 (此时新文件已就位)
     for (const backup of plan.backups) {
-        if (backup.mode === 'rename') io.rename(backup.from, backup.to);
+        if (backup.mode === 'rename')
+            io.rename(backup.from, backup.to);
     }
 
     return { status: 'migrated', plan, warnings: allWarnings };

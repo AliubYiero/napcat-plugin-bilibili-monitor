@@ -55,7 +55,8 @@ export class BiliLiveMonitorStore extends BaseStore<BiliLiveMonitor> {
 
     static getInstance(): BiliLiveMonitorStore {
         if (!BiliLiveMonitorStore.instance) {
-            BiliLiveMonitorStore.instance = new BiliLiveMonitorStore();
+            BiliLiveMonitorStore.instance =
+                new BiliLiveMonitorStore();
         }
         return BiliLiveMonitorStore.instance;
     }
@@ -73,7 +74,9 @@ export class BiliLiveMonitorStore extends BaseStore<BiliLiveMonitor> {
     }
 
     /** 指定会话正在直播监听的主播列表 */
-    listForLiveTarget(toInfo: BiliLiveMonitorToInfo): BiliLiveMonitor[] {
+    listForLiveTarget(
+        toInfo: BiliLiveMonitorToInfo,
+    ): BiliLiveMonitor[] {
         return this.get().filter((monitor) =>
             monitor.to.some((t) => isSameTarget(t, toInfo)),
         );
@@ -295,7 +298,10 @@ export class BiliLiveMonitorStore extends BaseStore<BiliLiveMonitor> {
         // to 为空的记录非法 (不允许只有 onlineTo 没有 to), 加载时剔除
         return super
             .loadFromFile()
-            .filter((item) => Array.isArray(item?.to) && item.to.length > 0)
+            .filter(
+                (item) =>
+                    Array.isArray(item?.to) && item.to.length > 0,
+            )
             .map((item) => {
                 normalizeRecord(item);
                 return item;

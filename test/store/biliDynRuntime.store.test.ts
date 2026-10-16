@@ -165,7 +165,10 @@ describe('加载清洗', () => {
             ...Array.from({ length: 101 }, (_, i) => `id${i}`),
             42,
         ];
-        seedFile(FILE, { version: 1, data: { 1: { cachedIds: ids } } });
+        seedFile(FILE, {
+            version: 1,
+            data: { 1: { cachedIds: ids } },
+        });
         store.reload();
         const cached = store.getCachedIds('1');
         expect(cached).toHaveLength(100);

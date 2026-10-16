@@ -62,8 +62,9 @@ export class BiliDynMonitorStore extends BaseStore<BiliDynamicMonitor> {
     /** 该主播是否已推送至指定会话 */
     has(uid: string, toInfo: BiliDynamicMonitorToInfo): boolean {
         return (
-            this.getByUid(uid)?.to.some((t) => isSameTarget(t, toInfo)) ??
-            false
+            this.getByUid(uid)?.to.some((t) =>
+                isSameTarget(t, toInfo),
+            ) ?? false
         );
     }
 
@@ -107,7 +108,9 @@ export class BiliDynMonitorStore extends BaseStore<BiliDynamicMonitor> {
         if (!monitor) return false;
 
         const before = monitor.to.length;
-        monitor.to = monitor.to.filter((t) => !isSameTarget(t, toInfo));
+        monitor.to = monitor.to.filter(
+            (t) => !isSameTarget(t, toInfo),
+        );
         if (monitor.to.length === before) return false;
 
         if (monitor.to.length === 0) {

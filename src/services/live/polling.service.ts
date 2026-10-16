@@ -293,10 +293,7 @@ export class BiliLivePollingService {
 
             // 6. 下播推送完成后清理同接运行时数据（推送时仍需读取快照计算平均同接）
             if (event.type === 'end_stream') {
-                await this.pushOnlineChart(
-                    event,
-                    monitor.to,
-                );
+                await this.pushOnlineChart(event, monitor.to);
                 this.roomStore.clearRuntimeData(event.uid);
             }
         } catch (err) {
@@ -443,14 +440,12 @@ export class BiliLivePollingService {
                         : Math.floor(Date.now() / 1000),
                 title: old?.title ?? stored.title,
                 parentAreaName:
-                    old?.parent_area_name ??
-                    stored.parent_area_name,
+                    old?.parent_area_name ?? stored.parent_area_name,
                 areaName: old?.area_name ?? stored.area_name,
                 liveContents: stored.liveContents ?? [],
                 onlineSnapshots: snapshots,
             };
-            const message =
-                await buildOnlineChartImageMessage(data);
+            const message = await buildOnlineChartImageMessage(data);
             if (!message) return;
             for (const toInfo of toList) {
                 await sendReplyByToInfo(
@@ -477,8 +472,7 @@ export class BiliLivePollingService {
         uid: string,
         content: BiliLiveContent,
     ): void {
-        const contents =
-            this.roomStore.get(uid)?.liveContents ?? [];
+        const contents = this.roomStore.get(uid)?.liveContents ?? [];
         const last = contents[contents.length - 1];
         if (
             last &&

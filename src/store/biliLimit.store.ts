@@ -102,7 +102,8 @@ export class BiliLimitStore extends BaseStore<BiliLimit> {
         kind: BiliLimitKind,
     ): void {
         const existing = this.get(id, type);
-        if (!existing || !Object.hasOwn(existing.limits, kind)) return;
+        if (!existing || !Object.hasOwn(existing.limits, kind))
+            return;
         // 用 delete 而非赋 undefined: JSON.stringify 会丢掉 undefined 值键
         delete existing.limits[kind];
         if (Object.keys(existing.limits).length === 0) {

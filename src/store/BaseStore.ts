@@ -63,7 +63,10 @@ export abstract class BaseStore<T> {
     /** 受保护的文件加载方法（子类可复用/重写） */
     protected loadFromFile(): T[] {
         const unwrapped = unwrapData(
-            pluginState.loadDataFile<unknown>(this.fileName, undefined),
+            pluginState.loadDataFile<unknown>(
+                this.fileName,
+                undefined,
+            ),
         );
         if (!unwrapped) return [];
         if (unwrapped.legacy) {

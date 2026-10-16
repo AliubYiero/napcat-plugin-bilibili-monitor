@@ -329,9 +329,7 @@ describe('parseBiliDynamic 投稿视频', () => {
     it('识别为视频并说明投稿', () => {
         const r = parseBiliDynamic(video);
         expect(r.kind).toBe('video');
-        expect(r.headline).toBe(
-            `${PUB_TIME} 「UP主」 投稿了视频`,
-        );
+        expect(r.headline).toBe(`${PUB_TIME} 「UP主」 投稿了视频`);
     });
 
     it('正文依次给出标题、简介与时长', () => {
@@ -413,9 +411,7 @@ describe('parseBiliDynamic 投稿文章', () => {
         );
         expect(r.kind).toBe('article');
         expect(r.texts).toEqual(['文章标题', '文章正文']);
-        expect(r.jumpUrl).toBe(
-            'https://www.bilibili.com/read/cv1',
-        );
+        expect(r.jumpUrl).toBe('https://www.bilibili.com/read/cv1');
     });
 });
 

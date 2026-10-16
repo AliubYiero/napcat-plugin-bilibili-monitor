@@ -192,7 +192,12 @@ export function opusMajor(o: {
         fold_action: [],
         paywall: null,
     };
-    return { type: 'MAJOR_TYPE_OPUS', none: null, blocked: null, opus };
+    return {
+        type: 'MAJOR_TYPE_OPUS',
+        none: null,
+        blocked: null,
+        opus,
+    };
 }
 
 /** 投稿视频副内容 */

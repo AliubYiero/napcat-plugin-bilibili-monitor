@@ -194,7 +194,11 @@ class PluginState {
      * @param data 要保存的数据
      * @param space 要保存的数据
      */
-    saveDataFile<T>(filename: string, data: T, space: number = 0): void {
+    saveDataFile<T>(
+        filename: string,
+        data: T,
+        space: number = 0,
+    ): void {
         const filePath = this.getDataFilePath(filename);
         try {
             fs.writeFileSync(

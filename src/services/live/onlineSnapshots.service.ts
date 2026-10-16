@@ -96,7 +96,7 @@ export class BiliOnlineSnapshotService {
      * 仅当该主播开启了同接监听时执行
      */
     async captureOnStart(uid: string): Promise<void> {
-        if (!this.monitorStore.hasOnline(uid))return;
+        if (!this.monitorStore.hasOnline(uid)) return;
         await this.captureOne(uid);
     }
 
@@ -110,7 +110,7 @@ export class BiliOnlineSnapshotService {
             // 仅采集开播中的主播（下播不发请求）
             const room = this.roomStore.get(uid);
             if (!room || room.live_status !== 'streaming') continue;
-            if (!this.monitorStore.hasOnline(uid))continue;
+            if (!this.monitorStore.hasOnline(uid)) continue;
 
             if (!isFirst) {
                 await sleep(SNAPSHOT_REQUEST_INTERVAL_MS);

@@ -99,7 +99,9 @@ function buildSegments(data: OnlineChartData): ChartSegment[] {
     const title = data.title || '直播内容';
     segments.push({
         title: `${title} (${data.parentAreaName} - ${data.areaName})`,
-        color: SEGMENT_COLORS[segments.length % SEGMENT_COLORS.length],
+        color: SEGMENT_COLORS[
+            segments.length % SEGMENT_COLORS.length
+        ],
         startTime,
         endTime: Infinity,
     });
@@ -111,10 +113,7 @@ function calculateYAxis(max: number): { max: number; step: number } {
     if (max === 0) return { max: 1, step: 1 };
     const desiredTicks = 6;
     const roughStep = max / (desiredTicks - 1);
-    const magnitude = Math.pow(
-        10,
-        Math.floor(Math.log10(roughStep)),
-    );
+    const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
     const normalized = roughStep / magnitude;
     let niceStep: number;
     if (normalized < 1.5) niceStep = 1 * magnitude;
@@ -220,8 +219,7 @@ export function generateOnlineChartSvg(
             ? legendItems.length * legendLineHeight +
               legendPadding * 2
             : 0;
-    const plotTop =
-        margin.top + titleHeight + legendTotalHeight + 15;
+    const plotTop = margin.top + titleHeight + legendTotalHeight + 15;
     const plotBottom = height - margin.bottom;
     const plotHeight = plotBottom - plotTop;
 
@@ -312,10 +310,7 @@ export function generateOnlineChartSvg(
     // 直播开始标记
     if (data.liveTimeSec > 0) {
         const startX = xScale(data.liveTimeSec * 1000);
-        if (
-            startX >= margin.left &&
-            startX <= width - margin.right
-        ) {
+        if (startX >= margin.left && startX <= width - margin.right) {
             lines.push(
                 `<line x1="${startX}" y1="${plotTop}" x2="${startX}" y2="${plotBottom}" stroke="#FF8C00" stroke-width="1.5" stroke-dasharray="6,4"/>`,
             );

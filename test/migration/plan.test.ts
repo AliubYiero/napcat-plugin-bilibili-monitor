@@ -20,7 +20,9 @@ import {
 const NOW = new Date(2026, 8, 19, 14, 30, 5); // 2026-09-19 14:30:05 本地时间
 
 /** 默认上下文: 无目标存在、无占用文件名 */
-function ctx(overrides: Partial<Parameters<typeof buildMigrationPlan>[1]> = {}) {
+function ctx(
+    overrides: Partial<Parameters<typeof buildMigrationPlan>[1]> = {},
+) {
     return {
         skipTargets: new Set<string>(),
         takenNames: new Set<string>(),
@@ -59,7 +61,10 @@ describe('迁移目标清单', () => {
             ],
             ['bilibiliDynMonitors.json', ['bilibiliDynData.json']],
             ['bilibiliDynRuntimeData.json', ['bilibiliDynData.json']],
-            ['bilibiliLiveRoomData.json', ['bilibiliLiveRoomData.json']],
+            [
+                'bilibiliLiveRoomData.json',
+                ['bilibiliLiveRoomData.json'],
+            ],
         ]);
     });
 });
@@ -394,9 +399,7 @@ describe('上限合并', () => {
         );
         expect(
             (written(plan, TARGET_FILES.limits) as any).data,
-        ).toEqual([
-            { id: '100', type: 'group', limits: { dyn: 0 } },
-        ]);
+        ).toEqual([{ id: '100', type: 'group', limits: { dyn: 0 } }]);
     });
 
     it('同 (id, type) 在不同文件重复时按类型各自落位', () => {
@@ -601,7 +604,9 @@ describe('幂等与备份', () => {
                     },
                 ],
             },
-            ctx({ skipTargets: new Set([TARGET_FILES.liveMonitors]) }),
+            ctx({
+                skipTargets: new Set([TARGET_FILES.liveMonitors]),
+            }),
         );
 
         expect(plan.writes).toEqual([]);

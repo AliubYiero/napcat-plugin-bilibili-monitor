@@ -54,7 +54,9 @@ describe('setLimit 显式覆盖', () => {
             type: 'group',
             limits: { live: 5, dyn: 0 },
         });
-        expect(store.getLimit('100', 'group', 'online')).toBeUndefined();
+        expect(
+            store.getLimit('100', 'group', 'online'),
+        ).toBeUndefined();
     });
 
     it('重复设置覆盖旧值', () => {
@@ -72,7 +74,9 @@ describe('setLimit 显式覆盖', () => {
     });
 
     it('未设置的会话读回 undefined (不回落默认值)', () => {
-        expect(store.getLimit('404', 'group', 'live')).toBeUndefined();
+        expect(
+            store.getLimit('404', 'group', 'live'),
+        ).toBeUndefined();
         expect(store.get('404', 'group')).toBeUndefined();
     });
 });
@@ -143,7 +147,9 @@ describe('加载清洗', () => {
             ],
         });
         store.reload();
-        expect(store.get('100', 'group')?.limits).toEqual({ live: 0 });
+        expect(store.get('100', 'group')?.limits).toEqual({
+            live: 0,
+        });
     });
 
     it('清洗后无有效 kind 的记录整体丢弃', () => {

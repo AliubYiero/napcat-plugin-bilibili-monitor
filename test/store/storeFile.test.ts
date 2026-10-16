@@ -66,7 +66,9 @@ describe('unwrapData 解包', () => {
     });
 
     it('无 version 的裸对象视为旧结构', () => {
-        expect(unwrapData({ 123: { live_status: 'offline' } })).toEqual({
+        expect(
+            unwrapData({ 123: { live_status: 'offline' } }),
+        ).toEqual({
             data: { 123: { live_status: 'offline' } },
             legacy: true,
         });
@@ -83,7 +85,9 @@ describe('unwrapData 解包', () => {
 
 describe('isCurrentVersionFile 幂等判定', () => {
     it('version 恰为 1 且含 data 时为真', () => {
-        expect(isCurrentVersionFile({ version: 1, data: [] })).toBe(true);
+        expect(isCurrentVersionFile({ version: 1, data: [] })).toBe(
+            true,
+        );
     });
 
     it('version 非 1 时为假 (未知版本不得被当作已迁移)', () => {

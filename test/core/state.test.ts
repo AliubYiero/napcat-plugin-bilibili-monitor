@@ -55,8 +55,9 @@ describe('sanitizeConfig 字段级类型收敛', () => {
     });
 
     it('类型不符的字符串字段回退默认', () => {
-        expect(sanitizeConfig({ commandPrefix: 123 }).commandPrefix)
-            .toBe('#bili');
+        expect(
+            sanitizeConfig({ commandPrefix: 123 }).commandPrefix,
+        ).toBe('#bili');
     });
 
     it('非正数的轮询间隔回退默认', () => {
@@ -141,9 +142,9 @@ describe('sanitizeConfig adminUsers 多形态收敛', () => {
     });
 
     it('两者皆非字符串或数组时回退空名单', () => {
-        expect(
-            sanitizeConfig({ adminUsers: 42 }).adminUsers,
-        ).toEqual([]);
+        expect(sanitizeConfig({ adminUsers: 42 }).adminUsers).toEqual(
+            [],
+        );
         expect(sanitizeConfig({}).adminUsers).toEqual([]);
     });
 });
@@ -194,9 +195,7 @@ describe('sanitizeConfig 群配置收敛', () => {
         const cfg = sanitizeConfig({
             groupConfigs: { '123': { enabled: 'no' } },
         });
-        expect(cfg.groupConfigs['123']).not.toHaveProperty(
-            'enabled',
-        );
+        expect(cfg.groupConfigs['123']).not.toHaveProperty('enabled');
     });
 
     it('丢弃非对象的群配置项', () => {

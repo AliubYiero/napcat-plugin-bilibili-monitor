@@ -125,10 +125,7 @@ export class BiliDynamicPollingService {
         for (const uid of uniqueUids) {
             try {
                 // 与开播前预取共用同一实现 (内部 in-flight 互斥去重)
-                await fetchAndPushUidDynamic(
-                    uid,
-                    () => this.stopped,
-                );
+                await fetchAndPushUidDynamic(uid, () => this.stopped);
                 await sleep(MONITOR_INTERVAL_MS);
             } catch (err) {
                 // 单个主播失败不影响其他主播

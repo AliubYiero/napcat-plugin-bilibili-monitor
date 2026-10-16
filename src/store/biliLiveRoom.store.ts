@@ -406,7 +406,10 @@ export class BiliLiveRoomStore {
      */
     private loadFromFile(): void {
         const unwrapped = unwrapData(
-            pluginState.loadDataFile<unknown>(ROOM_DATA_FILENAME, undefined),
+            pluginState.loadDataFile<unknown>(
+                ROOM_DATA_FILENAME,
+                undefined,
+            ),
         );
         if (!unwrapped) {
             this.data = {};

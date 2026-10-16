@@ -61,10 +61,7 @@ export const MIGRATION_TARGETS: MigrationTarget[] = [
     },
     {
         name: TARGET_FILES.liveMonitors,
-        sources: [
-            LEGACY_FILES.liveData,
-            LEGACY_FILES.onlineMonitors,
-        ],
+        sources: [LEGACY_FILES.liveData, LEGACY_FILES.onlineMonitors],
     },
     {
         name: TARGET_FILES.dynMonitors,
@@ -219,7 +216,8 @@ export interface MigrationContext {
 
 /** 将时间格式化为本地时间 YYYYMMDDHHmmss */
 export function formatStamp(now: Date): string {
-    const pad = (n: number, width = 2) => String(n).padStart(width, '0');
+    const pad = (n: number, width = 2) =>
+        String(n).padStart(width, '0');
     return (
         String(now.getFullYear()) +
         pad(now.getMonth() + 1) +
@@ -334,10 +332,15 @@ function buildTargetData(
 ): unknown {
     switch (targetName) {
         case TARGET_FILES.limits:
-            return buildLimitsFile(sources.map((s) => ({
-                file: s,
-                raw: snapshot[s],
-            })), issues, warnings, summary);
+            return buildLimitsFile(
+                sources.map((s) => ({
+                    file: s,
+                    raw: snapshot[s],
+                })),
+                issues,
+                warnings,
+                summary,
+            );
         case TARGET_FILES.liveMonitors:
             return buildLiveMonitorsFile(
                 sources.includes(LEGACY_FILES.liveData)
@@ -387,11 +390,12 @@ interface RawSource {
 }
 
 /** kind 与源文件的对应关系 (顺序即优先级) */
-const LIMIT_KIND_BY_FILE: Record<string, 'live' | 'online' | 'dyn'> = {
-    [LEGACY_FILES.liveLimits]: 'live',
-    [LEGACY_FILES.onlineLimits]: 'online',
-    [LEGACY_FILES.dynLimits]: 'dyn',
-};
+const LIMIT_KIND_BY_FILE: Record<string, 'live' | 'online' | 'dyn'> =
+    {
+        [LEGACY_FILES.liveLimits]: 'live',
+        [LEGACY_FILES.onlineLimits]: 'online',
+        [LEGACY_FILES.dynLimits]: 'dyn',
+    };
 
 /** 合并三个上限文件, 同一 (id, type) 重复取最后 */
 function buildLimitsFile(
@@ -403,7 +407,11 @@ function buildLimitsFile(
     // Map 保持插入顺序, 重复的 (id, type) 就地更新
     const merged = new Map<
         string,
-        { id: string; type: 'private' | 'group'; limits: Record<string, number> }
+        {
+            id: string;
+            type: 'private' | 'group';
+            limits: Record<string, number>;
+        }
     >();
 
     for (const { file, raw } of sources) {
@@ -497,7 +505,15 @@ function buildLiveMonitorsFile(
                 warnings.push(`${liveFile} ${path} 不是对象, 已忽略`);
                 return;
             }
-            if (!requireString(item.uid, liveFile, path, 'uid', issues)) {
+            if (
+                !requireString(
+                    item.uid,
+                    liveFile,
+                    path,
+                    'uid',
+                    issues,
+                )
+            ) {
                 return;
             }
             const to = readToList(
@@ -694,7 +710,11 @@ function addOnlineTarget(
 function toMonitorRecord(acc: MonitorAccumulator): {
     uid: string;
     uname: string;
-    to: { id: string; type: 'private' | 'group'; mentionUsers?: string[] }[];
+    to: {
+        id: string;
+        type: 'private' | 'group';
+        mentionUsers?: string[];
+    }[];
     onlineTo?: { id: string; type: 'private' | 'group' }[];
 } {
     const record: {
@@ -747,7 +767,8 @@ function buildDynMonitorsFile(
             warnings.push(`${file} ${path} 不是对象, 已忽略`);
             return;
         }
-        if (!requireString(item.uid, file, path, 'uid', issues)) return;
+        if (!requireString(item.uid, file, path, 'uid', issues))
+            return;
         const to = readToList(item.to, file, path, issues, false);
         const uname = readUname(item.uname, file, path, warnings);
 
@@ -766,7 +787,8 @@ function buildDynMonitorsFile(
             return;
         }
         const keys = new Set<string>();
-        const targets: { id: string; type: 'private' | 'group' }[] = [];
+        const targets: { id: string; type: 'private' | 'group' }[] =
+            [];
         for (const target of to) {
             const key = targetKey(target.type, target.id);
             if (keys.has(key)) continue;
