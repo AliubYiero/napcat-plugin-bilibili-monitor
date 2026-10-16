@@ -1,37 +1,39 @@
 import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { OB11Message } from 'napcat-types/napcat-onebot';
 import { biliLiveStoreService } from '../../services/live/store.service';
-import { sendReply } from '../utils';
+import { sendReplyByToInfo } from '../utils';
+import { resolveSoleLiveMonitor, toInfoFromEvent } from './utils';
 
 /**
  * 订阅开播 @ 提醒（仅群聊）
+ *
+ * 带参: `#bili live mention <主播uid>` 订阅指定主播
+ * 无参: `#bili live mention` 快捷形式, 当前群直播监听仅 1 个时直接订阅
  */
 export const mentionLiveHandler = async (
     ctx: NapCatPluginContext,
     event: OB11Message,
     commands: string[],
 ) => {
-    // 获取参数, 主播 uid
-    const [uid] = commands;
+    const toInfo = toInfoFromEvent(event);
+    const [uidArg] = commands;
+
+    // 解析目标主播: 无参时要求当前群仅 1 个直播监听对象
+    let uid = uidArg;
     if (!uid) {
-        ctx.logger.debug('未检测到主播UID');
-        return;
+        const resolved = resolveSoleLiveMonitor(
+            biliLiveStoreService.list(toInfo),
+        );
+        if ('message' in resolved) {
+            await sendReplyByToInfo(ctx, toInfo, resolved.message);
+            return;
+        }
+        uid = resolved.uid;
     }
 
-    // 仅支持群聊
-    const { message_type, group_id, user_id } = event;
-    if (message_type !== 'group' || !group_id) {
-        await sendReply(ctx, event, '该指令仅支持群聊使用');
-        return;
-    }
-
-    const toInfo = {
-        id: String(group_id),
-        type: 'group',
-    } as const;
     await biliLiveStoreService.addMention(
         uid,
         toInfo,
-        String(user_id),
+        String(event.user_id),
     );
 };

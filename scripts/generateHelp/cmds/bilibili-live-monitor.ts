@@ -25,8 +25,18 @@ export const bilibiliLiveMonitor: Cmd = {
                     onlyGroup: true,
                 },
                 {
+                    cmd: '#bili live mention',
+                    desc: '订阅当前群唯一监听主播的开播 @ 提醒 (仅监听 1 个主播时可用)',
+                    onlyGroup: true,
+                },
+                {
                     cmd: '#bili live unmention <主播uid>',
                     desc: '取消订阅开播 @ 提醒',
+                    onlyGroup: true,
+                },
+                {
+                    cmd: '#bili live unmention',
+                    desc: '取消订阅当前群唯一监听主播的开播 @ 提醒 (仅监听 1 个主播时可用)',
                     onlyGroup: true,
                 },
             ],
