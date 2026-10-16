@@ -185,13 +185,6 @@ export class BiliLivePollingService {
                     const roomInfo = mapToRoomInfo(roomStatus);
                     if (roomInfo) {
                         this.roomStore.updateOrAdd(roomInfo);
-                        // 累积观众：轮询接口 online 为累积观看人数, 每轮覆盖更新
-                        if (roomInfo.live_status === 'streaming') {
-                            this.roomStore.updateAccumulatedAudience(
-                                roomInfo.uid,
-                                roomStatus.online,
-                            );
-                        }
                     } else {
                         pluginState.logger.debug(
                             `忽略无效的直播间数据 (uid: ${roomStatus?.uid})`,

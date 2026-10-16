@@ -32,7 +32,6 @@ export function mapToRoomInfo(
         cover_from_user: room.cover_from_user || '',
         keyframe: room.keyframe || '',
         liveContents: [],
-        accumulatedAudience: 0,
         onlineSnapshots: [],
     };
 }
@@ -70,8 +69,6 @@ export interface BiliLiveRoomInfo {
     keyframe?: string;
     /** 直播内容历史记录（不含当前内容，当前内容即顶层 title/分区字段；下播时补录最后一段） */
     liveContents: BiliLiveContent[];
-    /** 累计观众（轮询接口 online 字段覆盖更新，下播重置 0） */
-    accumulatedAudience: number;
     /** 实时同接数快照序列（开播时抓首点，轮询节拍追加，下播推送后清空） */
     onlineSnapshots: BiliOnlineSnapshot[];
 }
@@ -186,10 +183,6 @@ export class BiliLiveRoomStore {
         this.data[uid] = {
             ...roomInfo,
             liveContents: oldInfo.liveContents ?? [],
-            accumulatedAudience:
-                roomInfo.accumulatedAudience ||
-                oldInfo.accumulatedAudience ||
-                0,
             onlineSnapshots: oldInfo.onlineSnapshots ?? [],
         };
         this.saveToFile();
@@ -209,15 +202,6 @@ export class BiliLiveRoomStore {
     }
 
     // ========== 运行时字段更新（不触发变化事件） ==========
-
-    /** 更新累计观众（轮询每轮覆盖，未开播或无记录时忽略） */
-    updateAccumulatedAudience(uid: string, online: number): void {
-        const info = this.data[uid];
-        if (!info || online <= 0) return;
-        if (info.accumulatedAudience === online) return;
-        info.accumulatedAudience = online;
-        this.saveToFile();
-    }
 
     /** 追加一条同接数快照（无记录时忽略） */
     appendOnlineSnapshot(
@@ -239,13 +223,12 @@ export class BiliLiveRoomStore {
     }
 
     /**
-     * 下播后清理运行时数据：清空同接快照与内容历史，重置累计观众
+     * 下播后清理运行时数据：清空同接快照与内容历史
      */
     clearRuntimeData(uid: string): void {
         const info = this.data[uid];
         if (!info) return;
         info.liveContents = [];
-        info.accumulatedAudience = 0;
         info.onlineSnapshots = [];
         this.saveToFile();
     }
@@ -442,7 +425,9 @@ export class BiliLiveRoomStore {
                 continue;
             }
             const uid = String(rawUid);
-            data[uid] = { ...(value as BiliLiveRoomInfo), uid };
+            // 累计观众字段已移除, 旧数据可能残留, 读取时剥离 (下次落盘即清除)
+            const { accumulatedAudience: _removed, ...rest } = value;
+            data[uid] = { ...(rest as BiliLiveRoomInfo), uid };
         }
         this.data = data;
     }

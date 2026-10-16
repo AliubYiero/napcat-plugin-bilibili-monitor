@@ -31,12 +31,13 @@ import {
 } from '../svgRender.service';
 import {
     calcAverageOnline,
-    SNAPSHOT_INTERVAL_TOLERANCE_SEC,
 } from './onlineSnapshots.service';
-import type { BiliLiveContent } from '../../store/biliLiveRoom.store';
 
 /** 平均同接数剪切窗口（秒）：剪掉开播后前 5 分钟的预热期 */
 const ONLINE_TRIM_START_SEC = 5 * 60;
+
+/** 平均同接数尾部剪切窗口（秒）：下播全程平均去掉最后 3 分钟 */
+const ONLINE_TRIM_END_SEC = 3 * 60;
 
 /** 直播事件类型（与渲染插件约定的枚举） */
 const LiveType = {
@@ -83,8 +84,6 @@ interface CardConfig {
     isLive: boolean;
     /** 平均同接数（null 不显示） */
     averageOnline: number | null;
-    /** 累计观众（>0 时分区行追加"· N人看过"） */
-    accumulatedAudience: number;
 }
 
 /**
@@ -320,7 +319,6 @@ export function renderTextMessage(
                 `标题: ${old.title}`,
                 `分区: ${formatArea(old.parent_area_name, old.area_name)}`,
                 onlineLine(averageOnline),
-                watchedLine(old.accumulatedAudience),
                 `链接: ${roomUrl(old.room_id)}`,
             ]
                 .filter((line): line is string => line !== null)
@@ -343,7 +341,6 @@ export function renderTextMessage(
                 `标题: ${latest.title}`,
                 `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
                 onlineLine(averageOnline),
-                watchedLine(latest.accumulatedAudience),
                 `链接: ${roomUrl(latest.room_id)}`,
             ]
                 .filter((line): line is string => line !== null)
@@ -372,7 +369,6 @@ export function renderTextMessage(
                 `标题: ${latest.title}`,
                 `分区: ${formatArea(latest.parent_area_name, latest.area_name)}`,
                 onlineLine(averageOnline),
-                watchedLine(latest.accumulatedAudience),
                 `链接: ${roomUrl(latest.room_id)}`,
             ]
                 .filter((line): line is string => line !== null)
@@ -403,8 +399,9 @@ interface OnlineStatResult {
  * 计算推送所需的同接数据
  *
  * - 改标题/改分区：取上一段直播内容区间的平均同接数
- *   （区间 = liveContents 最后一段, 由事件维护层刚补录的旧内容）
- * - 下播：取直播全程平均（剪切直播开始后前 5 分钟）
+ *   （区间 = liveContents 最后一段, 由事件维护层刚补录的旧内容,
+ *   右端取内容结束时刻, 不裁剪尾部）
+ * - 下播：取直播全程平均（剪切开播后前 5 分钟, 并去掉最后 3 分钟）
  * - 重新开播：复用下播口径, 结束时刻为新的开播时间
  * - 无快照或剪切后无数据时 averageOnline 为 null（不显示）
  */
@@ -420,7 +417,7 @@ function computeOnlineStats(
     const contents = info.liveContents ?? [];
 
     if (event.type === 'end_stream') {
-        // 直播全程：区间 [开播时间, 下播时间], 剪切开播预热期；
+        // 直播全程：区间 [开播时间, 下播时间], 剪切开播预热期与结束尾部；
         // 重新开播触发的结束信息以新开播时间为结束时刻
         const old = event.oldRoomInfo;
         const startTime = old?.live_time || 0;
@@ -429,8 +426,8 @@ function computeOnlineStats(
                 snapshots,
                 startTime,
                 event.endTimeSec ?? Math.floor(Date.now() / 1000),
-                SNAPSHOT_INTERVAL_TOLERANCE_SEC,
                 ONLINE_TRIM_START_SEC,
+                ONLINE_TRIM_END_SEC,
             );
         }
         return result;
@@ -447,17 +444,10 @@ function computeOnlineStats(
                 snapshots,
                 last.startTime,
                 last.endTime,
-                SNAPSHOT_INTERVAL_TOLERANCE_SEC,
             );
         }
     }
     return result;
-}
-
-/** "看过"行：accumulatedAudience > 0 时返回文本行，否则 null */
-function watchedLine(accumulatedAudience: number): string | null {
-    if (accumulatedAudience <= 0) return null;
-    return `看过: ${accumulatedAudience}人`;
 }
 
 function durationLine(
@@ -506,7 +496,7 @@ function collectCardConfig(
         liveDuration = formatDuration(durationSec);
     }
 
-    // 同接/看过数据（仅改标题/改分区/下播事件）
+    // 同接数据（仅改标题/改分区/下播事件）
     const { averageOnline } =
         roomStore &&
         (type === LiveType.CHANGE_LIVE_TITLE ||
@@ -529,10 +519,6 @@ function collectCardConfig(
         liveDuration,
         isLive,
         averageOnline,
-        accumulatedAudience:
-            latest?.accumulatedAudience ||
-            old?.accumulatedAudience ||
-            0,
     };
 }
 
@@ -632,7 +618,6 @@ function generateSvgContent(
         liveDuration,
         isLive,
         averageOnline,
-        accumulatedAudience,
     } = config;
 
     const contentCardWidth = cardWidth - 112; // 80 左外距 + 32 右外距
@@ -642,11 +627,6 @@ function generateSvgContent(
     const subTitle = renderSubTitle(type);
     // 开播事件显示开播时间, 其它事件显示事件发生时间
     const headerTime = type === LiveType.START_LIVE ? liveTime : time;
-    // 分区行追加"看过"（改标题/改分区/下播且有累计观众时）
-    const partitionText =
-        accumulatedAudience > 0
-            ? `${partition} · ${accumulatedAudience}人看过`
-            : partition;
     // 封面左下角同接数（有可算平均数时显示）
     const onlineCount =
         averageOnline !== null
@@ -747,7 +727,7 @@ function generateSvgContent(
 
 		<!-- 标题与类型 -->
 		<text x="332" y="93" font-size="15" fill="#18191C">${escapeXml(title)}</text>
-		<text x="332" y="188" font-size="13" fill="#9499A0">${escapeXml(partitionText)}</text>
+		<text x="332" y="188" font-size="13" fill="#9499A0">${escapeXml(partition)}</text>
 	</g>
 
 	<!-- 内容卡片边框 -->

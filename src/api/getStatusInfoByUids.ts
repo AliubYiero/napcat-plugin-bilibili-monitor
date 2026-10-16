@@ -17,8 +17,6 @@ export interface RoomStatusInfo {
     room_id: number;
     /** 主播 mid */
     uid: number;
-    /** 直播间在线人数 */
-    online: number;
     /** 开播时间戳，单位秒，未开播时为 0 */
     live_time: number;
     /** 直播间开播状态：0-未开播，1-正在直播，2-轮播中 */

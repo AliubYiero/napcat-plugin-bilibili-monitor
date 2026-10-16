@@ -47,7 +47,6 @@ function makeRoom(
         cover_from_user: '',
         keyframe: '',
         liveContents: [],
-        accumulatedAudience: 0,
         onlineSnapshots: [],
         ...overrides,
     };
@@ -222,22 +221,13 @@ describe('运行时字段', () => {
         expect(info?.liveContents).toHaveLength(1);
     });
 
-    it('clearRuntimeData 清空快照与内容并重置累计观众', () => {
+    it('clearRuntimeData 清空快照与内容', () => {
         store.updateOrAdd(makeRoom());
         store.appendOnlineSnapshot('1', [10, 100]);
-        store.updateAccumulatedAudience('1', 500);
         store.clearRuntimeData('1');
 
         const info = store.get('1');
         expect(info?.onlineSnapshots).toEqual([]);
         expect(info?.liveContents).toEqual([]);
-        expect(info?.accumulatedAudience).toBe(0);
-    });
-
-    it('累计观众按轮次覆盖更新', () => {
-        store.updateOrAdd(makeRoom());
-        store.updateAccumulatedAudience('1', 500);
-        store.updateAccumulatedAudience('1', 800);
-        expect(store.get('1')?.accumulatedAudience).toBe(800);
     });
 });

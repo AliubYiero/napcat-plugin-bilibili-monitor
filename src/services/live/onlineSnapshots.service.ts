@@ -5,7 +5,7 @@
  * 1. 采集调度：开播事件立即抓首点；每轮直播轮询后对"开播且开启同接监听"
  *    的主播串行采集，相邻请求间隔 500ms（跟随轮询节拍，无独立定时器）
  * 2. 快照写入房间存储（[同接数, 秒级时间戳]，失败静默跳过并 warn）
- * 3. 导出平均同接数纯函数：时间加权、单点取值、区间端点容差、可选剪切开头
+ * 3. 导出平均同接数纯函数：时间加权、单点取值、可选首尾剪切
  */
 
 import { pluginState } from '../../core/state';
@@ -19,32 +19,32 @@ import { api_getOnlineGoldRank } from '../../api/getOnlineGoldRank';
 /** 相邻同接采集请求的间隔（毫秒） */
 const SNAPSHOT_REQUEST_INTERVAL_MS = 500;
 
-/** 快照纳入区间的端点容差（秒）：把紧贴区间边界的快照点算进去 */
-export const SNAPSHOT_INTERVAL_TOLERANCE_SEC = 300;
-
 /**
  * 计算区间内平均同接数（时间加权）
  *
- * - 快照纳入规则：时间戳 ∈ [start, end + tolerance]
+ * - 快照纳入规则：时间戳 ∈ [start + trimStart, end - trimEnd]
  * - 区间内仅 1 点时直接取该值；0 点（或剪切后无点）返回 null（不显示）
  * - trimStartSec > 0 时丢弃时间戳 < start + trimStartSec 的点（剪切直播
- *   开头的预热期），剪切在计算时进行，不影响快照存储
+ *   开头的预热期）；trimEndSec > 0 时丢弃时间戳 > end - trimEndSec 的点
+ *   （剪切直播结尾）。剪切在计算时进行，不影响快照存储
  *
- * @param toleranceSec 端点容差（秒），通常取采集节拍间隔
+ * @param trimStartSec 头部剪切窗口（秒）
+ * @param trimEndSec 尾部剪切窗口（秒）
  */
 export function calcAverageOnline(
     snapshots: BiliOnlineSnapshot[],
     start: number,
     end: number,
-    toleranceSec: number,
     trimStartSec = 0,
+    trimEndSec = 0,
 ): number | null {
     if (!Array.isArray(snapshots) || snapshots.length === 0)
         return null;
 
     const effectiveStart = start + trimStartSec;
+    const effectiveEnd = end - trimEndSec;
     const points = snapshots.filter(
-        ([, ts]) => ts >= effectiveStart && ts <= end + toleranceSec,
+        ([, ts]) => ts >= effectiveStart && ts <= effectiveEnd,
     );
     if (points.length === 0) return null;
 
