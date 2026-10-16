@@ -10,14 +10,14 @@
  *   pluginState.ctx.logger.info(...); // 使用日志
  */
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import type {
     NapCatPluginContext,
     PluginLogger,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { DEFAULT_CONFIG, VALID_PUSH_TYPES } from '../config';
-import type { PluginConfig, GroupConfig } from '../types';
+import type { GroupConfig, PluginConfig } from '../types';
 
 // ==================== 配置清洗工具 ====================
 
@@ -181,7 +181,7 @@ class PluginState {
             }
         } catch (e) {
             this.logger.warn(
-                '(；′⌒`) 读取数据文件 ' + filename + ' 失败:',
+                `(；′⌒\`) 读取数据文件 ${filename} 失败:`,
                 e,
             );
         }
@@ -208,7 +208,7 @@ class PluginState {
             );
         } catch (e) {
             this.logger.error(
-                '(╥﹏╥) 保存数据文件 ' + filename + ' 失败:',
+                `(╥﹏╥) 保存数据文件 ${filename} 失败:`,
                 e,
             );
         }
@@ -359,7 +359,7 @@ class PluginState {
             if (res?.user_id) {
                 this.selfId = String(res.user_id);
                 this.logger.debug(
-                    '(｡·ω·｡) 机器人 QQ: ' + this.selfId,
+                    `(｡·ω·｡) 机器人 QQ: ${this.selfId}`,
                 );
             }
         } catch (e) {

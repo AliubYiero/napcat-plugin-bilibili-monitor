@@ -12,19 +12,18 @@
  */
 
 import QRCode from 'qrcode';
-import { pluginState } from '../../core/state';
 import {
     api_generateQR,
     api_pollQR,
     QRPollCode,
     type QRPollData,
 } from '../../api/qrcodeLogin';
+import { pluginState } from '../../core/state';
 import {
     BiliCookieStore,
-    refreshUserInfo,
     type BiliUserInfo,
+    refreshUserInfo,
 } from '../../store/biliCookie.store';
-import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 
 /** 轮询间隔 (ms) */
 const POLL_INTERVAL_MS = 2000;

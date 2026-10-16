@@ -7,20 +7,20 @@
  * - 私聊查看: 仅超管列出所有自定义上限的会话, 其余只显示自己上限
  */
 
-import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
-import { OB11Message } from 'napcat-types/napcat-onebot';
-import { sendReply } from '../utils';
+import type { OB11Message } from 'napcat-types/napcat-onebot';
+import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { getUserRole } from '../../core/admin';
-import { biliDynamicStoreService } from '../../services/dyn/store.service';
 import {
     DEFAULT_GROUP_LIMIT,
     DEFAULT_PRIVATE_LIMIT,
-    MAX_LIMIT,
-    MIN_LIMIT,
     getDynLimit,
     listDynLimits,
+    MAX_LIMIT,
+    MIN_LIMIT,
     setDynLimit,
 } from '../../services/dyn/limit.service';
+import { biliDynamicStoreService } from '../../services/dyn/store.service';
+import { sendReply } from '../utils';
 
 const usageText = [
     '用法:',

@@ -6,9 +6,9 @@
  * - 内部统一 try/catch，失败记录日志并返回 false，不向调用方抛出
  */
 
-import {
-    OB11MessageDataType,
+import type {
     OB11Message,
+    OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';

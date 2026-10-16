@@ -8,13 +8,13 @@
  * 3. 导出平均同接数纯函数：时间加权、单点取值、可选首尾剪切
  */
 
+import { api_getOnlineGoldRank } from '../../api/getOnlineGoldRank';
 import { pluginState } from '../../core/state';
+import { BiliLiveMonitorStore } from '../../store/biliLiveMonitor.store';
 import {
     BiliLiveRoomStore,
     type BiliOnlineSnapshot,
 } from '../../store/biliLiveRoom.store';
-import { BiliLiveMonitorStore } from '../../store/biliLiveMonitor.store';
-import { api_getOnlineGoldRank } from '../../api/getOnlineGoldRank';
 
 /** 相邻同接采集请求的间隔（毫秒） */
 const SNAPSHOT_REQUEST_INTERVAL_MS = 500;
@@ -109,7 +109,7 @@ export class BiliOnlineSnapshotService {
         for (const uid of uids) {
             // 仅采集开播中的主播（下播不发请求）
             const room = this.roomStore.get(uid);
-            if (!room || room.live_status !== 'streaming') continue;
+            if (room?.live_status !== 'streaming') continue;
             if (!this.monitorStore.hasOnline(uid)) continue;
 
             if (!isFirst) {
@@ -124,7 +124,7 @@ export class BiliOnlineSnapshotService {
     private async captureOne(uid: string): Promise<void> {
         try {
             const room = this.roomStore.get(uid);
-            if (!room || room.live_status !== 'streaming') return;
+            if (room?.live_status !== 'streaming') return;
 
             const onlineNum = await api_getOnlineGoldRank(
                 uid,

@@ -7,13 +7,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+    buildBackupName,
+    buildMigrationPlan,
+    formatStamp,
     LEGACY_FILES,
     MIGRATION_TARGETS,
     MigrationValidationError,
     TARGET_FILES,
-    buildBackupName,
-    buildMigrationPlan,
-    formatStamp,
 } from '../../src/store/migration/plan';
 
 /** 固定的迁移时刻, 让备份名可断言 */

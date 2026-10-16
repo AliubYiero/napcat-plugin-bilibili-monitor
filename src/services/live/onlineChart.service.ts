@@ -9,15 +9,16 @@
  * 3. 组装纯图片消息（渲染一次，复用 base64 发多个目标）
  * 4. 导出文本摘要（峰值/末值/采样点数），供指令链路渲染失败时回退
  */
+
+import type {
+    OB11MessageDataType,
+    OB11PostSendMsg,
+} from 'napcat-types/napcat-onebot';
 import { pluginState } from '../../core/state';
 import type {
     BiliLiveContent,
     BiliOnlineSnapshot,
 } from '../../store/biliLiveRoom.store';
-import {
-    type OB11MessageDataType,
-    OB11PostSendMsg,
-} from 'napcat-types/napcat-onebot';
 import {
     RENDER_FONT_FAMILY,
     svgRenderService,
@@ -113,7 +114,7 @@ function calculateYAxis(max: number): { max: number; step: number } {
     if (max === 0) return { max: 1, step: 1 };
     const desiredTicks = 6;
     const roughStep = max / (desiredTicks - 1);
-    const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+    const magnitude = 10 ** Math.floor(Math.log10(roughStep));
     const normalized = roughStep / magnitude;
     let niceStep: number;
     if (normalized < 1.5) niceStep = 1 * magnitude;

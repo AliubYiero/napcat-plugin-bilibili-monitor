@@ -7,20 +7,20 @@
  * - latest: 现场拉一页取最新非置顶一条，按推送模板输出
  */
 
+import type { OB11PostSendMsg } from 'napcat-types/napcat-onebot';
+import { api_getDynamicFeed } from '../../api/getDynamicFeed';
 import { pluginState } from '../../core/state';
+import { sendReplyByToInfo } from '../../handlers/utils';
+import { BiliCookieStore } from '../../store/biliCookie.store';
 import {
-    BiliDynMonitorStore,
     type BiliDynamicMonitor,
     type BiliDynamicMonitorToInfo,
+    BiliDynMonitorStore,
 } from '../../store/biliDynMonitor.store';
-import { BiliCookieStore } from '../../store/biliCookie.store';
-import { api_getDynamicFeed } from '../../api/getDynamicFeed';
+import { getDynLimit, isDynLimitReached } from './limit.service';
 import { parseBiliDynamic } from './parser.service';
 import { buildDynMessage } from './push.service';
-import { getDynLimit, isDynLimitReached } from './limit.service';
 import { addDynCachedIds, removeDynRuntime } from './runtime.service';
-import { sendReplyByToInfo } from '../../handlers/utils';
-import type { OB11PostSendMsg } from 'napcat-types/napcat-onebot';
 
 /** 动态监听服务（导出实例，内部惰性实例化 store，遵循 store-pattern） */
 export class BiliDynamicStoreService {

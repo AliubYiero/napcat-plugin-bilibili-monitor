@@ -15,13 +15,15 @@ pnpm run watch          # watch 构建
 pnpm test               # vitest(纯函数 + store 层;测试与 src/ 平级在 test/)
 pnpm run typecheck      # tsc --noEmit(受依赖包影响恒非零退出,详见 ADR 0003)
 pnpm run typecheck:test # 过滤依赖噪音后的类型检查(含 src 与 test),以此判定类型是否通过
+pnpm run lint           # biome check(全仓 TS, 忽略 src/webui 与 *.generated.ts)
+pnpm run lint:fix       # biome check --write(仅应用安全修复)
 pnpm run format         # biome format --write
 pnpm run help:generate  # 通过 napcat-help-generate 服务 API 生成帮助图片与文本(详见 docs/help-output-pattern.md)
 pnpm run build:webui    # 构建前端(src/webui 独立子项目,React + Tailwind)
 pnpm run dev:webui      # 前端开发服务器
 ```
 
-无 lint 命令,Biome 以 `npx biome check src/ test/` 直接跑(与 `format` 共用配置)。
+Biome 以 `pnpm run lint`(=`biome check`)覆盖全仓 TS,忽略 `src/webui` 子项目与 `*.generated.ts` 生成文件;`pnpm run lint:fix` 只应用安全修复,非安全项需人工复核。
 
 调试/热重载依赖 NapCat 端的 `napcat-plugin-debug` 插件,通过 `.env` 中的 `WS_URL` 与 `TOKEN` 连接远程 NapCat 实例。vite.config.ts 中的 `napcatHmrPlugin` 负责构建后自动部署并热重载。
 

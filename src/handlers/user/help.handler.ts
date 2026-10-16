@@ -4,8 +4,8 @@
  * 图片优先/文本回退逻辑见 src/utils/helpMessage.ts
  */
 
-import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
-import { OB11Message } from 'napcat-types/napcat-onebot';
+import type { OB11Message } from 'napcat-types/napcat-onebot';
+import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { sendHelpMessage } from '../../utils/helpMessage';
 import { HELP_TEXT_MAP } from './helpText.generated';
 

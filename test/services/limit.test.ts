@@ -16,7 +16,11 @@ vi.mock('../../src/core/state', async () => {
     return { pluginState: createFakePluginState() };
 });
 
-import { BiliLimitStore } from '../../src/store/biliLimit.store';
+import {
+    getDynLimit,
+    listDynLimits,
+    setDynLimit,
+} from '../../src/services/dyn/limit.service';
 import {
     getLiveLimit,
     listLiveLimits,
@@ -27,11 +31,7 @@ import {
     listOnlineLimits,
     setOnlineLimit,
 } from '../../src/services/live/onlineLimit.service';
-import {
-    getDynLimit,
-    listDynLimits,
-    setDynLimit,
-} from '../../src/services/dyn/limit.service';
+import { BiliLimitStore } from '../../src/store/biliLimit.store';
 import {
     resetFakeState,
     setAdminUsers,

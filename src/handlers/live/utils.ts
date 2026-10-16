@@ -1,4 +1,4 @@
-import { OB11Message } from 'napcat-types/napcat-onebot';
+import type { OB11Message } from 'napcat-types/napcat-onebot';
 import type {
     BiliLiveMonitor,
     BiliLiveMonitorToInfo,

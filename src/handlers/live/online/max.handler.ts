@@ -7,21 +7,21 @@
  * - 私聊查看: 仅超管列出所有自定义上限的会话, 其余只显示自己上限
  */
 
-import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
-import { OB11Message } from 'napcat-types/napcat-onebot';
-import { sendReply } from '../../utils';
-import { toInfoFromEvent } from '../utils';
+import type { OB11Message } from 'napcat-types/napcat-onebot';
+import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { getUserRole } from '../../../core/admin';
-import { biliOnlineMonitorService } from '../../../services/live/onlineMonitor.service';
 import {
     DEFAULT_GROUP_ONLINE_LIMIT,
     DEFAULT_PRIVATE_ONLINE_LIMIT,
-    MAX_ONLINE_LIMIT,
-    MIN_ONLINE_LIMIT,
     getOnlineLimit,
     listOnlineLimits,
+    MAX_ONLINE_LIMIT,
+    MIN_ONLINE_LIMIT,
     setOnlineLimit,
 } from '../../../services/live/onlineLimit.service';
+import { biliOnlineMonitorService } from '../../../services/live/onlineMonitor.service';
+import { sendReply } from '../../utils';
+import { toInfoFromEvent } from '../utils';
 
 const usageText = [
     '用法:',

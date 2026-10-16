@@ -10,8 +10,8 @@
  * 因此使用惰性 getter。
  */
 import { pluginState } from '../../core/state';
-import { BiliDynMonitorStore } from '../../store/biliDynMonitor.store';
 import { BiliCookieStore } from '../../store/biliCookie.store';
+import { BiliDynMonitorStore } from '../../store/biliDynMonitor.store';
 import { fetchAndPushUidDynamic } from './fetchUidDynamic.service';
 
 /** 默认轮询间隔（秒），配置缺失时兜底 */

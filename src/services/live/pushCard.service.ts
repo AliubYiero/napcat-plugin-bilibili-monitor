@@ -8,6 +8,11 @@
  * 4. 组装三段式消息 [文本, 图片, 链接]；任何环节失败返回 null，
  *    由调用方回退到纯文本推送
  */
+
+import type {
+    OB11MessageDataType,
+    OB11PostSendMsg,
+} from 'napcat-types/napcat-onebot';
 import { pluginState } from '../../core/state';
 import type {
     BiliLiveRoomInfo,
@@ -22,16 +27,10 @@ import {
     roomUrl,
 } from '../../utils/format';
 import {
-    type OB11MessageDataType,
-    OB11PostSendMsg,
-} from 'napcat-types/napcat-onebot';
-import {
     RENDER_FONT_FAMILY,
     svgRenderService,
 } from '../svgRender.service';
-import {
-    calcAverageOnline,
-} from './onlineSnapshots.service';
+import { calcAverageOnline } from './onlineSnapshots.service';
 
 /** 平均同接数剪切窗口（秒）：剪掉开播后前 5 分钟的预热期 */
 const ONLINE_TRIM_START_SEC = 5 * 60;
@@ -349,10 +348,10 @@ export function renderTextMessage(
         case 'area_changed':
         case 'offline_area_changed': {
             if (!latest) return null;
-            const oldArea = event.oldValue as
+            const _oldArea = event.oldValue as
                 | { parent?: string; area?: string }
                 | undefined;
-            const newArea = event.newValue as
+            const _newArea = event.newValue as
                 | { parent?: string; area?: string }
                 | undefined;
             const { averageOnline } =

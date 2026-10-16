@@ -31,7 +31,7 @@ const authAxiosInstance: AxiosInstance = axios.create({
 authAxiosInstance.interceptors.request.use((config) => {
     const cookies = BiliCookieStore.getInstance().getCookies();
     if (cookies && Object.keys(cookies).length > 0) {
-        config.headers['Cookie'] = buildCookieHeader(cookies);
+        config.headers.Cookie = buildCookieHeader(cookies);
     }
     return config;
 });

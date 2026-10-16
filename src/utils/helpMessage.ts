@@ -7,17 +7,17 @@
  * - 好友私聊用户 (privateUser) 等同 admin 权限组, 输出 Admin 版
  */
 
-import fs from 'fs';
-import { join, resolve } from 'path';
-import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
-import { OB11Message } from 'napcat-types/napcat-onebot';
+import fs from 'node:fs';
+import { join, resolve } from 'node:path';
+import type { OB11Message } from 'napcat-types/napcat-onebot';
+import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
+import { getUserRole, type UserRole } from '../core/admin';
+import { pluginState } from '../core/state';
 import {
+    createImageMessage,
     sendReply,
     sendReplyByToInfo,
-    createImageMessage,
 } from '../handlers/utils';
-import { getUserRole, UserRole } from '../core/admin';
-import { pluginState } from '../core/state';
 
 /** 帮助版本 */
 export type HelpVariant = 'user' | 'admin' | 'superAdmin';

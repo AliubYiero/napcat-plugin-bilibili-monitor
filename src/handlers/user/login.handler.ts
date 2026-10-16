@@ -6,12 +6,12 @@
 
 import type { OB11Message } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
-import { sendReply, createImageMessage } from '../utils';
 import {
-    loginService,
     LoginSessionStatus,
+    loginService,
 } from '../../services/user/login.service';
 import { BiliCookieStore } from '../../store/biliCookie.store';
+import { createImageMessage, sendReply } from '../utils';
 
 /** 登录会话状态 -> 提示前缀 */
 function statusPrefix(status: LoginSessionStatus): string {
@@ -49,7 +49,7 @@ export const loginHandler = async (
 
     const error = loginService.start(
         'instruction',
-        async (status, message) => {
+        async (_status, message) => {
             await sendReply(ctx, event, message);
         },
     );

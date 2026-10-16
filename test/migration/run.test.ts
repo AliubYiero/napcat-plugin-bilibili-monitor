@@ -14,10 +14,10 @@ import {
     TARGET_FILES,
 } from '../../src/store/migration/plan';
 import {
-    type MigrationIo,
-    MigrationError,
     executeMigration,
     formatMigrationSummary,
+    MigrationError,
+    type MigrationIo,
 } from '../../src/store/migration/run';
 
 const NOW = new Date(2026, 8, 19, 14, 30, 5);

@@ -1,12 +1,11 @@
-import { resolve, dirname } from 'path';
-import { defineConfig, loadEnv, type Plugin } from 'vite';
+import fs from 'node:fs';
+import { builtinModules } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import nodeResolve from '@rollup/plugin-node-resolve';
-import { builtinModules } from 'module';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
-import { execSync } from 'child_process';
-// @ts-ignore
+// @ts-expect-error
 import { napcatHmrPlugin } from 'napcat-plugin-debug-cli/vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

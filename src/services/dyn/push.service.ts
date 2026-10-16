@@ -9,12 +9,12 @@
  *   (由直播推送负责)，否则复用 buildChangeMessage 开播卡片
  */
 
-import { pluginState } from '../../core/state';
 import type {
     OB11MessageData,
     OB11MessageDataType,
     OB11PostSendMsg,
 } from 'napcat-types/napcat-onebot';
+import { pluginState } from '../../core/state';
 import { sendReplyByToInfo } from '../../handlers/utils';
 import type { BiliDynamicMonitorToInfo } from '../../store/biliDynMonitor.store';
 import { BiliLiveMonitorStore } from '../../store/biliLiveMonitor.store';
@@ -44,12 +44,13 @@ function splitByEmojiMap(
     let last = 0;
     for (const match of text.matchAll(pattern)) {
         const url = emojiMap[match[0]];
-        if (!url) continue;
-        if (match.index! > last) {
-            parts.push({ text: text.slice(last, match.index) });
+        const index = match.index;
+        if (!url || index === undefined) continue;
+        if (index > last) {
+            parts.push({ text: text.slice(last, index) });
         }
         parts.push({ text: '', image: url });
-        last = match.index! + match[0].length;
+        last = index + match[0].length;
     }
     if (last < text.length) parts.push({ text: text.slice(last) });
     return parts;

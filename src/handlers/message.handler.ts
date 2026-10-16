@@ -8,7 +8,7 @@
  * 发送工具函数见 utils.ts（范式见 docs/message-send-pattern.md）。
  */
 
-import { OB11Message } from 'napcat-types/napcat-onebot';
+import type { OB11Message } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { pluginState } from '../core/state';
 import { instructionHandler } from './instruction.handler';

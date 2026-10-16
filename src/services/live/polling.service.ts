@@ -9,32 +9,33 @@
  * 注意：store 单例依赖 pluginState.ctx，必须在 plugin_init 之后才可实例化，
  * 因此这里使用惰性 getter，避免模块加载期过早初始化抛错。
  */
+
+import type {
+    OB11MessageDataType,
+    OB11PostSendMsg,
+} from 'napcat-types/napcat-onebot';
+import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
+import { api_getStatusInfoByUids } from '../../api/getStatusInfoByUids';
 import { pluginState } from '../../core/state';
+import { sendReplyByToInfo } from '../../handlers/utils';
+import { BiliDynMonitorStore } from '../../store/biliDynMonitor.store';
 import {
     BiliLiveMonitorStore,
     type BiliLiveMonitorToInfo,
 } from '../../store/biliLiveMonitor.store';
-import { BiliDynMonitorStore } from '../../store/biliDynMonitor.store';
-import { fetchAndPushUidDynamic } from '../dyn/fetchUidDynamic.service';
 import {
-    BiliLiveRoomStore,
     type BiliLiveContent,
+    BiliLiveRoomStore,
     type ChangeEvent,
     mapToRoomInfo,
 } from '../../store/biliLiveRoom.store';
-import { api_getStatusInfoByUids } from '../../api/getStatusInfoByUids';
-import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
-import {
-    type OB11MessageDataType,
-    OB11PostSendMsg,
-} from 'napcat-types/napcat-onebot';
-import { sendReplyByToInfo } from '../../handlers/utils';
-import { buildChangeMessage } from './pushCard.service';
-import { onlineSnapshotService } from './onlineSnapshots.service';
+import { fetchAndPushUidDynamic } from '../dyn/fetchUidDynamic.service';
 import {
     buildOnlineChartImageMessage,
     type OnlineChartData,
 } from './onlineChart.service';
+import { onlineSnapshotService } from './onlineSnapshots.service';
+import { buildChangeMessage } from './pushCard.service';
 
 /** B站接口单次最大请求房间数 */
 const MAX_ROOM_IDS_PER_REQUEST = 100;
@@ -220,7 +221,7 @@ export class BiliLivePollingService {
 
             // 1. 过滤未启用的推送类型
             const pushTypes = pluginState.config.pushTypes;
-            if (!pushTypes || !pushTypes.includes(type)) {
+            if (!pushTypes?.includes(type)) {
                 pluginState.logger.debug(
                     `推送类型 ${type} 未启用, 跳过 uid=${uid}`,
                 );

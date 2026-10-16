@@ -10,8 +10,8 @@
  * }
  */
 
-import { pluginState } from '../core/state';
 import { api_getNavInfo } from '../api/getNavInfo';
+import { pluginState } from '../core/state';
 
 /** 登录用户信息 */
 export interface BiliUserInfo {

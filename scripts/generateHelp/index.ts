@@ -12,9 +12,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Cmd, Role } from './cmd.ts';
+import { bilibiliDynamicMonitor } from './cmds/bilibili-dynamic-monitor.ts';
 import { bilibiliLiveMonitor } from './cmds/bilibili-live-monitor.ts';
 import { bilibiliUserMonitor } from './cmds/bilibili-user-monitor.ts';
-import { bilibiliDynamicMonitor } from './cmds/bilibili-dynamic-monitor.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -193,14 +193,14 @@ async function fetchImages(
     const contentType = res.headers.get('content-type') ?? '';
     if (!contentType.includes('multipart/form-data')) {
         assertOk(res, buffer.toString('utf-8'));
-        throw new Error('响应不是 multipart: ' + contentType);
+        throw new Error(`响应不是 multipart: ${contentType}`);
     }
 
     // 手写解析 multipart 响应 (上游 boundary 固定前缀 napcat-help-generate-)
     // 二进制安全: 以 latin1 解码 buffer, 保证字节 1:1 (PNG 不可走 UTF-8 text())
     const boundaryMatch = contentType.match(/boundary=(.+)$/);
     if (!boundaryMatch) {
-        throw new Error('响应缺少 boundary: ' + contentType);
+        throw new Error(`响应缺少 boundary: ${contentType}`);
     }
     const boundary = boundaryMatch[1];
     const bodyBin = buffer.toString('latin1');

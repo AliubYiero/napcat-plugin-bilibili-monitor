@@ -13,7 +13,7 @@
         "useIgnoreFile": true
     },
     "files": {
-        "includes": ["**", "!src/webui/**", "!.githooks/**"]
+        "includes": ["**", "!src/webui", "!**/*.generated.ts"]
     },
     "formatter": {
         "indentStyle": "space",
@@ -35,7 +35,29 @@
     "linter": {
         "enabled": true,
         "rules": {
-            "recommended": true
+            "preset": "recommended"
         }
-    }
+    },
+    "overrides": [
+        {
+            "includes": ["src/store/BiliDynamic.type.ts"],
+            "linter": {
+                "rules": {
+                    "suspicious": {
+                        "noExplicitAny": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": ["test/**"],
+            "linter": {
+                "rules": {
+                    "suspicious": {
+                        "noExplicitAny": "off"
+                    }
+                }
+            }
+        }
+    ]
 }

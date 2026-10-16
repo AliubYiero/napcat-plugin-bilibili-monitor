@@ -16,8 +16,8 @@ vi.mock('../../src/core/state', async () => {
 });
 
 import {
-    BiliLiveRoomStore,
     type BiliLiveRoomInfo,
+    BiliLiveRoomStore,
     type ChangeEvent,
 } from '../../src/store/biliLiveRoom.store';
 import {

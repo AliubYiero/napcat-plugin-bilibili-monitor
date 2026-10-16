@@ -1,6 +1,7 @@
 // BiliLiveRoomStore.ts
-import { pluginState } from '../core/state';
+
 import type { RoomStatusInfo } from '../api/getStatusInfoByUids';
+import { pluginState } from '../core/state';
 import { isPlainObject, unwrapData, wrapData } from './storeFile';
 
 const ROOM_DATA_FILENAME = 'bilibiliLiveRoomData.json';
@@ -86,12 +87,18 @@ export type ChangeType =
     | 'offline_title_changed' // 标题变化（未直播）
     | 'offline_area_changed'; // 分区变化（未直播）
 
+/** 变更事件携带的值：状态字符串 / 时间戳 / 分区对象 */
+export type ChangeValue =
+    | string
+    | number
+    | { parent?: string; area?: string };
+
 /** 变化事件详情 */
 export interface ChangeEvent {
     uid: string; // 主播 uid（字符串形式）
     type: ChangeType;
-    oldValue?: any; // 旧值（具体字段的旧值，便于使用）
-    newValue?: any;
+    oldValue?: ChangeValue; // 旧值（具体字段的旧值，便于使用）
+    newValue?: ChangeValue;
     /** 变更前的完整直播间信息（结束直播时取开播时间等旧值用） */
     oldRoomInfo?: BiliLiveRoomInfo;
     /**
@@ -289,11 +296,15 @@ export class BiliLiveRoomStore {
     private detectChanges(
         oldInfo: BiliLiveRoomInfo,
         newInfo: BiliLiveRoomInfo,
-    ): { type: ChangeType; oldValue: any; newValue: any }[] {
+    ): {
+        type: ChangeType;
+        oldValue: ChangeValue;
+        newValue: ChangeValue;
+    }[] {
         const changes: {
             type: ChangeType;
-            oldValue: any;
-            newValue: any;
+            oldValue: ChangeValue;
+            newValue: ChangeValue;
         }[] = [];
 
         const oldStatus = oldInfo.live_status;

@@ -1,5 +1,5 @@
-import { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
-import { OB11Message } from 'napcat-types/napcat-onebot';
+import type { OB11Message } from 'napcat-types/napcat-onebot';
+import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { biliOnlineMonitorService } from '../../../services/live/onlineMonitor.service';
 import { toInfoFromEvent } from '../utils';
 

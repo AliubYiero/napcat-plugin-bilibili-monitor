@@ -19,28 +19,26 @@
  * @license MIT
  */
 
-import type {
-    PluginModule,
-    PluginConfigSchema,
-    PluginConfigUIController,
-    NapCatPluginContext,
-} from 'napcat-types/napcat-onebot/network/plugin/types';
 import { EventType } from 'napcat-types/napcat-onebot/event/index';
-
+import type {
+    NapCatPluginContext,
+    PluginConfigSchema,
+    PluginModule,
+} from 'napcat-types/napcat-onebot/network/plugin/types';
+import type { LoginStatusInfo } from './config';
 import { buildConfigSchema } from './config';
 import { pluginState } from './core/state';
 import { handleMessage } from './handlers/message.handler';
 import { registerApiRoutes } from './services/api.service';
-import { BiliLivePollingService } from './services/live/polling.service';
 import { BiliDynamicPollingService } from './services/dyn/polling.service';
 import { initDynRuntime } from './services/dyn/runtime.service';
+import { BiliLivePollingService } from './services/live/polling.service';
 import { BiliCookieStore } from './store/biliCookie.store';
+import { MigrationValidationError } from './store/migration/plan';
 import {
     formatMigrationSummary,
     runDataMigration,
 } from './store/migration/run';
-import { MigrationValidationError } from './store/migration/plan';
-import type { LoginStatusInfo } from './config';
 import type { PluginConfig } from './types';
 
 // ==================== 配置 UI Schema ====================
@@ -96,7 +94,7 @@ export const plugin_init: PluginModule['plugin_init'] = async (
         rebuildConfigUI(ctx);
 
         // 5. 注册 WebUI 页面和静态资源
-        // registerWebUI(ctx);
+        // _registerWebUI(ctx);
 
         // 6. 注册 API 路由
         registerApiRoutes(ctx);
@@ -147,8 +145,8 @@ export const plugin_onmessage: PluginModule['plugin_onmessage'] =
  * 处理所有 OneBot 事件（通知、请求等）
  */
 export const plugin_onevent: PluginModule['plugin_onevent'] = async (
-    ctx,
-    event,
+    _ctx,
+    _event,
 ) => {
     // TODO: 在这里处理通知、请求等非消息事件
     // 示例：
@@ -189,7 +187,7 @@ export const plugin_config_controller: PluginModule['plugin_config_controller'] 
 
 /** 获取当前配置 */
 export const plugin_get_config: PluginModule['plugin_get_config'] =
-    async (ctx) => {
+    async (_ctx) => {
         return pluginState.config;
     };
 
@@ -205,7 +203,7 @@ export const plugin_set_config: PluginModule['plugin_set_config'] =
  * 当 WebUI 中修改单个配置项时触发（需配置项标记 reactive: true）
  */
 export const plugin_on_config_change: PluginModule['plugin_on_config_change'] =
-    async (ctx, ui, key, value, currentConfig) => {
+    async (ctx, _ui, key, value, _currentConfig) => {
         try {
             pluginState.updateConfig({ [key]: value });
             ctx.logger.debug(`配置项 ${key} 已更新`);
@@ -219,7 +217,7 @@ export const plugin_on_config_change: PluginModule['plugin_on_config_change'] =
 /**
  * 注册 WebUI 页面和静态资源
  */
-function registerWebUI(ctx: NapCatPluginContext): void {
+function _registerWebUI(ctx: NapCatPluginContext): void {
     const router = ctx.router;
 
     // 托管前端静态资源（构建产物在 webui/ 目录下）

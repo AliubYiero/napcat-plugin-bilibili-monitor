@@ -6,8 +6,8 @@
  * 超级管理员可管理直播监听上限等插件配置。
  */
 
+import type { OB11Message } from 'napcat-types/napcat-onebot';
 import { pluginState } from './state';
-import { OB11Message } from 'napcat-types/napcat-onebot';
 
 // ==================== 用户角色 ====================
 

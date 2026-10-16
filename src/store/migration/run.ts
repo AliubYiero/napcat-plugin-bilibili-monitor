@@ -11,19 +11,19 @@
  * 任一环节崩溃都不会丢原始数据。
  */
 
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { pluginState } from '../../core/state';
 import {
-    STORE_FILE_VERSION,
     hasVersionField,
     isCurrentVersionFile,
     isPlainObject,
+    STORE_FILE_VERSION,
 } from '../storeFile';
 import {
+    buildMigrationPlan,
     LEGACY_FILES,
     MIGRATION_TARGETS,
-    buildMigrationPlan,
     type MigrationPlan,
 } from './plan';
 
