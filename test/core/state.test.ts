@@ -29,6 +29,7 @@ const DEFAULTS = {
         'offline_title_changed',
         'offline_area_changed',
     ],
+    mentionGroupSize: 10,
     adminUsers: [],
 };
 

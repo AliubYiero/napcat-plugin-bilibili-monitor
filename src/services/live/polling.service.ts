@@ -16,7 +16,7 @@ import { api_getStatusInfoByUids } from '../../api/getStatusInfoByUids';
 import { canSendAtAll } from '../../core/atAll';
 import { pluginState } from '../../core/state';
 import {
-    createAtMessage,
+    createAtMessageWithSeparator,
     createTextMessage,
     prependAtAllMessage,
     sendReplyByToInfo,
@@ -290,7 +290,7 @@ export class BiliLivePollingService {
                     pluginState.isLiveMentionAllEnabled(toInfo.id) &&
                     (await canSendAtAll(pluginState.ctx, toInfo.id))
                 ) {
-                    outgoing = prependAtAllMessage(message);
+                    outgoing = prependAtAllMessage(message, '\n');
                 }
 
                 await sendReplyByToInfo(
@@ -577,12 +577,9 @@ export class BiliLivePollingService {
 
 // ==================== 开播 @ 订阅消息 ====================
 
-/** 每条 mention 消息最多 @ 的用户数 */
-const MENTION_GROUP_SIZE = 10;
-
 /**
- * 向群目标按 10 人一组发送开播 @ 提醒消息
- * 每条消息格式：第一行 @ 用户们，第二行「主播名」开始直播了
+ * 向群目标按配置的分组人数发送开播 @ 提醒消息
+ * 每条消息格式：第一行 @ 用户们 (以空格分隔)，第二行「主播名」开始直播了
  */
 async function sendMentionMessages(
     ctx: NapCatPluginContext,
@@ -590,14 +587,13 @@ async function sendMentionMessages(
     mentionUsers: string[],
     uname: string,
 ): Promise<void> {
-    for (
-        let i = 0;
-        i < mentionUsers.length;
-        i += MENTION_GROUP_SIZE
-    ) {
-        const chunk = mentionUsers.slice(i, i + MENTION_GROUP_SIZE);
+    const groupSize = pluginState.config.mentionGroupSize;
+    for (let i = 0; i < mentionUsers.length; i += groupSize) {
+        const chunk = mentionUsers.slice(i, i + groupSize);
         const message: OB11PostSendMsg['message'] = [
-            ...chunk.map((qq) => createAtMessage(qq)),
+            ...chunk.flatMap((qq) =>
+                createAtMessageWithSeparator(qq),
+            ),
             createTextMessage(`\n「${uname}」开始直播了`),
         ];
         await sendReplyByToInfo(ctx, toInfo, message);

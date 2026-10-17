@@ -75,6 +75,8 @@ export const DEFAULT_CONFIG: PluginConfig = {
     dynPollIntervalSeconds: 300,
     // 默认推送全部变化类型
     pushTypes: [...VALID_PUSH_TYPES],
+    // 单条开播 @ 提醒消息最多 @ 的人数（分组发送，避免单条消息 @ 过多）
+    mentionGroupSize: 10,
     // TODO: 在这里添加你的默认配置值
     adminUsers: [],
 };
@@ -148,6 +150,13 @@ export function buildConfigSchema(
             ],
             VALID_PUSH_TYPES,
             '选择需要推送的变化类型',
+        ),
+        // 开播 @ 提醒分组人数
+        ctx.NapCatConfig.number(
+            'mentionGroupSize',
+            '开播 @ 提醒分组人数',
+            10,
+            '单条开播 @ 提醒消息最多 @ 的人数, 过大可能触及平台限制',
         ),
     );
 }

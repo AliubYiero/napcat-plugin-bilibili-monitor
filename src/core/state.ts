@@ -77,6 +77,13 @@ export function sanitizeConfig(raw: unknown): PluginConfig {
         );
         out.pushTypes = filtered as PluginConfig['pushTypes'];
     }
+    if (
+        typeof raw.mentionGroupSize === 'number' &&
+        Number.isInteger(raw.mentionGroupSize) &&
+        raw.mentionGroupSize >= 1
+    ) {
+        out.mentionGroupSize = raw.mentionGroupSize;
+    }
 
     // 群配置清洗
     if (isObject(raw.groupConfigs)) {

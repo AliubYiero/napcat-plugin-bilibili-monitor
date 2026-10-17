@@ -233,15 +233,43 @@ export function createAtMessage(
 }
 
 /**
+ * 创建 "@ + 分隔文本" 组合消息段
+ *
+ * @ 段后紧跟一段分隔文本 (默认一个空格, 与 QQ 原生 @ 后自动补空格的观感一致),
+ * 用于规避 "@ 段后直接贴图片/文本被客户端挤压" 的排版问题。
+ *
+ * @param qq 目标 QQ 号, 取固定值 'all' 即 @全体成员
+ * @param name 群昵称, @全体成员 时无需传入
+ * @param separator @ 段后追加的分隔文本, 默认一个空格
+ * @returns 两段消息段数组 [at, text]
+ */
+export function createAtMessageWithSeparator(
+    qq: string,
+    name?: string,
+    separator: string = ' ',
+): Array<OB11MessageAt | OB11MessageText> {
+    return [createAtMessage(qq, name), createTextMessage(separator)];
+}
+
+/**
  * 在消息最前面插入 @全体成员 段
  * 字符串消息升级为消息段数组 (纯 @全体成员 无正文在多数客户端渲染为空白,
- * 故 @全体成员 后始终跟随原有文本)
+ * 故 @全体成员 后始终跟随一段分隔文本与原有正文)
+ *
+ * @param message 原消息内容
+ * @param separator @全体成员 段后追加的分隔文本, 默认一个空格
  */
 export function prependAtAllMessage(
     message: OB11PostSendMsg['message'],
+    separator: string = ' ',
 ): OB11PostSendMsg['message'] {
+    const atSegments = createAtMessageWithSeparator(
+        'all',
+        undefined,
+        separator,
+    );
     if (typeof message === 'string') {
-        return [createAtMessage('all'), createTextMessage(message)];
+        return [...atSegments, createTextMessage(message)];
     }
-    return [createAtMessage('all'), ...message];
+    return [...atSegments, ...message];
 }

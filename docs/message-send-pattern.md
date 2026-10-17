@@ -77,6 +77,8 @@ await sendReply(ctx, event, imageMessage);
 
 【必须】范式覆盖的消息段范围即上表所列 8 种, 全部提供工厂函数。范围外的消息段类型 (markdown、record、video、location、json、music 等) 不属于本范式覆盖范围, 各项目如需支持应先扩展工厂函数再使用。
 
+【可以】需要"@ 段后紧跟一段分隔文本"时, 用组合工厂 `createAtMessageWithSeparator(qq, name?, separator?)` 一次生成 `[at, text]` 两段 (默认空格), 语义与用法见下文 §3。
+
 `ForwardNode` 参考定义:
 
 ```ts
@@ -108,6 +110,15 @@ export function createAtMessage(qq: string, name?: string): OB11MessageAt {
     const data: OB11MessageAt['data'] = { qq };
     if (name) data.name = name;
     return { type: 'at', data };
+}
+
+/** 创建 "@ + 分隔文本" 组合消息段 (@ 段后追加一段分隔文本, 默认空格) */
+export function createAtMessageWithSeparator(
+    qq: string,
+    name?: string,
+    separator = ' ',
+): Array<OB11MessageAt | OB11MessageText> {
+    return [createAtMessage(qq, name), createTextMessage(separator)];
 }
 
 /** 创建回复消息段 */
@@ -260,6 +271,15 @@ async function sendAtAll(
 - 【必须】失败反馈**不对称**: 权限不足静默返回 (防权限探测), 配额不足回复提示 (可用性信息, 不敏感)。理由见 [instruction-pattern](./instruction-pattern.md) 的"校验失败的反馈策略"。
 - 【应该】**优先用声明式门槛**。若 @全体成员 由指令触发, 在指令定义上声明 `requiredRole: 'admin'` 与 `scope: 'group'`, 分发层即完成前两项检查, handler 内不必重复。上面的自包含写法适用于**无 event 的主动推送**路径, 或该发送函数被多个调用点共用、需要自带防线的场合。
 - 【应该】`createAtMessage('all')` 后**紧跟一个文本段**。纯 @全体成员 无正文的消息在多数客户端渲染为空白, 用户看不出意图。
+- 【可以】需要给 @ 段补一段分隔文本 (空格/换行) 时, 用组合工厂一次生成两段, 避免手写 `[createAtMessage(qq), createTextMessage(' ')]` 拼接:
+
+```ts
+createAtMessageWithSeparator(qq, name?, separator = ' ')
+// → [createAtMessage(qq, name), createTextMessage(separator)]
+
+// @全体成员 后接换行 (开播卡片等图片消息排版)
+createAtMessageWithSeparator('all', undefined, '\n');
+```
 - 【必须】`createAtMessage('all')` **不传** `name` 参数 (该参数用于显示群昵称, 对 `all` 无意义)。
 - 【必须】@全体成员 的消息**只走 `sendReply` / `sendGroupMessage` 等发送工具**, 不因其特殊而直接调用 `ctx.actions.call`。
 

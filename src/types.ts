@@ -30,6 +30,8 @@ export interface PluginConfig {
     dynPollIntervalSeconds: number;
     /** 要推送的变化类型（多选），未选中的类型不推送 */
     pushTypes: ChangeType[];
+    /** 单条开播 @ 提醒消息最多 @ 的人数 */
+    mentionGroupSize: number;
     // TODO: 在这里添加你的插件配置项
     adminUsers: string[];
 }
