@@ -271,5 +271,9 @@ export function prependAtAllMessage(
     if (typeof message === 'string') {
         return [...atSegments, createTextMessage(message)];
     }
-    return [...atSegments, ...message];
+    // OB11PostSendMsg['message'] 允许单段形态, 展开前先归一为数组
+    return [
+        ...atSegments,
+        ...(Array.isArray(message) ? message : [message]),
+    ];
 }
