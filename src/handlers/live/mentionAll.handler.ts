@@ -36,5 +36,5 @@ export const mentionAllHandler = async (
     }
 
     pluginState.updateGroupConfig(groupId, { liveMentionAll: true });
-    await sendReply(ctx, event, '已开启本群开播 @全体成员提醒');
+    await sendReply(ctx, event, '已开启本群开播 @全体成员 提醒');
 };

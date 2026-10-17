@@ -16,10 +16,10 @@ export const unmentionAllHandler = async (
     const groupId = String(event.group_id);
 
     if (!pluginState.isLiveMentionAllEnabled(groupId)) {
-        await sendReply(ctx, event, '本群未开启开播 @全体成员提醒');
+        await sendReply(ctx, event, '本群未开启开播 @全体成员 提醒');
         return;
     }
 
     pluginState.updateGroupConfig(groupId, { liveMentionAll: false });
-    await sendReply(ctx, event, '已关闭本群开播 @全体成员提醒');
+    await sendReply(ctx, event, '已关闭本群开播 @全体成员 提醒');
 };
