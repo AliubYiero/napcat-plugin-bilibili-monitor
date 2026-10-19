@@ -1,6 +1,6 @@
 # NapCat 插件指令分发范式
 
-本文是适用于任意 NapCat 插件项目的指令分发通用范式, 覆盖从消息接收到指令执行的完整链路: 前缀检查、参数切词、注册表分发、权限与作用域校验。各项目遵循此范式时, 应将消息接收入口放在 `src/handlers/message.handler.ts`, 指令注册表放在 `src/handlers/instruction.handler.ts`, 权限推导放在 `src/core/admin.ts` (本文以此文件布局为参照实现)。
+本文是适用于任意 NapCat 插件项目的指令分发通用范式, 覆盖从消息接收到指令执行的完整链路: 会话门控、触发判定、参数切词、注册表分发、权限与作用域校验。各项目遵循此范式时, 应将消息接收入口放在 `packages/plugin/src/handlers/messageHandler.ts`, 指令注册表放在 `packages/plugin/src/handlers/instructionRegistry.ts` (装配层), 统一校验放在 `instructionDispatch.ts` (分发层), 权限推导放在 `packages/plugin/src/core/admin.ts` (本文以此文件布局为参照实现)。
 
 发送消息的工具函数规范不在本文范围, 参见 `message-send-pattern.md`。
 
@@ -14,40 +14,57 @@
 
 ### 一、接收层: handleMessage
 
-参照实现 `src/handlers/message.handler.ts`。职责固定为四步, 顺序不可调换:
+参照实现 `packages/plugin/src/handlers/messageHandler.ts`。职责固定为四步, 顺序不可调换:
 
-1. **群启用检查**: 群消息先查该群是否启用插件, 未启用直接返回 (先于前缀检查, 避免在禁用群里做无谓的字符串处理)。
-2. **前缀检查**: `rawMessage` 必须以配置的 `commandPrefix` (缺省 `#cmd`) 开头, 否则静默返回。前缀不匹配是绝大多数消息的正常路径, **不回复、不记日志**。
-3. **切词**: 去掉前缀后 `trim().split(/\s+/)` 得到参数数组。空串会切出 `['']`, 由分发层的参数检查兜底。
-4. **分发**: 将参数数组交给分发层。
+1. **会话门控**: 群与私聊都过门控——查该会话是否启用插件, 未启用直接返回 (先于触发判定, 避免在禁用会话里做无谓的字符串处理)。
+2. **触发判定**: 按配置 `triggerModes` 判定 `prefix` (`#bili`) 与 `atBot` (开头 @ 机器人) 两种触发方式, 二者**相互独立**, 全不勾选则永不触发; 命中后剥离开头的 @ 段并 `trimStart()`。触发方式不匹配是绝大多数消息的正常路径, **不回复、不记日志**。
+3. **切词**: 去掉前缀 / @ 段后 `trim().split(/\s+/)` 得到参数数组。空串会切出 `['']`, 由分发层的参数检查兜底。
+4. **分发**: 将参数数组与入口推导出的 `UserRole` 交给分发层。
 
 要点:
 
 - 整个 `handleMessage` 包在 try/catch 中, 任何异常记日志不外抛——它是所有消息事件的入口, 异常外抛会影响插件宿主。
-- 前缀与群启用状态读自配置, 运行期生效, 无需重启。
+- 会话开关与 `triggerModes` 读自 (会话级) 配置, 运行期生效, 无需重启; 指令前缀是内部常量 `COMMAND_PREFIX`, 不可配置。
 - 接收层**不做权限校验**。权限属于指令语义, 由分发层统一处理。
 
-### 二、分发层: 注册表工厂
+### 二、分发层: 注册表与统一校验
 
-参照实现 `src/handlers/instruction.handler.ts`。
+参照实现 `packages/plugin/src/handlers/instructionRegistry.ts` (装配) 与 `instructionDispatch.ts` (校验)。
 
 #### 指令命名空间
 
-指令支持一级与二级两种命名空间形态:
+指令支持三级、二级、一级三种命名空间形态, 三级/二级/一级共用同一个校验终点:
 
+- **三级命名空间**: `模块 → 中间层 → 子指令` (如 `#bili live online add`, `#bili live mention all`), 注册在三级字典 `nestedInstructionSetMapper` 中。中间层是**纯路由前缀**, 不携带权限/作用域属性, 权限与作用域完全由叶子指令声明。
 - **二级命名空间**: `模块 → 子指令` (如 `#bili live add`), 注册在两级字典 `instructionSetMapper` 中。
 - **一级命名空间**: 无模块前缀的直达指令 (如 `#bili help`), 注册在单级字典 `rootInstructionSetMapper` 中。
 
-分发时先查二级 (`arg1` 为模块名、`arg2` 为子指令名), 未命中再查一级 (`arg1` 为指令名, `arg2` 起为参数)。两种形态最终汇入同一个 `dispatch` 校验终点。
+分发按 三级 → 二级 → 一级 的顺序尝试命中 (三级优先于二级), 全部未命中才静默返回。
 
 ```ts
+// 三级: 模块 -> 中间层 -> 子指令 -> 定义
+const nestedInstructionSetMapper: Record<
+    string,
+    Record<string, Record<string, InstructionDefinition>>
+> = {
+    live: {
+        online: {
+            add: { handler: addOnlineHandler, requiredRole: 'admin' },
+            // ...
+        },
+        mention: {
+            all: { handler: mentionAllHandler, requiredRole: 'admin', scope: 'group' },
+        },
+    },
+};
+
 // 二级: 模块 -> 子指令 -> 定义
 const instructionSetMapper: Record<
     string,
     Record<string, InstructionDefinition>
 > = {
     live: {
-        add: { handler: addLiveHandler },
+        add: { handler: addLiveHandler, requiredRole: 'admin' },
         mention: { handler: mentionLiveHandler, scope: 'group' },
         // ...
     },
@@ -62,9 +79,9 @@ const rootInstructionSetMapper: Record<string, InstructionDefinition> = {
 
 要点:
 
-- **新增指令 = 注册表加一行**。handler 写成独立文件按模块分目录 (如 `handlers/live/`), 注册表只做装配, 不含业务逻辑。
-- 指令名在分发前统一 `toLocaleLowerCase()`, 指令不区分大小写。
-- 未命中模块/子指令/一级指令时**静默返回**。未知指令不回复提示, 防止机器人被任意文本触发刷屏。
+- **新增指令 = 注册表加一行 + handler 独立文件**。handler 按模块分目录 (如 `handlers/live/online/`), 注册表只做装配, 不含业务逻辑。
+- **注册表键必须全小写**, 指令名在比对前统一 `toLocaleLowerCase()`, 指令不区分大小写。
+- 未命中任何层级时**静默返回**。未知指令不回复提示, 防止机器人被任意文本触发刷屏。
 
 #### 指令定义 (InstructionDefinition)
 
@@ -72,7 +89,7 @@ const rootInstructionSetMapper: Record<string, InstructionDefinition> = {
 interface InstructionDefinition {
     handler: InstructionHandler;
     /** 执行所需最低角色, 缺省 user (所有人可用) */
-    requiredRole?: UserRole['role'];
+    requiredRole?: UserRoleName;
     /** 允许的会话类型, 缺省不限 */
     scope?: 'group' | 'private';
     /** 形态化作用域规则 (进阶, 见下文) */
@@ -84,7 +101,7 @@ interface InstructionDefinition {
 
 ### 三、权限模型: 四档角色 + 线性比较
 
-参照实现 `src/core/admin.ts`。
+参照实现 `packages/plugin/src/core/admin.ts`。
 
 #### 标准模型
 
@@ -119,16 +136,34 @@ user(0) < admin(1) < privateUser(2) < superAdmin(3)
 
 裁剪只减少档位, **推导逻辑与线性比较机制不变**——这是本范式可迁移的核心。
 
-#### 参照实现 (src/core/admin.ts)
+#### 参照实现 (packages/plugin/src/core/admin.ts)
 
-权限模块整体很小, 可直接复制到新项目后按需裁剪档位。四部分职责:
+权限模块整体很小, 可直接复制到新项目后按需裁剪档位。职责:
+
+**UserRoleName / ROLE_LEVEL / hasRole**——角色名与等级表, 线性比较的唯一依据:
+
+```ts
+export type UserRoleName = 'user' | 'admin' | 'privateUser' | 'superAdmin';
+
+const ROLE_LEVEL: Record<UserRoleName, number> = {
+    user: 0,
+    admin: 1,
+    privateUser: 2,
+    superAdmin: 3,
+};
+
+/** 线性比较: 角色等级 >= 要求等级 (不写档位矩阵) */
+export function hasRole(role: UserRoleName, requiredRole = 'user'): boolean {
+    return ROLE_LEVEL[role] >= ROLE_LEVEL[requiredRole];
+}
+```
 
 **UserRole 类型**——角色推导的返回结构, 一次推导、处处使用:
 
 ```ts
 export interface UserRole {
     userId: string; // 用户QQ号
-    role: 'user' | 'admin' | 'privateUser' | 'superAdmin';
+    role: UserRoleName;
     from: {
         id: string;                      // 群号或用户QQ号
         type: 'private' | 'group';
@@ -185,13 +220,13 @@ function isAdmin(event: OB11Message): boolean {
 
 `superAdmin` 是四档中唯一需要人工配置的档位, 配置面刻意最小化:
 
-- **配置载体**: 插件配置项 `adminUsers` (`string[]`)。WebUI 中以文本输入呈现, 多个 QQ 号用英文逗号分隔; 配置文件中直接存数组。
+- **配置载体**: 插件配置项 `adminUsers` (`string[]`, FIELDS 中 kind 为 `stringList`)。原生面板中以文本输入呈现, 多个 QQ 号用逗号或换行分隔; WebUI 为标签输入; 配置文件中直接存数组。
 - **解析时机: 清洗而非使用**。字符串 → 数组的解析 (`split(',')` → `trim()` → 剔除空段) 在 `sanitizeConfig` 中**一次性完成** (见 `config-pattern.md` 的字符串列表规则), 运行期始终是干净的 `string[]`。使用方 (权限判断、批量通知) 直接读数组, **不重复解析字符串**。
 - **判断逻辑**: `isSuperAdmin(qq)` 做数组包含检查, 在 `getUserRole` 中**最先**短路判定——超管身份高于一切会话类型推导, 群聊里的超管与私聊里的超管都是 `superAdmin`。
 - **无删除手段**: 名单中不存在"降权"指令, 移除超管 = 从配置中删去其 QQ 号。这一档位设计上就不接受来自消息侧的变更 (防止超管被指令篡改)。
 
 ```ts
-// src/core/admin.ts: 使用方直接读数组
+// packages/plugin/src/core/admin.ts: 使用方直接读数组
 export function isSuperAdmin(qq: string): boolean {
     return pluginState.config.adminUsers.includes(qq);
 }
@@ -211,12 +246,14 @@ export function isSuperAdmin(qq: string): boolean {
 max: {
     handler: maxLiveHandler,
     scopeRules: [
-        { args: 0, scope: 'group', requiredRole: 'admin' },
+        { args: 0, requiredRole: 'admin' },
         { args: 1, scope: 'group', requiredRole: 'superAdmin' },
         { args: 3, scope: 'private', requiredRole: 'superAdmin' },
     ],
 },
 ```
+
+`ScopeRule = { args: number; scope?: 'group' | 'private'; requiredRole?: UserRoleName }`, 三个字段均可缺省 (`args` 外), 缺省即"不限"; 权限检查先于作用域检查 (无权即静默, 不泄漏作用域信息)。
 
 ⚠️ **未命中即静默**: `scopeRules` 命中逻辑是"按 `args` 数匹配第一条规则", **未命中任何形态时静默返回**, 不进入 handler。这确保权限防线闭合——不存在"分发层未校验、handler 又未设防"的穿透路径; 代价是形态枚举必须完备, 漏写形态会导致该参数个数的合法调用被静默吞掉。新增参数形态时必须同步补充 `scopeRules` 条目。
 
@@ -234,16 +271,16 @@ max: {
 
 新增一个指令时:
 
-1. 在 `handlers/<模块>/xxx.handler.ts` 写业务 handler, 函数签名 `(ctx, event, commands) => void`, 内部不做权限/作用域校验。
-2. 在 `instructionSetMapper` 对应模块下注册: `{ handler }`, 按需声明 `requiredRole` / `scope`。
+1. 在 `handlers/<模块>/xxxHandler.ts` 写业务 handler, 函数签名 `(ctx, event, commands) => void`, 内部不做权限/作用域校验。
+2. 在 `instructionRegistry.ts` 的对应字典下注册: `{ handler }`, 按需声明 `requiredRole` / `scope`; 三级命名空间注册到 `nestedInstructionSetMapper`, 新增中间层时确认中间层只做路由 (不声明权限/作用域)。
 3. 参数形态绑定不同权限时才用 `scopeRules`, 并确认所有形态已枚举完备 (未命中形态会被静默吞掉)。
-4. 权限档位需要调整时改权限模块的推导函数与等级表, 不改分发层。
+4. 权限档位需要调整时改权限模块的推导函数与等级表 (`ROLE_LEVEL`), 不改分发层。
 5. 回复一律走发送工具模块, 不直接调 `ctx.actions.call`。
-6. 新增角色档位时: 更新等级表 + 推导函数 + 帮助输出版本映射, 三处同步。
+6. 新增角色档位时: 更新 `UserRoleName` + `ROLE_LEVEL` + 推导函数 + 帮助输出版本映射, 四处同步。
 
 ## 与其他范式的关系
 
 - 与**生命周期铁律**的关系: 注册表与 handler 均为纯装配 (构造期零 IO), 可模块加载期导出; 消息事件只在运行期到达。见 `development-pattern.md`。
-- 与**配置范式**的关系: 前缀、群启用开关、超管名单均读自配置, 经 `sanitizeConfig` 清洗后使用; 会话开关在接收层最前端短路。见 `config-pattern.md`。
-- 与**消息发送范式**的关系: 所有回复走发送工具模块。见 `message-send-pattern.md`。
+- 与**配置范式**的关系: `triggerModes`、超管名单 (`adminUsers`) 读自配置, 经 `sanitizeConfig` 清洗后使用; 指令前缀是内部常量, 会话门控读会话级配置并在接收层最前端短路。见 `config-pattern.md`。
+- 与**消息发送范式**的关系: 所有回复走发送工具模块 (`utils/messageSend.ts`)。见 `message-send-pattern.md`。
 - 与**帮助输出范式**的关系: 帮助指令按"角色 + 会话类型"选输出版本 (而非仅按角色), 版本档位与权限档位不是一一对应。见 `help-output-pattern.md`。

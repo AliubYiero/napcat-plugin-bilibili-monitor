@@ -1,0 +1,24 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "outDir": "dist",
+        "rootDir": ".",
+        "paths": {
+            "napcat-types/napcat-onebot": [
+                "./types/napcat-types/napcat-onebot/index.d.ts"
+            ],
+            "napcat-types/napcat-onebot/*": [
+                "./types/napcat-types/napcat-onebot/*"
+            ]
+        }
+    },
+    "include": [
+        "src/**/*.ts",
+        "src/**/*.json",
+        "test/**/*.ts",
+        "vite.config.ts",
+        "vitest.config.ts"
+    ],
+    "exclude": ["node_modules", "dist"]
+}

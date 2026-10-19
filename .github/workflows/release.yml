@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: write
-  actions: write
 
 jobs:
   build:
@@ -52,36 +51,63 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "clean_version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
 
+          # 发布包名取自仓库名，仓库改名/复刻到新项目后无需再改本文件。
+          # GITHUB_REPOSITORY 形如 "owner/repo"，在任何事件类型下都由 Actions 注入。
+          PLUGIN_NAME="${GITHUB_REPOSITORY##*/}"
+          if [ -z "$PLUGIN_NAME" ]; then
+            echo "::error::无法从 GITHUB_REPOSITORY 解析仓库名"
+            exit 1
+          fi
+          echo "plugin_name=$PLUGIN_NAME" >> $GITHUB_OUTPUT
+          echo "发布包名: ${PLUGIN_NAME}.zip"
+
       - name: Update package.json version
         run: |
+          cd packages/plugin
           npm version ${{ steps.version.outputs.clean_version }} --no-git-tag-version --allow-same-version
 
-      - name: Install WebUI dependencies
-        run: cd src/webui && pnpm install
+      - name: Lint
+        run: pnpm exec biome check --error-on-warnings
+
+      - name: Run checks
+        run: pnpm check
 
       - name: Build project
         run: pnpm run build
 
       - name: Prepare release package
         env:
-          PLUGIN_NAME: napcat-plugin-template
+          # 构建产物在 packages/plugin/dist（见 packages/plugin/vite.config.ts 的 outDir）
+          DIST_DIR: packages/plugin/dist
+          PLUGIN_NAME: ${{ steps.version.outputs.plugin_name }}
         run: |
           # 创建临时目录用于组织文件
           mkdir -p release
 
           # 复制需要的文件到临时目录
-          cp dist/index.mjs release/
-          cp dist/package.json release/
-          cp -r dist/webui release/
+          cp "$DIST_DIR/index.mjs" release/
+          cp "$DIST_DIR/package.json" release/
+          cp -r "$DIST_DIR/webui" release/
+          # 帮助图片：运行时按「插件根目录/assets」查找，漏了表现为帮助**静默降级成文本**
+          if [ ! -d "$DIST_DIR/assets" ]; then
+            echo "::error::$DIST_DIR/assets 不存在，说明 packages/plugin/src/assets 未被构建复制，仓库或构建异常"
+            exit 1
+          fi
+          cp -r "$DIST_DIR/assets" release/
 
           # 进入临时目录并压缩
           cd release
-          zip -r ../${PLUGIN_NAME}.zip index.mjs package.json webui
+          zip -r "../${PLUGIN_NAME}.zip" index.mjs package.json webui assets
 
       - name: Verify zip contents
+        env:
+          PLUGIN_NAME: ${{ steps.version.outputs.plugin_name }}
         run: |
-          PLUGIN_NAME="napcat-plugin-template"
-          unzip -l ${PLUGIN_NAME}.zip
+          unzip -l "${PLUGIN_NAME}.zip"
+          # 缺件时的失败必须发生在发布前，而不是用户装完之后
+          for f in index.mjs package.json webui assets; do
+            unzip -l "${PLUGIN_NAME}.zip" | grep -q " $f" || { echo "::error::发布包缺少 $f"; exit 1; }
+          done
 
       - name: Collect git log
         id: gitlog
@@ -145,7 +171,7 @@ jobs:
           # 获取文件变更统计和代码 diff
           SUMMARY_LINE=$(git diff --stat "$PREV_TAG"..HEAD | tail -1 || echo "No changes")
           FILE_CHANGES=$(git diff --stat "$PREV_TAG"..HEAD | head -n -1 | head -30 || echo "")
-          CODE_DIFF=$(git diff "$PREV_TAG"..HEAD -- 'src/*.ts' | head -c 5000 || echo "Diff too large or no code changes")
+          CODE_DIFF=$(git diff "$PREV_TAG"..HEAD -- 'packages/plugin/src' 'packages/webui/src' | head -c 5000 || echo "Diff too large or no code changes")
 
           # 读取自定义 prompt 模板（如果存在）
           SYSTEM_PROMPT="你是一个专业的开发者助手，请根据以下 git commit 记录，生成简洁美观的中文 Release Note。要求：1) 使用 Markdown 格式 2) 按功能分类（如新功能、修复、优化等）3) 语言简洁 4) 版本号为 ${CURRENT_TAG}"
@@ -242,26 +268,6 @@ jobs:
           body_path: CHANGELOG.md
           draft: false
           files: |
-            napcat-plugin-template.zip
+            ${{ steps.version.outputs.plugin_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 触发索引更新工作流
-      # 注意：默认 GITHUB_TOKEN 创建的 Release 不会触发 on.release 事件
-      # 因此需要手动通过 workflow_dispatch 触发 update-index.yml
-      - name: Trigger index update
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'update-index.yml',
-              ref: 'main',
-              inputs: {
-                version: '${{ steps.version.outputs.version }}'
-              }
-            })
-            console.log('✅ 已触发 update-index.yml 工作流')

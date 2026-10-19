@@ -1,6 +1,6 @@
 # ADR 0007: 数据文件按业务域拆分, 统一版本包裹并一次性迁移
 
-日期: 2026-09-19
+日期: 2026-09-19 (2026-10-20 补充: 增加会话配置数据文件)
 状态: 已采纳
 
 ## 背景
@@ -12,17 +12,24 @@
 
 ## 决策
 
-**按业务域收敛为 6 个文件, 除 Cookie 外统一 `{ version: 1, data: ... }` 包裹,
-并实现一次性旧数据迁移。**
+**按业务域收敛为 6 个业务数据文件, 除 Cookie 外统一 `{ version: 1, data: ... }` 包裹, 并实现一次性旧数据迁移。**
 
 | 数据文件 | Store | 职责 |
 | --- | --- | --- |
-| `bilibiliCookie.json` | `BiliCookieStore` | 登录 Cookie 与用户信息 (本次不动) |
+| `bilibiliCookie.json` | `BiliCookieStore` | 登录 Cookie 与用户信息 (裸结构, 不包裹版本) |
 | `bilibiliLimits.json` | `BiliLimitStore` | 三类会话自定义监听上限 |
 | `bilibiliLiveMonitors.json` | `BiliLiveMonitorStore` | 直播监听 + 同接监听 |
 | `bilibiliDynMonitors.json` | `BiliDynMonitorStore` | 动态监听配置 |
 | `bilibiliDynRuntimeData.json` | `BiliDynRuntimeStore` | 动态运行时快照 (`cachedIds`) |
 | `bilibiliLiveRoomData.json` | `BiliLiveRoomStore` | 直播间运行时快照 |
+
+此外, **会话级配置**单独占用第七个文件 (2026-10-20 补充, 见 ADR 0006 / 0009):
+
+| 数据文件 | Store | 职责 |
+| --- | --- | --- |
+| `bilibiliSessionConfig.json` | `SessionConfigStore` | 群/好友级启用开关与开播 @全体成员 (键 `type:id`, 只存非默认值) |
+
+它的字段语义与"数据文件"不同 (承载的是配置而非数据), 但为保持"单一读写入口 + 统一版本包裹 + 不污染插件配置文件"三条不变, 仍按 store 承载。
 
 配套约定:
 
@@ -55,4 +62,4 @@
 - 无原子写 (本次非目标): 写入中断可能损坏文件; 此时读取侧会回退为空值并
   记录 error 日志, 需人工从 `.bak` 恢复。
 - 未知版本 (`version` 存在但不等于 1) 的目标文件一律跳过并告警, 绝不覆盖。
-- 数据文件拓扑与命名以本 ADR 为准, 后续不得自行新增或合并文件。
+- 数据文件拓扑与命名以本 ADR 为准, 后续不得自行新增或合并文件 (含 `bilibiliSessionConfig.json`)。

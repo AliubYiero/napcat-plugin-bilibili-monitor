@@ -1,6 +1,6 @@
 # NapCat 插件数据读取与存储范式
 
-本文是适用于任意 NapCat 插件项目的数据持久化通用范式, 覆盖 store 层的结构约定、实例化时机与正反例。各项目遵循此范式时, 应将持久化类集中在一个 store 目录, 并提供一个全局状态单例 (本文以 `pluginState` 称之, 参见 `src/core/state.ts`)。
+本文是适用于任意 NapCat 插件项目的数据持久化通用范式, 覆盖 store 层的结构约定、实例化时机与正反例。各项目遵循此范式时, 应将持久化类集中在一个 store 目录, 并提供一个全局状态单例 (本文以 `pluginState` 称之, 参见 `packages/plugin/src/core/state.ts`)。
 
 ## 核心背景: 为什么不能在模块加载期读数据
 
@@ -20,7 +20,7 @@ NapCat 插件的加载流程是: 模块 import (加载所有文件) → 调用 `
 ### 1. store 文件只定义类并导出类本身
 
 ```ts
-// src/store/xxx.store.ts
+// packages/plugin/src/store/xxxStore.ts
 export class XxxStore extends BaseStore<MonitorItem> {
     private static instance: XxxStore | null = null;
 
@@ -51,7 +51,7 @@ export class XxxStore extends BaseStore<MonitorItem> {
 ### 2. 使用方在调用时惰性获取实例
 
 ```ts
-// src/services/xxx/store.service.ts
+// packages/plugin/src/services/xxx/storeService.ts
 class XxxStoreService {
     private _xxxStore: XxxStore | null = null;
 
@@ -124,17 +124,39 @@ export const xxxStore = XxxStore.getInstance();
 
 | 基类 | 数据形状 | 示例 |
 | --- | --- | --- |
-| `BaseStore<T>` | `T[]` | `biliLiveMonitor.store.ts` |
-| `BaseRecordStore<T>` | `Record<string, T>` (键通常为 uid) | `biliDynRuntime.store.ts` |
+| `BaseStore<T>` | `T[]` | `biliLiveMonitorStore.ts` |
+| `BaseRecordStore<T>` | `Record<string, T>` (键通常为 uid 或 `type:id`) | `biliDynRuntimeStore.ts` / `sessionConfigStore.ts` |
 
 硬抽共同父类会让两边的方法签名都变形 (`getAll` 返回引用 vs 浅拷贝、`addItem` 追加 vs `set` 覆盖),
 差异不足以撑起抽象。需要在不落盘的前提下做内存剪枝时, 子类直接用 `BaseRecordStore` 暴露的
 `protected data`。
 
-带状态机语义的 store (如 `biliLiveRoom.store.ts` 有变化检测与监听器) 不强行继承基类,
+带状态机语义的 store (如 `biliLiveRoomStore.ts` 有变化检测与监听器) 不强行继承基类,
 只复用 `storeFile.ts` 的常量与解包工具即可。
 
 数据文件拓扑与命名见 `docs/adr/0007-store-file-topology.md`, **不得自行新增或合并文件**。
+
+### 会话级配置的承载
+
+会话级配置 (群/好友的启用开关等) 不进插件配置文件, 由独立数据文件承载 (见 ADR 0006):
+
+- 键为 `type:id` (`group:123` / `private:456`), 由 store 导出统一的 key 构造函数。
+- **只持久化非默认值**: 写入时把非默认字段写进记录, 恢复默认即删除该字段; 记录为空则删除该记录。
+  这样"缺记录"与"显式默认"不会分叉, 文件也不会随会话数无界膨胀。
+- **读取侧归一化**: 加载时丢弃非法记录、剔除与默认值相同的字段; 内存只保留最小集合。
+- **唯一查询入口是 service** (`sessionConfigService`): 业务代码不直接触碰 store, 也不自行比较字段,
+  默认值语义集中在一处 (如启用为 `enabled !== false`, 开播 @全体成员为 `=== true`)。
+- 会话门控在消息入口最前端短路, 业务层不再重复判定。
+
+### 迁移模块纪律
+
+`packages/plugin/src/store/migration/` 下的模块负责把旧数据/旧配置改写成新形状, 在 `loadConfig()` **之前**运行:
+
+- 【必须】只可依赖全局状态单例与纯函数 `storeFile`, **严禁 import 任何 store / service**:
+  迁移期属于"初始化早期", 一旦 import 就会在配置尚未加载时实例化 store。
+- 【必须】一次性完成并留备份 (`<configFileName>.YYYYMMDDHHmmss.bak`), 便于人工回退。
+- 【必须】不再支持的字段只告警不静默丢弃, 迁移结果 (`{ status, warnings, sessionEntries }`) 回给入口打日志。
+- 【必须】迁移失败抛错阻止启动 (半迁移的配置比不启动更危险)。
 
 ## 标准范式清单
 
@@ -151,5 +173,5 @@ export const xxxStore = XxxStore.getInstance();
 ## 与其他范式的关系
 
 - 与**生命周期铁律**的关系: 全局状态单例 (如 `pluginState`) 本身也是模块加载期导出的单例, 但它安全, 前提是"构造期零 IO"——`ctx` 以 nullable 字段持有, getter 中检查未初始化即抛错, 真正的 IO 全部在 `init(ctx)` 之后才发生。store 遵循"调用时 `getInstance()`"的范式, 是为了让这一约束不依赖每个开发者的自觉, 而是由结构保证。见 `development-pattern.md`。
-- 与**配置范式**的关系: 配置文件与数据文件共用全局状态的持久化机制, 但配置遵循 `config-pattern.md` 的四环节链路, store 不直接读写配置。
+- 与**配置范式**的关系: 配置文件与数据文件共用全局状态的持久化机制, 但配置遵循 `config-pattern.md` 的 FIELDS 单源链路 (外部输入经 `sanitizeConfig`), store 不直接读写配置; 会话级配置由 store 承载但不进配置文件。
 - 与**消息发送范式**的关系: store 推送通知时最终调用发送工具, 同样只在运行期调用, 见 `message-send-pattern.md`。

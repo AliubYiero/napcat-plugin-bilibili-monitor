@@ -1,151 +1,99 @@
 # NapCat 插件配置范式
 
-本文是 NapCat 插件配置层的通用范式, 覆盖配置从声明到生效的全链路: 类型定义、默认值与 Schema、清洗、运行时读写。遵循此范式时, 四环节分散在四个位置 (本文以本项目 `src/types.ts`、`src/config.ts`、`src/core/state.ts` 的 `sanitizeConfig` 等为参照实现)。
+本文是 NapCat 插件配置层的通用范式, 覆盖配置从声明到生效的全链路: 类型、默认值、清洗、原生面板、WebUI 表单、运行时读写与旧配置迁移。
 
-## 全链路总览
+本项目的参照实现 (三处文件, 各司其职):
 
-一个配置项从声明到生效经过四个环节, 缺一不可:
+| 环节 | 文件 | 说明 |
+| --- | --- | --- |
+| 声明源 (唯一权威) | `packages/shared/src/config.ts` | `FIELDS` 字段描述符 + `PluginConfig` 类型 |
+| 后端原生面板 | `packages/plugin/src/config.ts` | `buildConfigSchema(ctx, loginStatus)` 把 `FIELDS` 映射为 `ctx.NapCatConfig` |
+| 运行时读写 | `packages/plugin/src/core/state.ts` | `loadConfig` / `saveConfig` / `updateConfig` / `replaceConfig` |
+| 前端表单 | `packages/webui/src/components/ConfigForm.tsx` | 按描述符 `kind` 渲染控件 |
+
+## 核心约束: 单一声明源
+
+新增或修改一个配置项时, **只改 `FIELDS` 一处**: 给 `PluginConfig` 加字段 (带注释), 给 `FIELDS` 加同 key 描述符, 二者用 `satisfies` 绑定键集 (另有单测兜底)。类型、默认值、清洗、原生面板、WebUI 表单全部由描述符派生, 不得在其他文件重复罗列字段。
 
 ```
-(a) 类型定义          类型文件          PluginConfig / GroupConfig
-(b) 默认值 + Schema   配置文件          DEFAULT_CONFIG / buildConfigSchema
-(c) 清洗              全局状态文件      sanitizeConfig
-(d) 运行时读写        全局状态文件      loadConfig / saveConfig / updateConfig
+FIELDS ──┬─→ PluginConfig         (类型, 编译期键集一致)
+         ├─→ getDefaultConfig()   (默认值)
+         ├─→ sanitizeConfig()     (清洗, 按 kind 分派)
+         ├─→ buildConfigSchema()  (原生面板控件)
+         └─→ ConfigForm           (自建前端控件)
 ```
 
-四处分散是插件框架的结构所致 (Schema 构建器需要 ctx、清洗需要独立纯函数、类型需要独立于运行时), 属于可接受的设计。范式不试图消除它, 而是用 checklist 保证四处同步。
+描述符是 ctx-free 纯数据。需要 ctx 或运行时数据的映射必须**参数注入** (`buildConfigSchema(ctx, loginStatus)`), 禁止静态 import 业务模块。
 
-## 核心约束: 三处一致 + 写入铁律
+## 写入铁律
 
-新增或修改一个配置项时, 必须同步以下位置:
+**一切外部输入 (磁盘配置文件、WebUI 提交、旧配置迁移) 的配置写回必须经过 `sanitizeConfig`**, 直接把外部对象合并进内存配置等于放弃类型安全:
 
-1. **类型**: `PluginConfig` (或会话级 `GroupConfig`) 加字段及注释。
-2. **默认值**: `DEFAULT_CONFIG` 加默认值。
-3. **WebUI Schema**: `buildConfigSchema` 加对应控件。
-4. **清洗**: `sanitizeConfig` 加清洗分支。
+- `loadConfig`: 读盘后经 `sanitizeConfig`; 文件不存在则写默认配置落盘; 解析失败回退默认配置并记日志, 不抛错。
+- `replaceConfig(config)`: 整体替换, 入口先 `sanitizeConfig`。
+- `updateConfig(partial)`: 合并更新, 结果同样经 `sanitizeConfig` 后落盘; 仅限内部可信调用方。
 
-铁律: **一切外部输入的配置写回必须经过 `sanitizeConfig`**。外部输入包括磁盘配置文件、WebUI 提交、指令修改。直接把外部对象合并进内存配置等于放弃类型安全。范式:
+## 字段 kind 与清洗语义
 
-- `loadConfig`: 读盘后经 `sanitizeConfig`; 文件不存在则写入默认配置落盘; 解析失败回退默认配置并记日志, 不抛错。
-- `replaceConfig(config)`: 入口统一 `sanitizeConfig(config)` 后再保存。
-- `updateConfig(partial)`: 仅限内部可信调用方使用 (字段已被上游清洗或来自 `DEFAULT_CONFIG`); 若来源不可信, 先清洗。
+`sanitizeConfig` 是纯函数: 输入 `unknown`, 输出保证符合 `PluginConfig`, 不抛错。
 
-## 清洗规则分类表
-
-`sanitizeConfig` 是纯函数: 输入 `unknown`, 输出保证符合 `PluginConfig`。
-
-按字段形态分五类, 每类一个正例:
-
-| 形态         | 规则                                                     |
-| ------------ | -------------------------------------------------------- |
-| 标量         | `typeof` 守卫; 不合法则保留默认值, 不报错                 |
-| 数值         | `typeof` + 业务区间校验 (如 `> 0`); 不合法回退默认值      |
-| 字符串列表   | 容错输入格式, 统一转为规范形态后去空项                    |
-| 枚举数组     | 过滤非法值; **空数组是合法语义**, 不回退默认值            |
-| 嵌套对象     | 逐字段递归使用上述规则; 整体不合法则丢弃该条目            |
-
-正例 (摘自 `src/core/state.ts`):
-
-```ts
-// 标量: typeof 守卫, 不合法保留默认
-if (typeof raw.enabled === 'boolean') out.enabled = raw.enabled;
-if (typeof raw.commandPrefix === 'string')
-    out.commandPrefix = raw.commandPrefix;
-
-// 数值: typeof + 区间校验
-if (
-    typeof raw.pollIntervalSeconds === 'number' &&
-    raw.pollIntervalSeconds > 0
-) {
-    out.pollIntervalSeconds = raw.pollIntervalSeconds;
-}
-
-// 枚举数组: 过滤非法值; 空数组表示"不推送任何类型",
-// 是用户的合法选择, 不回退默认
-if (Array.isArray(raw.pushTypes)) {
-    const validPushTypes = new Set<string>(VALID_PUSH_TYPES);
-    const filtered = raw.pushTypes.filter(
-        (t) => typeof t === 'string' && validPushTypes.has(t),
-    );
-    out.pushTypes = filtered as PluginConfig['pushTypes'];
-}
-```
-
-字符串列表 (以"逗号分隔的管理员名单"为例):
-
-```ts
-if (typeof rawAdminUsers === 'string') {
-    out.adminUsers = rawAdminUsers
-        .split(',')
-        .map((id) => id.trim())
-        .filter((id) => id.length > 0);
-} else if (Array.isArray(rawAdminUsers)) {
-    out.adminUsers = rawAdminUsers
-        .map(String)
-        .filter((id) => id.length > 0);
-}
-```
-
-嵌套对象 (会话级配置, 见下节):
-
-```ts
-if (isObject(raw.groupConfigs)) {
-    for (const [groupId, groupConfig] of Object.entries(raw.groupConfigs)) {
-        if (isObject(groupConfig)) {
-            const cfg: GroupConfig = {};
-            if (typeof groupConfig.enabled === 'boolean')
-                cfg.enabled = groupConfig.enabled;
-            out.groupConfigs[groupId] = cfg;
-        }
-    }
-}
-```
+| kind | 清洗 | 备注 |
+| --- | --- | --- |
+| `boolean` | `typeof` 守卫, 不符回退默认 | |
+| `text` / `password` | `typeof` 守卫, 不符回退默认 | `password` 无原生面板控件, `scope` 收窄至 `webui`/`both` |
+| `number` | 非有限数回退默认; 超区间**夹到 `min`/`max`** | ⚠️ `0` 会被夹到 `min` (如 `1`), **不是**回退默认值 |
+| `select` | 未命中 `options` 回退默认 | |
+| `multiSelect` | 过滤非法项; **空数组合法** | 空数组是"全不选"的语义, 不回退默认 |
+| `stringList` | 逗号/换行分隔文本或数组 → 去空项 `string[]` | codec 由 `parseStringList` 单源提供, 前后端共用 |
+| `section` | 不落盘, 无 key | 仅布局分组 |
+| `display` | 不落盘, 无 key | 仅展示 HTML 片段 (可含 `{{...}}` 占位符) |
 
 两条通用原则:
 
-- **清洗不抛错**。任何非法输入都回退默认值或丢弃条目, 保证插件在损坏的配置文件下仍能启动。
-- **尊重用户显式选择**。空数组、显式 `false` 等是语义, 不是缺失; 只有"字段不存在或类型不对" 才回退默认。
+- **清洗不抛错**: 任何非法输入都回退默认值或丢弃条目, 保证插件在损坏的配置文件下仍能启动。
+- **尊重用户显式选择**: 空数组、显式 `false` 等是语义, 不是缺失; 只有"字段不存在或类型不对"才回退默认。
 
-## WebUI Schema 范式
+## 运行时数据只进展示块
 
-Schema 由 `buildConfigSchema(ctx, ...)` 在运行时构建 (构建器方法挂在 `ctx.NapCatConfig` 上), 静态配置项遵循:
+Schema 中允许出现运行时数据 (登录状态、运行统计等), 但只允许进入 `display` 展示块, **不得进入可保存配置项**:
 
-- 控件类型与字段类型一一对应: boolean → 开关, text → 文本, number → 数字, select/multiSelect → 单选/多选。文本控件收集到的是字符串, 若逻辑字段是列表 (如管理员名单), 由清洗层负责转换, Schema 描述里写清输入格式。
-- 多选的候选值列表应有单一来源 (如 `VALID_PUSH_TYPES` 常量), 默认值与 Schema options 都从它派生, 避免两处硬编码。
-- 每个控件写 `description` 说明业务含义与生效时机 (如 "修改后下一轮生效")。
+1. Schema 构建函数接受可选运行时快照 (`buildConfigSchema(ctx, loginStatus)`), 快照为空时跳过对应展示块。
+2. 运行时状态只渲染为 HTML 展示块; 运行统计 (`stats`) 存于配置文件但位于 FIELDS 之外, 由 `loadConfig`/`saveConfig` 单独透传。
+3. 外部状态变化后通过配置 UI 控制器重建整个 Schema。
 
-### Schema 的静态/动态边界
+⚠️ Schema 构建函数需要运行时数据时必须参数注入, 禁止配置模块静态 import 业务模块——否则形成循环引用, 默认配置对象在模块加载期即触发 TDZ 错误。见 `docs/adr/0005-config-schema-runtime-data-injection.md`。
 
-Schema 中允许出现运行时数据, 但只允许进入 **展示块** (`html` / `plainText`), 不得进入可保存配置项。通用规则:
+## 会话级配置不属于配置文件
 
-1. Schema 构建函数接受可选的运行时快照参数 (如 `buildConfigSchema(ctx, loginStatus)`), 快照为空时跳过对应展示块。
-2. 运行时状态 (登录信息、统计等) 只渲染为 HTML 展示块, 不参与配置保存。
-3. 外部状态变化后需要刷新展示块时, 通过状态回调重建整个 Schema。
+群/好友级的开关是**会话级配置**, 不进配置文件、不进 `FIELDS`, 由独立数据文件承载 (见 `docs/store-pattern.md` 与 ADR 0006):
 
-⚠️ Schema 构建函数需要运行时数据时, **必须参数注入, 禁止配置模块静态 import 业务模块**——否则形成循环引用, 默认配置对象在模块加载期即触发 TDZ 错误。见 `docs/adr/0005-config-schema-runtime-data-injection.md`。
+- 唯一读写入口是 `sessionConfigService`, 业务代码不直接触碰 store, 也不自行比较字段。
+- 启用为宽松判定 `enabled !== false` (默认开启); 开播 @全体成员为反向判定 `=== true` 且仅群会话有效。
+- 只持久化非默认值, 恢复默认即删除记录。
+- 门控在消息入口最前端短路 (群与私聊都过门控), 业务层不重复判定。
 
-## 会话级配置与启用开关
+插件全局启用/停用同样**不是**配置项: 由 NapCat 宿主负责 (见 ADR 0010)。
 
-会话级配置 (群配置) 是 `Record<会话ID, GroupConfig>` 形态的嵌套配置项, 清洗时逐字段走标量规则。启用开关遵循三条规则:
+## 旧配置迁移
 
-1. **单一查询入口**。提供 `pluginState.isGroupEnabled(groupId)` 之类的唯一判定函数, 业务代码不得散落读取 `groupConfigs[id].enabled`。
-2. **宽松判定**。判定式为 `enabled !== false`——缺失字段视为启用, 零配置可用。插件必须显式声明自己选择"默认开启"还是"默认关闭" (领域决策, 记入 `CONTEXT.md` 与 ADR)。
-3. **入口短路**。消息处理在最前端做开关检查, 禁用的会话直接忽略消息, 不进入指令解析。
+不再支持的键 (`enabled` / `debug` / `commandPrefix` / `groupConfigs` / `adminUser`) 由 `packages/plugin/src/store/migration/configMigration.ts` 一次性处理, 在 `loadConfig` **之前**运行:
 
-开关的修改入口 (指令 / WebUI) 由插件自选, 范式不强制。
+- 迁移结果写回磁盘前必须经 `sanitizeConfig`; 运行统计等 FIELDS 之外的字段原样保留。
+- 留备份 `<configFileName>.YYYYMMDDHHmmss.bak`。
+- 弃用键只告警不静默丢弃信息 (如 `groupConfigs` 中 `enabled: false` 的记录迁移为会话配置)。
+- 迁移失败抛错阻止启动。
 
 ## 新增配置项 checklist
 
-- [ ] 类型文件: `PluginConfig` (或 `GroupConfig`) 加字段 + 注释
-- [ ] 配置文件: `DEFAULT_CONFIG` 加默认值
-- [ ] 配置文件: `buildConfigSchema` 加控件 (描述写清格式与生效时机)
-- [ ] 全局状态文件: `sanitizeConfig` 按形态分类加清洗分支
-- [ ] 若是枚举: 候选值抽常量, Schema 与清洗共用
-- [ ] 若是会话级字段: 确认 `isGroupEnabled` 式单一入口仍覆盖
-- [ ] 若语义有默认值选择 (尤其是启用开关): 在 ADR 与 `CONTEXT.md` 中声明
+- [ ] `packages/shared/src/config.ts`: `PluginConfig` 加字段 + `FIELDS` 加同 key 描述符 (含 `label` / `description` / `default`)
+- [ ] 若是枚举/multiSelect: 候选项抽常量, 描述符与默认值共用
+- [ ] 确认 `sanitizeConfig` 对该 kind 的既有规则已覆盖语义 (数值区间用 `min`/`max`, 不写自定义分支)
+- [ ] 若语义含默认值选择 (尤其启用类开关): 在 `CONTEXT.md` 与 ADR 中声明
+- [ ] 需要 ctx / 运行时数据时: 只加 `display` 展示块, 并保持参数注入
 
 ## 与其他范式的关系
 
-- 与**生命周期铁律**的关系: 配置读盘发生在 `plugin_init` 之后, 清洗是纯函数可在任何时机调用; Schema 构建需要 ctx, 只能在运行期进行。见 `development-pattern.md`。
-- 与**指令分发范式**的关系: 接收层读取前缀与群启用状态都来自配置, 运行期生效; 会话开关在消息入口最前端短路。见 `instruction-pattern.md`。
-- 与**领域建模纪律**的关系: 启用开关等默认值语义是领域决策, 定型时记入 `CONTEXT.md` 并按需补 ADR (本项目见 `docs/adr/0006-group-enabled-default.md`)。
+- 与**生命周期铁律**的关系: 配置读盘发生在 `plugin_init` 之后 (且晚于迁移), 清洗是纯函数可在任何时机调用; Schema 构建需要 ctx, 只能在运行期进行。见 `development-pattern.md`。
+- 与**存储范式**的关系: 会话级配置由 store 承载, 遵循 `store-pattern.md` 的单例与延迟实例化纪律。
+- 与**指令分发范式**的关系: 触发方式 (`triggerModes`) 与指令前缀 (`COMMAND_PREFIX` 常量, 不可配) 决定接收层行为, 会话门控在消息入口最前端短路。见 `instruction-pattern.md`。
+- 与**领域建模纪律**的关系: 启用开关等默认值语义是领域决策, 定型时记入 `CONTEXT.md` 并按需补 ADR (本项目见 `docs/adr/0006-session-enabled-default.md`)。

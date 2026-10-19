@@ -1,59 +1,23 @@
 {
-    "name": "napcat-plugin-bilibili-monitor",
-    "plugin": "Bilibili监测者",
-    "description": "监听指定用户动态发布/视频发布/直播状态, 推送到指定群聊",
+    "name": "napcat-plugin-bilibili-monitor-monorepo",
+    "private": true,
     "version": "1.0.0",
     "type": "module",
-    "main": "index.mjs",
-    "author": "Yiero",
-    "license": "MIT",
-    "keywords": [
-        "napcat",
-        "plugin",
-        "qq",
-        "template"
-    ],
-    "napcat": {
-        "tags": [
-            "工具",
-            "消息",
-            "推送"
-        ],
-        "minVersion": "4.14.0",
-        "homepage": "https://github.com/AliubYiero/napcat-plugin-bilibili-monitor"
-    },
-    "dependencies": {
-        "napcat-types": "0.0.16"
-    },
-    "devDependencies": {
-        "@biomejs/biome": "^2.5.10",
-        "@rollup/plugin-node-resolve": "^15.3.1",
-        "@types/express": "^5.0.6",
-        "@types/node": "^20.19.33",
-        "@types/qrcode": "^1.5.6",
-        "axios": "^1.19.0",
-        "napcat-plugin-debug-cli": "^1.2.8",
-        "qrcode": "^1.5.4",
-        "tsx": "^4.20.6",
-        "typescript": "^5.9.3",
-        "vite": "^6.4.1",
-        "vitest": "^5.0.0",
-        "ws": "^8.19.0"
-    },
     "scripts": {
-        "build": "vite build",
-        "watch": "vite build --watch",
-        "deploy": "vite build --mode deploy",
-        "deploy:watch": "vite build --watch --mode deploy",
-        "build:webui": "cd src/webui && pnpm install && pnpm run build",
-        "dev:webui": "cd src/webui && pnpm run dev",
-        "typecheck": "tsc --noEmit",
-        "typecheck:test": "tsx scripts/typecheck/index.ts",
-        "test": "vitest run",
-        "test:watch": "vitest",
-        "help:generate": "tsx scripts/generateHelp/index.ts",
+        "build": "pnpm --filter webui build && pnpm --filter napcat-plugin-bilibili-monitor build",
+        "watch": "pnpm --filter napcat-plugin-bilibili-monitor watch",
+        "deploy": "pnpm --filter webui build && pnpm --filter napcat-plugin-bilibili-monitor deploy",
+        "deploy:dev": "pnpm --filter webui build && pnpm --filter napcat-plugin-bilibili-monitor deploy:dev",
+        "dev:webui": "pnpm --filter webui dev",
+        "test": "pnpm -r test",
+        "typecheck": "pnpm -r typecheck",
+        "check": "pnpm typecheck && pnpm test",
+        "help:generate": "pnpm --filter napcat-plugin-bilibili-monitor help:generate",
         "lint": "biome check",
         "lint:fix": "biome check --write",
         "format": "biome format --write"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^2.5.10"
     }
 }

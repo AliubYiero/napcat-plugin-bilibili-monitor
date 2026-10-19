@@ -1,6 +1,6 @@
 # NapCat 插件消息发送范式
 
-本文是适用于任意 NapCat 插件项目的消息发送通用范式, 覆盖发送 API 的选型规则、消息段的构造方式与错误处理约定。各项目遵循此范式时, 应将所有发送工具集中在一个工具模块中 (下称"发送工具模块")。强度档位 (必须/应该/可以) 见 [development-pattern.md](./development-pattern.md) 的"规范强度分级"。
+本文是适用于任意 NapCat 插件项目的消息发送通用范式, 覆盖发送 API 的选型规则、消息段的构造方式与错误处理约定。各项目遵循此范式时, 应将所有发送工具集中在一个工具模块中 (本项目为 `packages/plugin/src/utils/messageSend.ts`, 下称"发送工具模块")。强度档位 (必须/应该/可以) 见 [development-pattern.md](./development-pattern.md) 的"规范强度分级"。
 
 ## 核心约束: 收敛发送入口
 
@@ -194,7 +194,7 @@ const atAllMessage = [
 | 前置检查 | 判定方式 |
 | --- | --- |
 | 群聊限定 | `event.message_type === 'group'` |
-| 权限: 群管理员及以上 | `hasRole(getUserRole(event), 'admin')` (见 [permission-pattern](./permission-pattern.md)) |
+| 权限: 群管理员及以上 | `hasRole(getUserRole(event).role, 'admin')` (见 [instruction-pattern](./instruction-pattern.md)) |
 | 配额: 当日剩余次数 > 0 且机器人有权限 | `get_group_at_all_remain` API |
 
 【必须】三项检查**缺一不可且必须前置**, 不能靠"发出去再看结果"反推——平台对越权与超额的失败反馈并不一致, 事后无法可靠区分失败原因。
@@ -247,8 +247,8 @@ async function sendAtAll(
     // 1. 群聊限定: 非群聊没有"全体成员"这个概念
     if (event.message_type !== 'group') return false;
 
-    // 2. 权限: 群管理员及以上 (角色推导见 permission-pattern)
-    if (!hasRole(getUserRole(event), 'admin')) return false;
+    // 2. 权限: 群管理员及以上 (角色推导见 instruction-pattern)
+    if (!hasRole(getUserRole(event).role, 'admin')) return false;
 
     // 3. 配额: 机器人有权限, 且群内当日还有剩余次数
     const quota = await getAtAllQuota(ctx, event.group_id);
@@ -333,8 +333,11 @@ await sendGroupMessage( pluginState.ctx, groupId, [
 
 - 与**生命周期铁律**的关系: 发送工具函数内部依赖全局状态的 logger 等, 只在 `plugin_init` 之后的运行期被调用; **不要在模块加载期调用任何发送函数**。前提约束见 [development-pattern](./development-pattern.md) 与 [store-pattern](./store-pattern.md)。
 - 与**指令分发范式**的关系: handler 回复用户用 `sendReply`; 主动推送 (无 event) 按目标类型选 `sendGroupMessage` / `sendPrivateMessage`。见 [instruction-pattern](./instruction-pattern.md)。
-- 与**权限范式**的关系: @全体成员 等"仅管理员可用"的发送能力, 需先用 `getUserRole` 推导档位、`hasRole` 判定是否达标。指令触发时优先由分发层的 `requiredRole` 声明完成, 无 event 的推送路径才自行判定。见 [permission-pattern](./permission-pattern.md)。
+- 与**权限范式**的关系: @全体成员 等"仅管理员可用"的发送能力, 需先用 `getUserRole` 推导档位、`hasRole` 判定是否达标。指令触发时优先由分发层的 `requiredRole` 声明完成, 无 event 的推送路径才自行判定。见 [instruction-pattern](./instruction-pattern.md)。
 
 ## 参考实现
 
-napcat-plugin-bilibili-monitor 项目: 发送工具模块见 `packages/plugin/src/handlers/utils.ts`。
+napcat-plugin-bilibili-monitor 项目:
+
+- 发送工具模块: `packages/plugin/src/utils/messageSend.ts` (四个发送函数 + 全部 `createXxxMessage` 工厂)。
+- @全体成员 能力与配额检查: `packages/plugin/src/core/atAll.ts` (`canAtAll` 等), 业务侧 (开播 @全体成员 推送) 复用同一判定。

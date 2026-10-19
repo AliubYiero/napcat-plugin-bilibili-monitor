@@ -13,7 +13,13 @@
         "useIgnoreFile": true
     },
     "files": {
-        "includes": ["**", "!src/webui", "!**/*.generated.ts"]
+        "includes": [
+            "**",
+            "!.githooks",
+            "!**/*.generated.ts",
+            "!packages/plugin/types",
+            "!packages/webui/index.html"
+        ]
     },
     "formatter": {
         "indentStyle": "space",
@@ -29,18 +35,27 @@
     },
     "css": {
         "parser": {
-            "cssModules": true
+            "cssModules": true,
+            "tailwindDirectives": true
         }
     },
     "linter": {
         "enabled": true,
         "rules": {
-            "preset": "recommended"
+            "preset": "recommended",
+            "suspicious": {
+                "noUnknownAtRules": {
+                    "level": "error",
+                    "options": {
+                        "ignore": ["tailwind"]
+                    }
+                }
+            }
         }
     },
     "overrides": [
         {
-            "includes": ["src/store/BiliDynamic.type.ts"],
+            "includes": ["packages/plugin/src/store/BiliDynamic.type.ts"],
             "linter": {
                 "rules": {
                     "suspicious": {
@@ -50,11 +65,21 @@
             }
         },
         {
-            "includes": ["test/**"],
+            "includes": ["packages/plugin/test/**"],
             "linter": {
                 "rules": {
                     "suspicious": {
                         "noExplicitAny": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": ["packages/webui/src/index.css"],
+            "linter": {
+                "rules": {
+                    "complexity": {
+                        "noImportantStyles": "off"
                     }
                 }
             }

@@ -1,20 +1,21 @@
 # NapCat 插件开发范式总纲
 
-本文是 NapCat 插件开发的通用范式总纲, 定位为**可迁移到任意 NapCat 插件项目的模板**: 定义统一文档骨架、生命周期铁律、分层架构模型, 并索引各专项范式与架构决策。本项目 (napcat-plugin-bilibili-monitor) 是该范式体系的参考实现, 项目细节见根目录 `CLAUDE.md` 的"本项目实例化"一节。
+本文是 NapCat 插件开发的通用范式总纲, 定位为**可迁移到任意 NapCat 插件项目的模板**: 定义统一文档骨架、生命周期铁律、分层架构模型, 并索引各专项范式与架构决策。本项目 (napcat-plugin-bilibili-monitor) 是该范式体系的参考实现, 项目细节见根目录 `AGENTS.md`。
 
 ## 文档体系与骨架
 
-专项范式文档共五份, 全部遵循统一骨架:
+专项范式文档共六份, 全部遵循统一骨架:
 
 > 概述 → 核心约束(铁律) → 范式正文(含正反例) → 标准范式清单(checklist) → 与其他范式的关系
 
 | 文档 | 覆盖范围 |
 | --- | --- |
-| [store-pattern.md](./store-pattern.md) | 数据持久化: 单例 store、延迟实例化、模块加载期禁 IO |
-| [config-pattern.md](./config-pattern.md) | 配置全链路: 类型/默认值/Schema/清洗四环节、会话级开关 |
-| [instruction-pattern.md](./instruction-pattern.md) | 指令分发: 接收→分发→执行链路、四档权限、作用域校验 |
+| [store-pattern.md](./store-pattern.md) | 数据持久化: 单例 store、延迟实例化、模块加载期禁 IO、会话级配置承载 |
+| [config-pattern.md](./config-pattern.md) | 配置全链路: FIELDS 单源、清洗纪律、运行时读写、旧配置迁移 |
+| [instruction-pattern.md](./instruction-pattern.md) | 指令分发: 接收→分发→执行链路、四档权限、命名空间与作用域校验 |
 | [message-send-pattern.md](./message-send-pattern.md) | 消息发送: 发送工具收敛、消息段工厂 |
-| [help-output-pattern.md](./help-output-pattern.md) | 帮助输出: cmd.json 上游 → 产物 → 运行时变体选择 |
+| [help-output-pattern.md](./help-output-pattern.md) | 帮助输出: cmds 权威源 → 三类产物 → 运行时变体选择 |
+| [webui-config-pattern.md](./webui-config-pattern.md) | WebUI: 页面集与 hash 路由、声明式配置表单、无鉴权 API、样式规范 |
 
 命名与术语先读根目录 `CONTEXT.md` (领域术语表, 含 _Avoid_ 反用词); 重大取舍见 `docs/adr/` (索引见下文)。写代码/起名前先查这两处。
 
@@ -31,20 +32,20 @@ NapCat 插件加载流程: **模块 import → `plugin_init(ctx)` → 运行**�
 ## 分层架构模型
 
 ```
-入口 (index.ts)          生命周期装配, 不含业务
-  → 接收层 (handlers)    消息过滤、前缀检查、指令分发   [instruction-pattern]
-  → 执行层 (handlers)    按模块分目录的指令 handler
-  → 业务层 (services)    轮询、解析、推送、上限等业务逻辑
-  → 持久化层 (store)     JSON 文件读写, 单例 + 延迟实例化 [store-pattern]
-  → 外部 API 层 (api)    上游服务 HTTP 封装, 与业务解耦
+入口 (index.ts)            生命周期装配, 不含业务
+  → 接收层 (messageHandler)  会话门控、触发判定、切词、分发      [instruction-pattern]
+  → 分发层 (instructionDispatch) 统一权限与作用域校验, 执行 handler
+  → 执行层 (handlers/<模块>)     按模块分目录的指令 handler
+  → 业务层 (services)        轮询、解析、推送、上限等业务逻辑
+  → 持久化层 (store)         JSON 文件读写, 单例 + 延迟实例化     [store-pattern]
+  → 外部 API 层 (api)        上游服务 HTTP 封装, 与业务解耦
 横切: 发送工具 [message-send-pattern]、配置 [config-pattern]、
       帮助输出 [help-output-pattern]、权限推导
 ```
 
 各层通用纪律:
 
-- **每层只做自己的事**: 接收层不认识指令语义, 分发层不做业务, handler 内不重复权限校验, store 不含业务规则。
-- **纯函数优先**: 解析、清洗、模板渲染等无 IO 逻辑抽为纯函数模块 (输入 → 输出, 不触碰 ctx / store), 便于独立理解与复用。
+- **每层只做自己的事**: 接收层不认识指令语义, 分发层不做业务, handler 内不重复权限校验, store 不含业务规则。- **纯函数优先**: 解析、清洗、模板渲染等无 IO 逻辑抽为纯函数模块 (输入 → 输出, 不触碰 ctx / store), 便于独立理解与复用。
 - **外部 API 层与业务解耦**: HTTP 封装只做请求/响应与登录态注入, 不做业务判断; 业务层不直接拼 URL。
 - **失败回退链**: 可视化产物 (渲染图片等) 优先, 失败回退纯文本; 外部依赖不可用时降级而不崩溃。
 
@@ -61,18 +62,20 @@ ADR 记录"难逆转、无上下文会意外、真实权衡"三类决策, 每份
 | ADR | 结论 | 约束 |
 | --- | --- | --- |
 | 0001 SVG 渲染推送卡片 | 用外部 SVG 渲染插件生成卡片图片, 失败回退文本, 不引入本地重依赖 | services 推送链路的失败回退纪律 |
-| 0003 typecheck 报错来源 | napcat-types 包自身语法错误, 以 vite build 为验证手段 | 构建与验证命令的使用 |
+| 0003 napcat-types 类型垫片 | 用 `tsconfig` `paths` 把 `napcat-types/*` 重定向到本地信实垫片, 以此恢复 `pnpm typecheck` 判定 (取代"以 vite build 为唯一验证手段") | 类型来源、构建与验证命令的使用 |
 | 0004 离线变化检测 | 推翻 0002: 未直播时同样检测标题/分区变化, 独立事件类型 | 轮询比对与变化事件的实现 |
 | 0005 配置 Schema 运行时注入 | Schema 构建参数注入运行时数据, 禁止 config 模块静态 import 业务模块 (避免循环引用) | config-pattern 的 Schema 静态/动态边界 |
-| 0006 群启用默认开启 | `enabled !== false` 宽松判定, 入口最前端短路 | config-pattern 的会话级开关、instruction-pattern 的接收层 |
-| 0007 数据文件拓扑 | 按业务域拆分 6 个文件, 统一 `{ version: 1, data }` 包裹, 一次性迁移 | store-pattern 的文件划分与版本约定 |
+| 0006 会话启用默认开启 | 会话级开关按 `enabled !== false` 宽松判定, 承载于独立的会话配置数据文件, 入口最前端短路 | store-pattern 的会话级配置、config-pattern、instruction-pattern 的接收层 |
+| 0007 数据文件拓扑 | 按业务域拆分 6 个数据文件 + 会话配置 1 个, 统一 `{ version: 1, data }` 包裹, 一次性迁移 | store-pattern 的文件划分与版本约定 |
 | 0008 SVG 渲染字体 | 改用思源黑体, 字体栈由常量统一, 宽度计算传 `fontFamily` 与渲染对齐 | services 渲染链路的字体取值与度量一致性 |
+| 0009 迁移到模板三包架构 | 采用 napcat-plugin-template 的 `packages/plugin` + `packages/shared` + `packages/webui` 布局与范式 (配置单源 FIELDS、帮助结构化产物、模板 WebUI 页面集) | 全仓结构、构建与发布链路 |
+| 0010 配置字段集收敛 | 配置不含插件全局启停与指令前缀 (宿主职责 / 内部常量), 字段集固定为 6 项 | config-pattern 的字段集与清洗 |
 
 ## 尚未成文的区域
 
 以下区域有参考实现但暂无专项范式, 新增同类代码时参照现有实现:
 
-- **API 请求层**: 外部服务 HTTP 封装的职责划分 (基础请求 / 带登录态请求 / 具体接口) 与错误处理, 参照 `api/` 目录现有实现。
-- **services 业务纪律**: 轮询 (定时器 + 增量比对)、纯函数解析、推送 (渲染 + 回退)、上限控制, 参照 `services/` 各模块; 通用纪律见上文"分层架构模型"。
-- **插件入口装配**: 生命周期函数的注册与初始化顺序, 参照 `index.ts`。
+- **API 请求层**: 外部服务 HTTP 封装的职责划分 (基础请求 / 带登录态请求 / 具体接口) 与错误处理, 参照 `packages/plugin/src/api/` 目录现有实现。
+- **services 业务纪律**: 轮询 (定时器 + 增量比对)、纯函数解析、推送 (渲染 + 回退)、上限控制, 参照 `packages/plugin/src/services/` 各模块; 通用纪律见上文"分层架构模型"。
+- **插件入口装配**: 生命周期函数的注册与初始化顺序 (含迁移先于配置加载), 参照 `packages/plugin/src/index.ts`。
 - **帮助图片产物管线**的上游工具: 见 help-output-pattern, 工具本体在独立项目 `napcat-help-generate`。

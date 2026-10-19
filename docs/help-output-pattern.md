@@ -2,26 +2,30 @@
 
 本文是 NapCat 插件指令帮助输出的通用范式, 覆盖从指令定义到用户可见帮助消息的全链路: 配置权威源编写、API 生成、脚本化落盘、运行时变体选择与回退。
 
-参考实现: 本项目 `scripts/generateHelp/` (生成脚本与 cmd 权威源)、`src/utils/helpMessage.ts`、`src/handlers/live/help.handler.ts`、`src/handlers/dyn/help.handler.ts`、`src/handlers/user/help.handler.ts` (以下引用其内容均作为示例)。渲染服务由独立项目 `napcat-help-generate` 提供 (TS + express + Playwright, 无状态渲染), 其 API 详见该项目 README 与 CLAUDE.md。
+参考实现: 本项目 `packages/plugin/scripts/generateHelp/` (生成脚本与 cmd 权威源)、`packages/plugin/src/utils/helpMessage.ts`、`packages/plugin/src/handlers/{live,dyn,user}/help.ts` (以下引用其内容均作为示例)。渲染服务由独立项目 `napcat-help-generate` 提供 (TS + express + Playwright, 无状态渲染), 其 API 详见该项目 README。
 
 ## 核心约束
 
 1. **按角色与会话类型输出对应版本**: 帮助内容分 User / Admin / SuperAdmin 三个权限组, 由消息来源的角色与会话类型共同决定输出版本 (见"变体映射"节), 而非仅按角色。
 2. **图片优先 / 文本回退**: 优先发送帮助图片, 图片文件缺失或发送失败时回退发送纯文本帮助。
-3. **配置单源**: cmd 配置权威源在插件项目 `scripts/generateHelp/cmds/`。生成产物 (`helpText.generated.ts` 与 assets PNG) 一律由 `pnpm run help:generate` 产出, 禁止手改; 渲染服务不持久化插件配置, 仅按请求传参渲染。
+3. **配置单源**: cmd 配置权威源在插件项目 `packages/plugin/scripts/generateHelp/cmds/`。生成产物 (结构化 `helpData.generated.ts`、文本 `helpText.generated.ts` 与 assets PNG) 一律由 `pnpm help:generate` 产出, 禁止手改; 渲染服务不持久化插件配置, 仅按请求传参渲染。
 
 ## 范式正文
 
 ### 全链路流水线
 
 ```
-scripts/generateHelp/cmds/*.ts (插件项目内, cmd 配置权威源)
-    → pnpm run help:generate
+packages/plugin/scripts/generateHelp/cmds/*.ts (插件项目内, cmd 配置权威源)
+    → pnpm help:generate
+    → (结构化产物不依赖渲染服务, 先落盘)
     → (自动启动/复用 napcat-help-generate 服务, POST /api/text + /api/images 传参渲染)
-    → 落盘: src/assets/{cmdId}-{Role}.png + src/handlers/<模块>/helpText.generated.ts
-    → handler import 生成文件
+    → 落盘: packages/plugin/src/handlers/help/helpData.generated.ts (结构化)
+            + packages/plugin/src/assets/{cmdId}-{Role}.png + packages/plugin/src/handlers/<模块>/helpText.generated.ts
+    → handler / WebUI 消费产物
     → 运行时: sendHelpMessage 按变体发送图片, 失败回退文本
 ```
+
+三类产物对应三个消费方: 图片与文本服务于指令回复 (QQ 会话内), 结构化数据服务于 WebUI 帮助页与 `GET /help`。
 
 ### 一、配置权威源: scripts/generateHelp/cmds/
 
@@ -70,14 +74,16 @@ interface Instruction {
 
 SuperAdmin 版可以包含**仅私聊可用**的指令 (`onlyPrivate`)。这直接影响下游变体映射的合理性: 群聊中不输出 SuperAdmin 版, 正是因为其含有的仅私聊指令在群聊中不可用 (见"变体映射"节)。编写配置时保持这一内容构成约定。
 
-### 二、生成: pnpm run help:generate
+### 二、生成: pnpm help:generate
 
-生成脚本 `scripts/generateHelp/index.ts` (tsx 直跑), 流程:
+生成脚本 `packages/plugin/scripts/generateHelp/index.ts` (tsx 直跑), 流程:
 
 1. 读取渲染服务项目 `.env` 的 `PORT` (缺省 3366), `GET /api/cmds` 探活。
 2. 服务未运行则在渲染服务目录自动 `spawn pnpm start`, 轮询就绪 (30s 超时; 首次运行需先在该项目执行 `npx playwright install chromium`)。生成结束后脚本树杀本次自启的实例 (Windows `taskkill /T /F`, POSIX 进程组 `SIGKILL`), 已在运行的实例不动。
 3. 对映射表 (`CMD_TARGETS`) 中每个 cmd: 以 API 传参模式提交完整 cmd 配置 (`cmd[0]` 优先于注册表 `ids`), 调用 `POST /api/text` (JSON) 与 `POST /api/images` (multipart, 手写解析, 二进制安全)。
-4. 落盘 (见下节)。
+4. 拍平全部 cmd 为结构化产物, 落盘 (见下节)。
+
+**结构化产物先行落盘且不依赖渲染服务**: 只要权威源可读即可生成, 因此文本/结构化产物与图片产物是可分离的两条链路 (图片链路需要渲染服务可用)。
 
 服务端环境项 (渲染服务项目 `.env`): `PORT` / `SCREENSHOT_SCALE` / `IMAGE_FORMAT`, 由服务端自行管理, 脚本不干预。
 
@@ -85,10 +91,11 @@ SuperAdmin 版可以包含**仅私聊可用**的指令 (`onlyPrivate`)。这直�
 
 | 产物 | 落盘位置 | 说明 |
 |---|---|---|
-| 帮助图片 PNG | `src/assets/{cmdId}-{Role}.png` | 按权限组三张, 覆盖写入 |
-| 文本帮助 | `src/handlers/<模块>/helpText.generated.ts` | 导出 `HELP_TEXT_MAP: Record<HelpVariant, string>`, 键为 `user` / `admin` / `superAdmin` (API 的 PascalCase 权限组由脚本映射为 camelCase 变体键) |
+| 帮助图片 PNG | `packages/plugin/src/assets/{cmdId}-{Role}.png` | 按权限组三张, 覆盖写入; 随构建产物拷贝到 `dist/assets/` |
+| 文本帮助 | `packages/plugin/src/handlers/<模块>/helpText.generated.ts` | 导出 `HELP_TEXT_MAP: Record<HelpVariant, string>`, 键为 `user` / `admin` / `superAdmin` (API 的 PascalCase 权限组由脚本映射为 camelCase 变体键) |
+| 结构化帮助 | `packages/plugin/src/handlers/help/helpData.generated.ts` | 导出 `HELP_PANELS: Cmd[]` (类型来自 `shared`), 供 `GET /help` 原样返回与 WebUI 帮助页渲染 |
 
-**同步纪律**: `helpText.generated.ts` 头部标注"由 pnpm run help:generate 生成, 禁止手改"。任何帮助内容变更都只修改 `scripts/generateHelp/cmds/` 下的权威源, 再重新生成。handler 以 `HELP_IMAGE` 常量声明各变体对应的 PNG 文件名 (纯命名映射, 无内容), 并 `import { HELP_TEXT_MAP } from './helpText.generated'`。
+**同步纪律**: 生成物头部标注"由 pnpm help:generate 生成, 禁止手改"。任何帮助内容变更都只修改 `packages/plugin/scripts/generateHelp/cmds/` 下的权威源, 再重新生成。handler 以 `HELP_IMAGE` 常量声明各变体对应的 PNG 文件名 (纯命名映射, 无内容), 并 `import { HELP_TEXT_MAP } from './helpText.generated'`。
 
 运行时发送逻辑由共享工具 `sendHelpMessage` 承担, handler 只需提供 `imageMap` 与 `textMap` 两份内容, 不自行实现选择与回退逻辑。
 
@@ -115,12 +122,13 @@ SuperAdmin 版可以包含**仅私聊可用**的指令 (`onlyPrivate`)。这直�
 
 新增一个帮助面板时:
 
-1. 在 `scripts/generateHelp/cmds/` 新建 cmd 配置文件 (遵循标记互斥与分组命名约定)。
-2. 在 `scripts/generateHelp/index.ts` 的 `CMD_TARGETS` 映射表注册 (cmd 配置 + 落盘 handler 目录)。
-3. 执行 `pnpm run help:generate`, 产物自动落盘 assets 与 handler 目录。
+1. 在 `packages/plugin/scripts/generateHelp/cmds/` 新建 cmd 配置文件 (遵循标记互斥与分组命名约定)。
+2. 在 `packages/plugin/scripts/generateHelp/index.ts` 的 `CMD_TARGETS` 映射表注册 (cmd 配置 + 落盘 handler 目录)。
+3. 执行 `pnpm help:generate`, 产物自动落盘 assets、handler 目录与 `handlers/help/helpData.generated.ts`。
 4. 新建 handler 文件, `HELP_IMAGE` 填入三个 PNG 文件名, `import { HELP_TEXT_MAP } from './helpText.generated'`。
 5. handler 导出形如 `helpXxxHandler` 的函数, 调用 `sendHelpMessage(ctx, event, { imageMap, textMap })`。
-6. 在指令解析层注册对应 help 指令。
+6. 在 `instructionRegistry.ts` 注册对应 help 指令 (组件内帮助可注册到二级/三级命名空间)。
+7. 结构化产物无需额外接线: `GET /help` 与 WebUI 帮助页直接消费 `HELP_PANELS`。
 
 ## 与其他范式的关系
 
