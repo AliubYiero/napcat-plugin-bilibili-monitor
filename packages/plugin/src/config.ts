@@ -13,7 +13,11 @@ import type {
     PluginConfigSchema,
     PluginEntry,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
-import type { ConfigField, DisplayTokenValues } from 'shared';
+import type {
+    ConfigField,
+    DisplayTokenValues,
+    SectionFieldDescriptor,
+} from 'shared';
 import {
     DEFAULT_PAGE,
     escapeHtml,
@@ -45,7 +49,7 @@ export function buildLoginStatusHtml(
     // 未登录
     if (!user) {
         return `
-            <div style="padding: 14px; background: #fff3f5; border: 1px solid #FB7299; border-radius: 12px; margin-bottom: 20px; color: #666;">
+            <div style="padding: 14px; background: #fff3f5; border: 1px solid #FB7299; border-radius: 12px; margin-bottom: 12px; color: #666;">
                 <p style="margin: 0 0 6px 0; font-weight: 600; color: #FB7299;">B 站账号: 未登录</p>
                 <p style="margin: 0; font-size: 13px;">动态/视频监听需要登录。请私聊机器人发送 #bili user login 扫码登录</p>
             </div>
@@ -56,7 +60,7 @@ export function buildLoginStatusHtml(
         ? '<span style="margin-left: 8px; padding: 2px 8px; border-radius: 6px; background: #ff4d4f; color: white; font-size: 12px;">Cookie 已失效</span>'
         : '';
     return `
-        <div style="padding: 14px; background: #f0f9ff; border: 1px solid #52a0e8; border-radius: 12px; margin-bottom: 20px;">
+        <div style="padding: 14px; background: #f0f9ff; border: 1px solid #52a0e8; border-radius: 12px; margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 12px;">
                 <img src="${user.avatar}" alt="avatar" style="width: 48px; height: 48px; border-radius: 50%;" referrerpolicy="no-referrer" />
                 <div>
@@ -69,10 +73,37 @@ export function buildLoginStatusHtml(
 }
 
 /**
+ * 分组标题样式
+ *
+ * html 字段会被直接注入宿主 DOM, 因此:
+ *   - 类名统一加 `bili-section-` 前缀 (style 是全局作用域);
+ *   - 暗色用 `.dark` / `[data-theme="dark"]` 祖先选择器, 跟随 NapCat 面板
+ *     的主题 class (宿主不读取 prefers-color-scheme, 也不会为本字符串生成
+ *     Tailwind dark: 规则)。
+ */
+const SECTION_STYLE = `<style>
+.bili-section-title { display: flex; align-items: center; gap: 8px; margin: 0 0 2px; padding-top: 14px; border-top: 1px solid rgba(251,114,153,0.18); font-size: 14px; font-weight: 600; line-height: 20px; color: #b23a63; letter-spacing: .2px; }
+.bili-section-bar { width: 3px; height: 14px; border-radius: 2px; background: #fb7299; flex: 0 0 auto; }
+.bili-section-desc { margin: 0; font-size: 12px; line-height: 18px; color: #6b7280; }
+.dark .bili-section-title, [data-theme="dark"] .bili-section-title { color: #f49ab5; }
+.dark .bili-section-desc, [data-theme="dark"] .bili-section-desc { color: #9ca3af; }
+</style>`;
+
+/** 分组标题 HTML (置于纯样式块之外, 由 SECTION_STYLE 提供样式) */
+export function buildSectionHtml(
+    field: SectionFieldDescriptor,
+): string {
+    const description = field.description
+        ? `<p class="bili-section-desc">${escapeHtml(field.description)}</p>`
+        : '';
+    return `<div class="bili-section"><div class="bili-section-title"><span class="bili-section-bar"></span><span>${escapeHtml(field.label)}</span></div>${description}</div>`;
+}
+
+/**
  * 构建 NapCat 原生配置面板 Schema
  *
  * 遍历 shared 的 FIELDS, 按 kind 映射到 `ctx.NapCatConfig` 的构建器, 并在
- * 插件信息头之后插入登录状态展示块 (登录/登出后重启插件或刷新页面时更新)。
+ * 第一个 section 之后插入登录状态展示块 (登录/登出后重启插件或刷新页面时更新)。
  * 【必须】新增配置项只需改 shared/src/config.ts (FIELDS), 此处无需改动。
  *
  *   - boolean(key, label, defaultValue?, description?)          → 开关
@@ -88,17 +119,29 @@ export function buildConfigSchema(
     loginStatus?: LoginStatusInfo,
 ): PluginConfigSchema {
     const values = getDisplayTokenValues(ctx);
-    const items = FIELDS_ALL.filter(
+    const visibleFields = FIELDS_ALL.filter(
         (field) => field.scope !== 'webui',
-    ).map((field) => toNapCatItem(ctx, field, values));
+    );
+    const items = visibleFields.map((field) =>
+        toNapCatItem(ctx, field, values),
+    );
     const loginItem = ctx.NapCatConfig.html(
         buildLoginStatusHtml(loginStatus),
     );
-    // 插件信息头 (FIELDS 首项) → 登录状态 → 其余配置项
+    // 纯样式块 → 信息头 → 首个分组标题 → 登录状态 → 其余配置项;
+    // 没有 section 时回退为「首项之后」(保持旧行为)。
+    const firstSectionIndex = visibleFields.findIndex(
+        (field) => field.kind === 'section',
+    );
+    const insertAt =
+        firstSectionIndex >= 0
+            ? firstSectionIndex + 1
+            : Math.min(1, items.length);
     return ctx.NapCatConfig.combine(
-        ...items.slice(0, 1),
+        ctx.NapCatConfig.html(SECTION_STYLE),
+        ...items.slice(0, insertAt),
         loginItem,
-        ...items.slice(1),
+        ...items.slice(insertAt),
     );
 }
 
@@ -206,10 +249,8 @@ function toNapCatItem(
                 field.description,
             );
         case 'section':
-            // 仅布局: 分组标题 (加粗, 与面板其它标题层级一致)
-            return NapCatConfig.html(
-                `<div class="font-semibold">${escapeHtml(field.label)}</div>`,
-            );
+            // 仅布局: 分组标题 (样式见 SECTION_STYLE)
+            return NapCatConfig.html(buildSectionHtml(field));
         case 'display':
             // 解析 {{...}} 占位符后再交给原生面板渲染
             return NapCatConfig.html(

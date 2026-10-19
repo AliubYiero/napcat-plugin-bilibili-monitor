@@ -2,21 +2,7 @@ import {
     DEFAULT_PAGE,
     type DisplayFieldDescriptor,
     resolveDisplayContent,
-    type SectionFieldDescriptor,
 } from 'shared';
-
-/** 分组标题 (仅布局, 不落盘) */
-export function SectionField({
-    field,
-}: {
-    field: SectionFieldDescriptor;
-}) {
-    return (
-        <div className="text-xl font-semibold uppercase tracking-wider pt-2">
-            {field.label}
-        </div>
-    );
-}
 
 /** 纯展示块 (仅展示, 不落盘) */
 export function DisplayField({

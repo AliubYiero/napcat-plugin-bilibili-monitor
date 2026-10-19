@@ -47,6 +47,8 @@ export const DEFAULT_PAGE: PageId = 'status';
 
 `packages/webui/src/components/ConfigForm.tsx` 直接消费 shared 的 `FIELDS`, 按 `kind` 渲染控件; 布局与展示字段 (`section` / `display`) 没有 `key`, 其余字段从 `config[field.key]` 取值。
 
+`FIELDS` 先经纯函数 `packages/webui/src/components/configFields/groupFields.ts` 按 `section` 切成多组, 每组渲染为一张 `.card` (标题即 section 的 `label`, 可选 `description` 作为副标题); 第一个 section 前的字段归入「基础配置」, 空组不渲染。分组规则详见 `config-pattern.md` 的「分组布局」。
+
 | kind | 控件 |
 | --- | --- |
 | `boolean` | `BooleanField` (开关) |
@@ -56,7 +58,7 @@ export const DEFAULT_PAGE: PageId = 'status';
 | `select` | `SelectField` (下拉) |
 | `multiSelect` | `MultiSelectField` (胶囊多选) |
 | `stringList` | `StringListField` (标签输入) |
-| `section` | `SectionField` (分组标题) |
+| `section` | 分组卡片边界 (`groupFields` 切分, 标题为卡片 `h3`) |
 | `display` | `DisplayField` (`dangerouslySetInnerHTML` 渲染展示块) |
 
 要点:

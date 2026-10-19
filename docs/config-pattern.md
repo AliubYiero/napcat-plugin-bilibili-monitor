@@ -45,13 +45,25 @@ FIELDS ──┬─→ PluginConfig         (类型, 编译期键集一致)
 | `select` | 未命中 `options` 回退默认 | |
 | `multiSelect` | 过滤非法项; **空数组合法** | 空数组是"全不选"的语义, 不回退默认 |
 | `stringList` | 逗号/换行分隔文本或数组 → 去空项 `string[]` | codec 由 `parseStringList` 单源提供, 前后端共用 |
-| `section` | 不落盘, 无 key | 仅布局分组 |
+| `section` | 不落盘, 无 key | 仅布局分组: WebUI 分卡边界 + 原生面板分组标题 |
 | `display` | 不落盘, 无 key | 仅展示 HTML 片段 (可含 `{{...}}` 占位符) |
 
 两条通用原则:
 
 - **清洗不抛错**: 任何非法输入都回退默认值或丢弃条目, 保证插件在损坏的配置文件下仍能启动。
 - **尊重用户显式选择**: 空数组、显式 `false` 等是语义, 不是缺失; 只有"字段不存在或类型不对"才回退默认。
+
+## 分组布局 (section)
+
+`section` 是扁平 `FIELDS` 中的**分隔行** (无 key, 不落盘), 同时驱动两侧布局, 不改变清洗语义:
+
+- **WebUI**: 纯函数 `packages/webui/src/components/configFields/groupFields.ts` 按 section 把字段切成多组, 每组渲染为一张 `.card`。
+    - 第一个 section 之前的字段归入「基础配置」; 每个 section 开启新组, 后续字段归属该组直到下一个 section。
+    - 只渲染非空组 (空 section / 空基础组不产生空卡片); 被 `scope` 过滤的 section 既不显示也不作为分组边界; `display` 跟随当前组。
+    - section 的 `description` 存在时渲染为标题下方的灰色小字。
+- **原生面板**: `packages/plugin/src/config.ts` 把 section 渲染为分组标题 (粉色竖条 + 上边框 + 可选副标题), 样式集中在 `buildConfigSchema` 注入的**单份** `<style>` (类名统一 `bili-section-*` 前缀)。
+    - 宿主把 `html` 内容直接注入 DOM, 且不会为插件字符串生成 Tailwind `dark:` 规则; 故暗色用 `.dark` / `[data-theme="dark"]` 祖先选择器跟随面板主题 class, 不用 `prefers-color-scheme`。
+    - 登录状态块插在**第一个 section 之后** (无 section 时回退到首项之后)。
 
 ## 运行时数据只进展示块
 
@@ -87,6 +99,7 @@ Schema 中允许出现运行时数据 (登录状态、运行统计等), 但只�
 
 - [ ] `packages/shared/src/config.ts`: `PluginConfig` 加字段 + `FIELDS` 加同 key 描述符 (含 `label` / `description` / `default`)
 - [ ] 若是枚举/multiSelect: 候选项抽常量, 描述符与默认值共用
+- [ ] 需要归入新分组时: 在 `FIELDS` 中插入 `section` 分隔行, 不新增描述符字段
 - [ ] 确认 `sanitizeConfig` 对该 kind 的既有规则已覆盖语义 (数值区间用 `min`/`max`, 不写自定义分支)
 - [ ] 若语义含默认值选择 (尤其启用类开关): 在 `CONTEXT.md` 与 ADR 中声明
 - [ ] 需要 ctx / 运行时数据时: 只加 `display` 展示块, 并保持参数注入

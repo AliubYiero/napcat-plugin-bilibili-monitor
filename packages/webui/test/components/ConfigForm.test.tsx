@@ -3,8 +3,9 @@
  * ConfigForm 组件行为
  *
  * 范式: docs/webui-config-pattern.md 的声明式配置表单。
- * 合同: 按 FIELDS 顺序与 kind 分发控件; 过滤 scope='panel';
- *       布局 / 展示字段不落盘; onChange 冒泡字段 key; overrides 按 key 覆盖。
+ * 合同: 按 FIELDS 的 section 切成多张卡片; 每张卡按 kind 渲染控件;
+ *       过滤 scope='panel'; 布局 / 展示字段不落盘; onChange 冒泡字段 key;
+ *       overrides 按 key 覆盖。
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -19,14 +20,14 @@ function renderForm(
     overrides?: Record<string, ComponentType<FieldRenderProps>>,
 ) {
     const onChange = vi.fn();
-    render(
+    const { container } = render(
         <ConfigForm
             config={getDefaultConfig()}
             onChange={onChange}
             overrides={overrides}
         />,
     );
-    return { onChange };
+    return { onChange, container };
 }
 
 describe('ConfigForm', () => {
@@ -54,9 +55,19 @@ describe('ConfigForm', () => {
         expect(screen.queryByText(/跳转至拓展页面/)).toBeNull();
     });
 
-    it('渲染 section 标题且不触发 onChange', () => {
+    it('按 section 切成三张卡片并保持顺序', () => {
+        const { container } = renderForm();
+        expect(container.querySelectorAll('.card')).toHaveLength(3);
+        expect(
+            screen
+                .getAllByRole('heading', { level: 3 })
+                .map((heading) => heading.textContent),
+        ).toEqual(['基础配置', '直播监听配置', '动态监听配置']);
+    });
+
+    it('卡片标题不触发 onChange', () => {
         const { onChange } = renderForm();
-        expect(screen.getByText('轮询与推送')).toBeInTheDocument();
+        expect(screen.getByText('直播监听配置')).toBeInTheDocument();
         expect(onChange).not.toHaveBeenCalled();
     });
 

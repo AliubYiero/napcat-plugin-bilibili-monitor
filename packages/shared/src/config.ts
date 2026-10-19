@@ -130,7 +130,13 @@ export type ValueFieldDescriptor =
     | MultiSelectFieldDescriptor
     | StringListFieldDescriptor;
 
-/** 仅布局/展示, 不落盘, 无 key */
+/**
+ * 仅布局/展示, 不落盘, 无 key
+ *
+ * 【必须】section 是扁平 FIELDS 中的分隔行: WebUI 以它作为分卡边界
+ * (其后的字段归入同名片, 直到下一个 section); 原生面板渲染为分组标题。
+ * 被 `scope` 过滤时既不可见也不作为分组边界。
+ */
 export interface SectionFieldDescriptor extends FieldBase {
     kind: 'section';
 }
@@ -251,7 +257,7 @@ export const FIELDS = [
         kind: 'display',
         scope: 'panel',
         content: `<div class="prose dark:prose-invert max-w-none">
-  <div style="padding: 16px; background: linear-gradient(135deg, #fff7fa 0%, #ffeaf2 100%); border: 1px solid rgba(251,114,153,0.22); border-radius: 12px; margin-bottom: 20px; color: #5c2a3d;">
+  <div style="padding: 16px; background: linear-gradient(135deg, #fff7fa 0%, #ffeaf2 100%); border: 1px solid rgba(251,114,153,0.22); border-radius: 12px; margin-bottom: 12px; color: #5c2a3d;">
     <h3 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 600; color: #b23a63;">${PLUGIN_DISPLAY_NAME_TOKEN}</h3>
     <p style="margin: 0; font-size: 13px; color: #8a5a6c; opacity: 1;">${PLUGIN_DESCRIPTION_TOKEN}</p>
     <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
@@ -259,6 +265,10 @@ export const FIELDS = [
     </div>
   </div>
 </div>`,
+    },
+    {
+        kind: 'section',
+        label: '基础配置',
     },
     {
         key: 'adminUsers',
@@ -280,7 +290,7 @@ export const FIELDS = [
     },
     {
         kind: 'section',
-        label: '轮询与推送',
+        label: '直播监听配置',
     },
     {
         key: 'pollIntervalSeconds',
@@ -288,15 +298,6 @@ export const FIELDS = [
         label: '直播轮询间隔(秒)',
         description: '直播状态检测的轮询周期, 最小 1 秒',
         default: 60,
-        min: 1,
-        step: 1,
-    },
-    {
-        key: 'dynPollIntervalSeconds',
-        kind: 'number',
-        label: '动态轮询间隔(秒)',
-        description: '动态检测的轮询周期, 最小 1 秒',
-        default: 300,
         min: 1,
         step: 1,
     },
@@ -316,6 +317,19 @@ export const FIELDS = [
         label: '开播 @ 分组人数',
         description: '开播 @全体成员时每组 @ 的人数, 最小 1',
         default: 10,
+        min: 1,
+        step: 1,
+    },
+    {
+        kind: 'section',
+        label: '动态监听配置',
+    },
+    {
+        key: 'dynPollIntervalSeconds',
+        kind: 'number',
+        label: '动态轮询间隔(秒)',
+        description: '动态检测的轮询周期, 最小 1 秒',
+        default: 300,
         min: 1,
         step: 1,
     },
