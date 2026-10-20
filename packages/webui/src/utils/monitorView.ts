@@ -84,10 +84,10 @@ export function formatUntil(
     return `${Math.ceil(diff / 60)} 分钟后`;
 }
 
-/** 进程运行时长 */
-export function formatUptime(seconds: number): string {
-    if (!Number.isFinite(seconds) || seconds < 0) return '—';
-    const total = Math.floor(seconds);
+/** 进程运行时长 (入参为毫秒) */
+export function formatUptime(uptimeMs: number): string {
+    if (!Number.isFinite(uptimeMs) || uptimeMs < 0) return '—';
+    const total = Math.floor(uptimeMs / 1000);
     const days = Math.floor(total / 86400);
     const hours = Math.floor((total % 86400) / 3600);
     const minutes = Math.floor((total % 3600) / 60);

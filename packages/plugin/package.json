@@ -2,7 +2,7 @@
     "name": "napcat-plugin-bilibili-monitor",
     "plugin": "Bilibili监测者",
     "description": "监听指定用户动态发布/视频发布/直播状态, 推送到指定群聊",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "type": "module",
     "main": "index.mjs",
     "author": "Yiero",

@@ -177,7 +177,9 @@ export interface RenderHealthView {
 /** 健康条数据 */
 export interface MonitorHealthView {
     process: {
+        /** 进程启动时间戳 (毫秒) */
         startTime: number;
+        /** 进程运行时长 (毫秒) */
         uptime: number;
     };
     live: PollHealthView;

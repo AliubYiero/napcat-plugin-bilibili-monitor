@@ -54,8 +54,8 @@ describe('时间格式化', () => {
     it('空值与运行时长', () => {
         expect(formatDateTime(null)).toBe('—');
         expect(formatUptime(0)).toBe('0 分钟');
-        expect(formatUptime(3660)).toBe('1 小时 1 分');
-        expect(formatUptime(90061)).toBe('1 天 1 小时');
+        expect(formatUptime(3_660_000)).toBe('1 小时 1 分');
+        expect(formatUptime(90_061_000)).toBe('1 天 1 小时');
     });
 
     it('相对时间按区间切换单位', () => {
