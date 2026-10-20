@@ -4,6 +4,9 @@ import type {
     LiveTargetView,
     MonitorTargetInput,
 } from 'shared';
+import SelectBox, {
+    type SelectBoxOption,
+} from '../../components/configFields/SelectBox';
 import {
     IconActivity,
     IconChevronDown,
@@ -23,6 +26,12 @@ import {
     sessionName,
 } from '../../utils/monitorView';
 import ConfirmDialog from './ConfirmDialog';
+
+const STATUS_FILTER_OPTIONS: readonly SelectBoxOption[] = [
+    { label: '全部状态', value: 'all' },
+    { label: '直播中', value: 'streaming' },
+    { label: '未开播', value: 'offline' },
+];
 
 interface LiveTabProps {
     live: LiveMonitorView[];
@@ -84,6 +93,17 @@ export default function LiveTab({
         );
     }, [live, sessions]);
 
+    const sessionFilterOptions = useMemo<SelectBoxOption[]>(
+        () => [
+            { label: '全部会话', value: '' },
+            ...sessionOptions.map((item) => ({
+                label: sessionName(sessions, item.type, item.id),
+                value: sessionKey(item.type, item.id),
+            })),
+        ],
+        [sessionOptions, sessions],
+    );
+
     const rows = useMemo(
         () => filterLiveRows(live, { search, status, session }),
         [live, search, status, session],
@@ -142,43 +162,31 @@ export default function LiveTab({
                             }
                         />
                     </div>
-                    <select
-                        className="input-field w-full sm:w-32"
-                        value={status}
-                        onChange={(event) =>
-                            setStatus(
-                                event.target.value as
-                                    | 'all'
-                                    | 'streaming'
-                                    | 'offline',
-                            )
-                        }
-                    >
-                        <option value="all">全部状态</option>
-                        <option value="streaming">直播中</option>
-                        <option value="offline">未开播</option>
-                    </select>
-                    <select
-                        className="input-field w-full sm:w-44"
-                        value={session}
-                        onChange={(event) =>
-                            setSession(event.target.value)
-                        }
-                    >
-                        <option value="">全部会话</option>
-                        {sessionOptions.map((item) => (
-                            <option
-                                key={sessionKey(item.type, item.id)}
-                                value={sessionKey(item.type, item.id)}
-                            >
-                                {sessionName(
-                                    sessions,
-                                    item.type,
-                                    item.id,
-                                )}
-                            </option>
-                        ))}
-                    </select>
+                    <div className="w-full sm:w-32">
+                        <SelectBox
+                            options={STATUS_FILTER_OPTIONS}
+                            value={[status]}
+                            placeholder="全部状态"
+                            onChange={(next) =>
+                                setStatus(
+                                    next[0] as
+                                        | 'all'
+                                        | 'streaming'
+                                        | 'offline',
+                                )
+                            }
+                        />
+                    </div>
+                    <div className="w-full sm:w-44">
+                        <SelectBox
+                            options={sessionFilterOptions}
+                            value={[session]}
+                            placeholder="全部会话"
+                            onChange={(next) =>
+                                setSession(String(next[0] ?? ''))
+                            }
+                        />
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button

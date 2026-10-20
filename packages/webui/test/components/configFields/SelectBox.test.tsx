@@ -107,6 +107,44 @@ describe('SelectBox', () => {
         );
     });
 
+    it('面板内 mousedown 不收起', () => {
+        setup();
+        fireEvent.click(getTrigger());
+        fireEvent.mouseDown(screen.getByRole('listbox'));
+        expect(getTrigger()).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('省略 label 时只渲染触发框', () => {
+        render(
+            <SelectBox
+                options={OPTIONS}
+                value={[]}
+                onChange={vi.fn()}
+            />,
+        );
+        expect(
+            screen.queryByText('示例单选'),
+        ).not.toBeInTheDocument();
+        expect(getTrigger()).toBeInTheDocument();
+    });
+
+    it('面板 portal 到 document.body', () => {
+        const { container } = render(
+            <SelectBox
+                label="示例单选"
+                options={OPTIONS}
+                value={[]}
+                onChange={vi.fn()}
+            />,
+        );
+        fireEvent.click(getTrigger());
+        const listbox = screen.getByRole('listbox');
+        expect(container).not.toContainElement(listbox);
+        expect(listbox.parentElement?.parentElement).toBe(
+            document.body,
+        );
+    });
+
     it('单选点选项回填标量并关面板', () => {
         const { onChange } = setup();
         fireEvent.click(getTrigger());

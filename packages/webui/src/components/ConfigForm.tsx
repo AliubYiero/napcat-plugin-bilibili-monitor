@@ -166,7 +166,7 @@ export default function ConfigForm({
             {GROUPS.map((group) => (
                 <div
                     key={group.key}
-                    className="card p-5 hover-lift animate-fade-in-up"
+                    className="card p-5 animate-fade-in"
                 >
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-5">
                         <IconTerminal

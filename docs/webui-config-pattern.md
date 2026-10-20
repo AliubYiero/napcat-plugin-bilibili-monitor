@@ -180,6 +180,8 @@ export const DEFAULT_PAGE: PageId = 'status';
 
 - 主题色粉色 `#FB7299` (`bg-primary` / `text-primary`); 激活态 `bg-primary text-white`; 暗色用 `dark:bg-[#1e1e20]`。
 - 卡片统一用 `.card`; **禁止 CSS 渐变**, 用纯色。
+- 卡片 hover 只改阴影, **不用 `transform` 位移** (入场动画同理); 祖先的 transform 会形成堆叠上下文, 遮挡内部下拉面板。
+- 下拉 / 筛选控件统一复用 `configFields/SelectBox`, **不用原生 `<select>`**; 面板经 portal 挂到 `document.body` 并用 `fixed` 定位, 避免被卡片堆叠上下文或滚动容器裁剪。
 - 图标用 SVG 组件 (`components/Icons.tsx`), **不使用 emoji**。
 - 新增页面/组件延续既有设计语言, 不做单页面特调。
 

@@ -1,5 +1,8 @@
 import { Fragment, useMemo, useState } from 'react';
 import type { DynMonitorView, MonitorTargetInput } from 'shared';
+import SelectBox, {
+    type SelectBoxOption,
+} from '../../components/configFields/SelectBox';
 import {
     IconChevronDown,
     IconPlus,
@@ -10,6 +13,12 @@ import {
 import type { SessionInfo } from '../../types';
 import { formatRelative, sessionName } from '../../utils/monitorView';
 import ConfirmDialog from './ConfirmDialog';
+
+const HEALTH_FILTER_OPTIONS: readonly SelectBoxOption[] = [
+    { label: '全部健康状态', value: 'all' },
+    { label: '正常', value: 'ok' },
+    { label: '最近失败', value: 'failed' },
+];
 
 interface DynTabProps {
     dyn: DynMonitorView[];
@@ -99,22 +108,16 @@ export default function DynTab({
                         }
                     />
                 </div>
-                <select
-                    className="input-field"
-                    value={healthFilter}
-                    onChange={(event) =>
+                <SelectBox
+                    options={HEALTH_FILTER_OPTIONS}
+                    value={[healthFilter]}
+                    placeholder="全部健康状态"
+                    onChange={(next) =>
                         setHealthFilter(
-                            event.target.value as
-                                | 'all'
-                                | 'ok'
-                                | 'failed',
+                            next[0] as 'all' | 'ok' | 'failed',
                         )
                     }
-                >
-                    <option value="all">全部健康状态</option>
-                    <option value="ok">正常</option>
-                    <option value="failed">最近失败</option>
-                </select>
+                />
                 <div className="flex items-center gap-2 whitespace-nowrap sm:justify-self-end">
                     <button
                         type="button"
