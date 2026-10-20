@@ -208,6 +208,25 @@ export class BiliLiveRoomStore {
         return true;
     }
 
+    /**
+     * 静默写入直播间基线: 只覆盖接口字段, 不触发变化监听器
+     *
+     * 供 WebUI 新增监听时建立轮询基线, 避免把"补写快照"误当成开播/改标题
+     * 而向已有目标重复推送。运行时字段保留原值。
+     */
+    upsertSilent(roomInfo: BiliLiveRoomInfo): void {
+        const uid = String(roomInfo.uid);
+        const oldInfo = this.data[uid];
+        this.data[uid] = oldInfo
+            ? {
+                  ...roomInfo,
+                  liveContents: oldInfo.liveContents ?? [],
+                  onlineSnapshots: oldInfo.onlineSnapshots ?? [],
+              }
+            : { ...roomInfo };
+        this.saveToFile();
+    }
+
     // ========== 运行时字段更新（不触发变化事件） ==========
 
     /** 追加一条同接数快照（无记录时忽略） */

@@ -18,10 +18,29 @@
 
 import { existsSync } from 'node:fs';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
+import type { AddMonitorRequest } from 'shared';
 import { pluginState } from '../core/state';
 import { HELP_PANELS } from '../handlers/help/helpData.generated';
 import { BiliCookieStore } from '../store/biliCookieStore';
 import type { SessionType } from '../types';
+import {
+    getDynMonitors,
+    getLimitsView,
+    getLiveMonitors,
+    getMonitorHealth,
+} from './monitorStatusService';
+import {
+    addDynMonitors,
+    addLiveMonitors,
+    isMonitorUid,
+    parseLimitKind,
+    parseMonitorTarget,
+    removeDynMonitor,
+    removeLiveMonitor,
+    removeMonitorLimit,
+    setMonitorLimit,
+    setOnlineMonitor,
+} from './monitorWriteService';
 import { sessionConfigService } from './sessionConfigService';
 import { loginService } from './user/loginService';
 
@@ -296,6 +315,255 @@ export function registerApiRoutes(ctx: NapCatPluginContext): void {
             res.status(500).json({ code: -1, message: String(err) });
         }
     });
+
+    // ==================== 监听状态页（无鉴权）====================
+
+    /** 直播监听视图 */
+    router.getNoAuth('/monitors/live', (_req, res) => {
+        try {
+            res.json({ code: 0, data: getLiveMonitors() });
+        } catch (err) {
+            ctx.logger.error('读取直播监听失败:', err);
+            res.status(500).json({ code: -1, message: String(err) });
+        }
+    });
+
+    /** 动态监听视图 */
+    router.getNoAuth('/monitors/dyn', (_req, res) => {
+        try {
+            res.json({ code: 0, data: getDynMonitors() });
+        } catch (err) {
+            ctx.logger.error('读取动态监听失败:', err);
+            res.status(500).json({ code: -1, message: String(err) });
+        }
+    });
+
+    /** 会话上限视图 */
+    router.getNoAuth('/monitors/limits', (_req, res) => {
+        try {
+            res.json({ code: 0, data: getLimitsView() });
+        } catch (err) {
+            ctx.logger.error('读取会话上限失败:', err);
+            res.status(500).json({ code: -1, message: String(err) });
+        }
+    });
+
+    /** 健康快照 (probe=1 时探测渲染服务) */
+    router.getNoAuth('/monitors/health', async (req, res) => {
+        try {
+            const query = req.query as
+                | Record<string, unknown>
+                | undefined;
+            const probe = query?.probe === '1';
+            res.json({
+                code: 0,
+                data: await getMonitorHealth(probe),
+            });
+        } catch (err) {
+            ctx.logger.error('读取监听健康快照失败:', err);
+            res.status(500).json({ code: -1, message: String(err) });
+        }
+    });
+
+    /** 新增直播监听 (静默, 不推送) */
+    router.postNoAuth('/monitors/live', async (req, res) => {
+        try {
+            const body = req.body as
+                | Partial<AddMonitorRequest>
+                | undefined;
+            if (!body || !Array.isArray(body.targets)) {
+                return res
+                    .status(400)
+                    .json({ code: -1, message: '参数错误' });
+            }
+            const data = await addLiveMonitors({
+                uid: String(body.uid ?? ''),
+                targets: body.targets,
+            });
+            res.json({ code: 0, data });
+        } catch (err) {
+            ctx.logger.error('新增直播监听失败:', err);
+            res.status(500).json({ code: -1, message: String(err) });
+        }
+    });
+
+    /** 移除直播目标 */
+    router.deleteNoAuth(
+        '/monitors/live/:uid/targets/:type/:id',
+        (req, res) => {
+            try {
+                const uid = req.params?.uid;
+                const target = parseMonitorTarget(req.params);
+                if (!isMonitorUid(uid) || !target) {
+                    return res
+                        .status(400)
+                        .json({ code: -1, message: '参数错误' });
+                }
+                res.json({
+                    code: 0,
+                    data: removeLiveMonitor(uid, target),
+                });
+            } catch (err) {
+                ctx.logger.error('移除直播监听失败:', err);
+                res.status(500).json({
+                    code: -1,
+                    message: String(err),
+                });
+            }
+        },
+    );
+
+    /** 切换直播目标的同接监听 */
+    router.postNoAuth('/monitors/live/:uid/online', (req, res) => {
+        try {
+            const uid = req.params?.uid;
+            if (!isMonitorUid(uid)) {
+                return res
+                    .status(400)
+                    .json({ code: -1, message: '参数错误' });
+            }
+            const body = req.body as
+                | Record<string, unknown>
+                | undefined;
+            if (!body) {
+                return res
+                    .status(400)
+                    .json({ code: -1, message: '请求体为空' });
+            }
+            res.json({
+                code: 0,
+                data: setOnlineMonitor(uid, {
+                    type: body.type as 'private' | 'group',
+                    id: String(body.id ?? ''),
+                    enabled: body.enabled as boolean,
+                }),
+            });
+        } catch (err) {
+            ctx.logger.error('切换同接监听失败:', err);
+            res.status(500).json({
+                code: -1,
+                message: String(err),
+            });
+        }
+    });
+
+    /** 新增动态监听 (静默, 只建立缓存基线) */
+    router.postNoAuth('/monitors/dyn', async (req, res) => {
+        try {
+            const body = req.body as
+                | Partial<AddMonitorRequest>
+                | undefined;
+            if (!body || !Array.isArray(body.targets)) {
+                return res
+                    .status(400)
+                    .json({ code: -1, message: '参数错误' });
+            }
+            const data = await addDynMonitors({
+                uid: String(body.uid ?? ''),
+                targets: body.targets,
+            });
+            res.json({ code: 0, data });
+        } catch (err) {
+            ctx.logger.error('新增动态监听失败:', err);
+            res.status(500).json({ code: -1, message: String(err) });
+        }
+    });
+
+    /** 移除动态目标 */
+    router.deleteNoAuth(
+        '/monitors/dyn/:uid/targets/:type/:id',
+        (req, res) => {
+            try {
+                const uid = req.params?.uid;
+                const target = parseMonitorTarget(req.params);
+                if (!isMonitorUid(uid) || !target) {
+                    return res
+                        .status(400)
+                        .json({ code: -1, message: '参数错误' });
+                }
+                res.json({
+                    code: 0,
+                    data: removeDynMonitor(uid, target),
+                });
+            } catch (err) {
+                ctx.logger.error('移除动态监听失败:', err);
+                res.status(500).json({
+                    code: -1,
+                    message: String(err),
+                });
+            }
+        },
+    );
+
+    /** 设置会话上限 */
+    router.postNoAuth('/monitors/limits', (req, res) => {
+        try {
+            const body = req.body as
+                | Record<string, unknown>
+                | undefined;
+            if (!body) {
+                return res
+                    .status(400)
+                    .json({ code: -1, message: '请求体为空' });
+            }
+            const type = body.type;
+            const id = String(body.id ?? '');
+            if ((type !== 'group' && type !== 'private') || !id) {
+                return res
+                    .status(400)
+                    .json({ code: -1, message: '参数错误' });
+            }
+            const kind = parseLimitKind(body.kind);
+            if (!kind) {
+                return res
+                    .status(400)
+                    .json({ code: -1, message: '非法的上限类别' });
+            }
+            res.json({
+                code: 0,
+                data: setMonitorLimit({
+                    type,
+                    id,
+                    kind,
+                    max: body.max as number,
+                }),
+            });
+        } catch (err) {
+            ctx.logger.error('设置会话上限失败:', err);
+            res.status(500).json({ code: -1, message: String(err) });
+        }
+    });
+
+    /** 恢复会话某类默认上限 */
+    router.deleteNoAuth(
+        '/monitors/limits/:type/:id/:kind',
+        (req, res) => {
+            try {
+                const type = req.params?.type;
+                const id = req.params?.id;
+                const kind = parseLimitKind(req.params?.kind);
+                if (
+                    (type !== 'group' && type !== 'private') ||
+                    !id ||
+                    !kind
+                ) {
+                    return res
+                        .status(400)
+                        .json({ code: -1, message: '参数错误' });
+                }
+                res.json({
+                    code: 0,
+                    data: removeMonitorLimit(type, id, kind),
+                });
+            } catch (err) {
+                ctx.logger.error('恢复会话默认上限失败:', err);
+                res.status(500).json({
+                    code: -1,
+                    message: String(err),
+                });
+            }
+        },
+    );
 
     // ==================== 帮助文档（无鉴权）====================
 

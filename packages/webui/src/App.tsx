@@ -7,6 +7,7 @@ import { usePageRoute } from './hooks/usePageRoute';
 import { useStatus } from './hooks/useStatus';
 import { useTheme } from './hooks/useTheme';
 import HelpPage from './pages/HelpPage';
+import MonitorsPage from './pages/MonitorsPage';
 import SessionsPage from './pages/SessionsPage';
 import StatusPage from './pages/StatusPage';
 
@@ -29,6 +30,8 @@ function App() {
 
     const renderPage = () => {
         switch (currentPage) {
+            case 'monitors':
+                return <MonitorsPage />;
             case 'sessions':
                 return <SessionsPage />;
             case 'help':

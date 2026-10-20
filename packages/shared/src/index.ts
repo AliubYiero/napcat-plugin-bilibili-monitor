@@ -12,6 +12,8 @@ export * from './displayTokens';
 export * from './help';
 // B 站登录态与扫码会话契约 (面板 / WebUI / 后端共用)
 export * from './login';
+// 监听状态页契约 (只读视图 / 写入结果 / 健康 / 上限元数据)
+export * from './monitor';
 // WebUI 骨架元信息 (页面清单 + PageId)
 export * from './ui';
 

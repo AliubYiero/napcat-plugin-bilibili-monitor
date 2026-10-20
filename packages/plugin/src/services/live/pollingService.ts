@@ -33,6 +33,7 @@ import {
     sendReplyByToInfo,
 } from '../../utils/messageSend';
 import { fetchAndPushUidDynamic } from '../dyn/fetchUidDynamicService';
+import { healthSnapshot } from '../health/healthSnapshot';
 import { sessionConfigService } from '../sessionConfigService';
 import {
     buildOnlineChartImageMessage,
@@ -103,6 +104,7 @@ export class BiliLivePollingService {
     stop(): void {
         this.stopped = true;
         this.running = false;
+        healthSnapshot.stopPoll('live');
         if (this.timer) {
             clearTimeout(this.timer);
             this.timer = null;
@@ -113,11 +115,14 @@ export class BiliLivePollingService {
     /** 单个轮询周期 */
     private async tick(): Promise<void> {
         if (this.stopped) return;
+        healthSnapshot.beginPoll('live');
         try {
-            await this.pollOnce();
+            const pollError = await this.pollOnce();
             // 直播状态更新完成后顺带采集同接快照（跟随轮询节拍, 无独立定时器）
             await this.captureOnlineSnapshots();
+            healthSnapshot.completePoll('live', pollError);
         } catch (err) {
+            healthSnapshot.failPoll('live', err);
             pluginState.logger.error('轮询执行出错:', err);
         } finally {
             this.scheduleNext();
@@ -143,25 +148,28 @@ export class BiliLivePollingService {
                 pluginState.config.pollIntervalSeconds ??
                     DEFAULT_POLL_INTERVAL,
             ) * 1000;
+        healthSnapshot.setNextPoll('live', Date.now() + intervalMs);
         this.timer = setTimeout(() => {
             void this.tick();
         }, intervalMs);
     }
 
-    /** 执行一次拉取与更新 */
-    private async pollOnce(): Promise<void> {
+    /** 执行一次拉取与更新; 返回非致命批次错误 (供健康快照展示) */
+    private async pollOnce(): Promise<string | null> {
         const monitors = this.liveStore.get();
         if (monitors.length === 0) {
+            healthSnapshot.markIdle('live');
             pluginState.logger.debug(
                 '当前无被监控主播，跳过本轮拉取',
             );
-            return;
+            return null;
         }
         pluginState.logger.debug(
             `开始拉取直播状态，共 ${monitors.length} 个主播`,
         );
 
         const uids = monitors.map((m) => m.uid);
+        const errors: string[] = [];
         // 按批次请求（B站接口单次最多 100 个）
         for (
             let i = 0;
@@ -173,9 +181,9 @@ export class BiliLivePollingService {
                 const response = await api_getStatusInfoByUids(batch);
                 const data = response?.data;
                 if (!data) {
-                    pluginState.logger.warn(
-                        `拉取 ${batch.length} 个主播返回数据为空`,
-                    );
+                    const message = `拉取 ${batch.length} 个主播返回数据为空`;
+                    errors.push(message);
+                    pluginState.logger.warn(message);
                     continue;
                 }
                 pluginState.logger.debug(
@@ -193,12 +201,16 @@ export class BiliLivePollingService {
                 }
             } catch (err) {
                 // 单批失败不影响整轮，记录后继续下一批
+                const message =
+                    err instanceof Error ? err.message : String(err);
+                errors.push(message);
                 pluginState.logger.error(
                     `拉取直播间状态失败（本批 ${batch.length} 个主播）:`,
                     err,
                 );
             }
         }
+        return errors.length > 0 ? errors.join('; ') : null;
     }
 
     /** 处理变化事件并推送 */

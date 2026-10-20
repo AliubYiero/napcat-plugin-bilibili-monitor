@@ -15,7 +15,8 @@ export type PageIconName =
     | 'dashboard'
     | 'settings'
     | 'group'
-    | 'help';
+    | 'help'
+    | 'activity';
 
 export interface PageMeta {
     /** 页面唯一标识, 同时是 webui 的 PageId */
@@ -40,6 +41,13 @@ export const PAGES = [
         description: '插件运行状态与数据概览',
         icon: 'dashboard',
         order: 10,
+    },
+    {
+        id: 'monitors',
+        title: '监听状态',
+        description: '查看直播与动态监听、轮询健康与上限用量',
+        icon: 'activity',
+        order: 15,
     },
     {
         id: 'sessions',

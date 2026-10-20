@@ -71,6 +71,14 @@ export function setDynLimit(
     BiliLimitStore.getInstance().setLimit(id, type, 'dyn', max);
 }
 
+/** 删除指定会话的动态上限覆盖 (恢复默认) */
+export function removeDynLimit(
+    id: string,
+    type: 'private' | 'group',
+): void {
+    BiliLimitStore.getInstance().removeLimit(id, type, 'dyn');
+}
+
 /** 列出显式设置过动态上限的会话 (供上限查看指令展示) */
 export function listDynLimits(): DynLimitEntry[] {
     return BiliLimitStore.getInstance()

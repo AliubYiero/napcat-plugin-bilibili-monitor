@@ -71,6 +71,9 @@ ADR 记录"难逆转、无上下文会意外、真实权衡"三类决策, 每份
 | 0009 迁移到模板三包架构 | 采用 napcat-plugin-template 的 `packages/plugin` + `packages/shared` + `packages/webui` 布局与范式 (配置单源 FIELDS、帮助结构化产物、模板 WebUI 页面集) | 全仓结构、构建与发布链路 |
 | 0010 配置字段集收敛 | 配置不含插件全局启停与指令前缀 (宿主职责 / 内部常量), 字段集固定为 6 项 | config-pattern 的字段集与清洗 |
 | 0011 登录状态作为声明式配置 kind | 新增无 key 的 `login` kind, 面板静态展示、WebUI 交互扫码; 会话按来源限制刷新 | config-pattern / webui-config-pattern 的登录展示块与端点 |
+| 0012 WebUI 监听写操作信任边界 | WebUI 视为超级管理员; 写路由无鉴权; 静默写入不发 QQ 消息/不补推; 多目标部分成功 | webui-config-pattern 的可写页面纪律、监听状态页 |
+| 0013 监听健康快照只存内存 | 轮询/登录/渲染健康为进程内单例, 不新增数据文件; 重启显示未知; 空闲与异常分离 | webui-config-pattern 的健康条、store-pattern 的文件拓扑 |
+| 0014 上限元数据由后端下发 | 上下限与默认值随 `GET /monitors/limits` 返回; 前端不复制常量; 超管私聊标记无限 | webui-config-pattern 的上限编辑、config/service 的默认值单源 |
 
 ## 尚未成文的区域
 

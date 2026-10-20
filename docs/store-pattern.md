@@ -134,7 +134,7 @@ export const xxxStore = XxxStore.getInstance();
 带状态机语义的 store (如 `biliLiveRoomStore.ts` 有变化检测与监听器) 不强行继承基类,
 只复用 `storeFile.ts` 的常量与解包工具即可。
 
-数据文件拓扑与命名见 `docs/adr/0007-store-file-topology.md`, **不得自行新增或合并文件**。
+数据文件拓扑与命名见 `docs/adr/0007-store-file-topology.md`, **不得自行新增或合并文件**。运维健康快照 (轮询时间/失败原因/渲染探测) 不属于业务数据, 只存内存、不建文件 (见 ADR 0013)。
 
 ### 会话级配置的承载
 
@@ -146,7 +146,7 @@ export const xxxStore = XxxStore.getInstance();
 - **读取侧归一化**: 加载时丢弃非法记录、剔除与默认值相同的字段; 内存只保留最小集合。
 - **唯一查询入口是 service** (`sessionConfigService`): 业务代码不直接触碰 store, 也不自行比较字段,
   默认值语义集中在一处 (如启用为 `enabled !== false`, 开播 @全体成员为 `=== true`)。
-- 会话门控在消息入口最前端短路, 业务层不再重复判定。
+- 会话门控在消息入口最前端短路, 业务层不再重复判定; 它只门控指令响应, 不门控推送 (推送目标由监听记录决定)。
 
 ### 迁移模块纪律
 

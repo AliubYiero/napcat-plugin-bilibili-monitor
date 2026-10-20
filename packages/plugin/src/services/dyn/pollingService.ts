@@ -12,6 +12,7 @@
 import { pluginState } from '../../core/state';
 import { BiliCookieStore } from '../../store/biliCookieStore';
 import { BiliDynMonitorStore } from '../../store/biliDynMonitorStore';
+import { healthSnapshot } from '../health/healthSnapshot';
 import { fetchAndPushUidDynamic } from './fetchUidDynamicService';
 
 /** 默认轮询间隔（秒），配置缺失时兜底 */
@@ -61,6 +62,7 @@ export class BiliDynamicPollingService {
     stop(): void {
         this.stopped = true;
         this.running = false;
+        healthSnapshot.stopPoll('dyn');
         if (this.timer) {
             clearTimeout(this.timer);
             this.timer = null;
@@ -71,9 +73,12 @@ export class BiliDynamicPollingService {
     /** 单个轮询周期 */
     private async tick(): Promise<void> {
         if (this.stopped) return;
+        healthSnapshot.beginPoll('dyn');
         try {
-            await this.pollOnce();
+            const pollError = await this.pollOnce();
+            healthSnapshot.completePoll('dyn', pollError);
         } catch (err) {
+            healthSnapshot.failPoll('dyn', err);
             pluginState.logger.error('动态轮询执行出错:', err);
         } finally {
             this.scheduleNext();
@@ -89,26 +94,29 @@ export class BiliDynamicPollingService {
                 pluginState.config.dynPollIntervalSeconds ??
                     DEFAULT_DYN_POLL_INTERVAL,
             ) * 1000;
+        healthSnapshot.setNextPoll('dyn', Date.now() + intervalMs);
         this.timer = setTimeout(() => {
             void this.tick();
         }, intervalMs);
     }
 
-    /** 执行一次动态拉取与推送 */
-    private async pollOnce(): Promise<void> {
+    /** 执行一次动态拉取与推送; 返回非致命错误 (供健康快照展示) */
+    private async pollOnce(): Promise<string | null> {
         const monitors = this.dynStore.get();
         if (monitors.length === 0) {
+            healthSnapshot.markIdle('dyn');
             pluginState.logger.debug('当前无动态监听，跳过本轮拉取');
-            return;
+            return null;
         }
 
         // 未登录时跳过，避免无谓请求触发风控
         const cookieStore = BiliCookieStore.getInstance();
         if (!cookieStore.has() || cookieStore.isExpired()) {
+            healthSnapshot.markSkipped('dyn');
             pluginState.logger.warn(
                 'B 站未登录或 Cookie 已失效，跳过本轮动态轮询',
             );
-            return;
+            return null;
         }
 
         const uniqueUids = [...new Set(monitors.map((m) => m.uid))];
@@ -116,6 +124,7 @@ export class BiliDynamicPollingService {
             `开始拉取动态，共 ${uniqueUids.length} 个主播`,
         );
 
+        const errors: string[] = [];
         for (const uid of uniqueUids) {
             try {
                 // 与开播前预取共用同一实现 (内部 in-flight 互斥去重)
@@ -123,12 +132,16 @@ export class BiliDynamicPollingService {
                 await sleep(MONITOR_INTERVAL_MS);
             } catch (err) {
                 // 单个主播失败不影响其他主播
+                const message =
+                    err instanceof Error ? err.message : String(err);
+                errors.push(`${uid}: ${message}`);
                 pluginState.logger.error(
                     `拉取主播 ${uid} 动态出错:`,
                     err,
                 );
             }
         }
+        return errors.length > 0 ? errors.join('; ') : null;
     }
 }
 

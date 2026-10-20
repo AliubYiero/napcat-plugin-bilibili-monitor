@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import { PAGE_LIST, type PageIconName, type PageId } from 'shared';
 import {
+    IconActivity,
     IconDashboard,
     IconGithub,
     IconGroup,
@@ -21,6 +22,7 @@ const PAGE_ICONS: Record<
 > = {
     dashboard: IconDashboard,
     settings: IconSettings,
+    activity: IconActivity,
     group: IconGroup,
     help: IconHelp,
 };

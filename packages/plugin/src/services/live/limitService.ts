@@ -72,6 +72,14 @@ export function setLiveLimit(
     BiliLimitStore.getInstance().setLimit(id, type, 'live', max);
 }
 
+/** 删除指定会话的直播上限覆盖 (恢复默认) */
+export function removeLiveLimit(
+    id: string,
+    type: 'private' | 'group',
+): void {
+    BiliLimitStore.getInstance().removeLimit(id, type, 'live');
+}
+
 /** 列出显式设置过直播上限的会话 (供上限查看指令展示) */
 export function listLiveLimits(): LiveLimitEntry[] {
     return BiliLimitStore.getInstance()

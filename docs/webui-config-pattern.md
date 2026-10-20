@@ -14,7 +14,8 @@
 ```ts
 // shared/src/ui.ts —— 页面元信息唯一权威
 export const PAGES = [
-    { id: 'status', title: '状态', description: '...', icon: 'dashboard', order: 10 },
+    { id: 'status', title: '仪表盘', description: '...', icon: 'dashboard', order: 10 },
+    { id: 'monitors', title: '监听状态', description: '...', icon: 'activity', order: 15 },
     { id: 'sessions', title: '会话管理', ... },
     { id: 'help', title: '帮助文档', ... },
 ] as const satisfies readonly PageMeta[];
@@ -41,7 +42,7 @@ export const DEFAULT_PAGE: PageId = 'status';
 - `pluginName` 按 `window.__PLUGIN_NAME__` → 父窗口 → 路径段 `/ext/{name}` 或 `/plugin/{name}` → 构建期常量 `__PLUGIN_ID__` 的顺序解析, 使同一份产物在宿主内嵌与独立调试下都能定位到自己的路由。
 - 非 2xx 响应 `throw new Error(text || 'HTTP <status>')`; 返回值统一为 `ApiResponse<T>` (shared 类型)。
 
-契约以 `packages/plugin/src/services/apiService.ts` 为准; 页面新增/变更端点时必须两侧同步, 且遵循"插件自带页面 → 无鉴权路由"的边界。
+契约以 `packages/plugin/src/services/apiService.ts` 为准; 页面新增/变更端点时必须两侧同步, 且遵循"插件自带页面 → 无鉴权路由"的边界。写操作使用 `postNoAuth` / `deleteNoAuth`, 不传操作者身份; 信任边界与副作用纪律见 ADR 0012。
 
 ## 三、声明式配置表单
 
@@ -121,14 +122,68 @@ export const DEFAULT_PAGE: PageId = 'status';
 - 单个开关 → `POST /sessions/:type/:id/config`; 批量 → `POST /sessions/bulk-config` (`{ type, enabled, ids }`)。
 - 页面只负责收集意图与提交, 不做启停语义判断 (默认开启/只存非默认值等语义在 `sessionConfigService`)。
 
-## 七、样式规范
+## 七、监听状态页
+
+`packages/webui/src/pages/MonitorsPage.tsx` 面向管理员运维, 页面 id `monitors`, order 15, 图标 `activity`。页面顶部是健康条, 下面三个 tab: 直播 / 动态 / 上限。数据与写操作决策见 ADR 0012 / 0013 / 0014, 任务拆分见 `docs/monitors-page-plan.md`。
+
+### 健康条
+
+- 四块: 直播轮询 / 动态轮询 / B 站登录 / 渲染服务。
+- 状态胶囊 + 关键时间/错误; 无监听显示「空闲 (无监听)」, 未登录跳过动态轮询显示「跳过 (未登录)」, 不当作故障。
+- 健康信息只存内存, 统一标注「本次进程内」; 插件重载后显示「未知/尚未执行」。
+- 渲染服务只在页面打开/手动刷新时探测 (`GET /monitors/health?probe=1`), 结果缓存 60s; 10s 轮询用 `probe=0` 只读缓存。
+
+### 直播 tab
+
+- 按主播聚合: 头像 + 名称/UID、状态、标题、分区、本场时长、当前/峰值同接、目标数、操作。
+- 展开行显示各目标会话 (同接开关、开播 @ 人数、删除)、同接迷你折线、直播内容分段。
+- 筛选: 搜索 (名称/UID) + 状态 + 目标会话; 默认直播中优先。
+- 新增弹窗: 单个 UID + 多选目标会话; 逐目标结果; 已禁用会话可选并标注「指令已禁用, 推送不受影响」。
+- 删除目标需二次确认; 直播目标删除时明确提示同接监听会一并关闭。
+
+### 动态 tab
+
+- 按主播聚合: 名称/UID、目标数、缓存动态数、最近检查/成功/错误、操作。
+- 逐主播健康只存内存; 未登录时新增返回明确错误。
+- 新增/删除语义与直播一致。
+
+### 上限 tab
+
+- 列出「有监听或显式上限」的会话 + 搜索; 三档显示已用/上限。
+- 默认值浅色标注、自定义值高亮; 单元格内联编辑 (0-50, Enter/失焦保存, Esc 取消), 每档可恢复默认。
+- 超管私聊显示 `∞` 且禁用编辑; 上下限与默认值由 `GET /monitors/limits` 的 `meta` 下发。
+
+### 写操作
+
+- 业务写入走 `monitorWriteService`, 复用 store / 上限 / B 站校验; 不发 QQ 消息、不触发立即推送。
+- 添加基线与指令一致: 直播写房间快照, 动态记录当前页 id, 不补推历史。
+- 多目标新增逐目标执行, 部分成功即返回逐目标结果; 前端汇总展示失败原因。
+- 写操作完成后立即重拉当前 tab; 页面数据 10s 轮询, 隐藏暂停, 恢复可见补拉。
+
+| 端点 | 方法 | 说明 |
+| --- | --- | --- |
+| `/monitors/live` | GET | 直播监听 + 房间快照 + 目标 |
+| `/monitors/dyn` | GET | 动态监听 + 缓存数 + 逐主播健康 |
+| `/monitors/limits` | GET | 上限元数据 + 会话用量 |
+| `/monitors/health?probe=0\|1` | GET | 健康快照; `probe=1` 按需探测渲染 |
+| `/monitors/live` | POST | 新增直播监听 (多目标) |
+| `/monitors/live/:uid/targets/:type/:id` | DELETE | 删除直播目标 (级联同接) |
+| `/monitors/live/:uid/online` | POST | 切换目标同接监听 |
+| `/monitors/dyn` | POST | 新增动态监听 (多目标) |
+| `/monitors/dyn/:uid/targets/:type/:id` | DELETE | 删除动态目标 |
+| `/monitors/limits` | POST | 设置会话某档上限 |
+| `/monitors/limits/:type/:id/:kind` | DELETE | 恢复某档默认上限 |
+
+以上端点全部为无鉴权路由, 写路由不传操作者身份; WebUI 按超级管理员处理 (见 ADR 0012)。
+
+## 八、样式规范
 
 - 主题色粉色 `#FB7299` (`bg-primary` / `text-primary`); 激活态 `bg-primary text-white`; 暗色用 `dark:bg-[#1e1e20]`。
 - 卡片统一用 `.card`; **禁止 CSS 渐变**, 用纯色。
 - 图标用 SVG 组件 (`components/Icons.tsx`), **不使用 emoji**。
 - 新增页面/组件延续既有设计语言, 不做单页面特调。
 
-## 八、构建与测试
+## 九、构建与测试
 
 - WebUI 由 Vite 构建为**单文件 HTML** (`vite-plugin-singlefile`), 产物落在 `packages/plugin/dist/webui/index.html`, 由插件以 `ctx.router.page({ htmlFile: 'webui/index.html' })` 挂载。
 - 单测在 `packages/webui/test/`, 环境 jsdom; 优先测纯函数 (`pageRoute` / `tagList` / `helpFilter`) 与配置控件 (`configFields/*`), 页面级测试聚焦交互而非快照。
@@ -143,6 +198,14 @@ export const DEFAULT_PAGE: PageId = 'status';
 4. 过滤/转换逻辑抽成纯函数模块并补单测, 页面只做编排。
 5. 视觉沿用主题色与 `.card`, 图标用 SVG 组件。
 
+新增一个可写页面:
+
+1. 读用 `getNoAuth`, 写用 `postNoAuth` / `deleteNoAuth`; 信任边界按 ADR 0012 处理, 不传操作者身份。
+2. 业务写入走专用静默服务, 不复用会发 QQ 消息或触发推送的指令 service。
+3. 多目标/多项写入逐项执行并返回结构化结果, 前端负责汇总部分成功与失败原因。
+4. 写操作后立即重拉受影响数据; 破坏性操作二次确认, 级联影响必须写明。
+5. 前后端共享的类型与常量放 `shared/`, 默认值/上下限等业务元数据由后端下发 (见 ADR 0014)。
+
 新增一个配置控件 kind (少见):
 
 1. `shared/src/config.ts` 的 kind 联合加类型; 有 key 的 kind 同步清洗分支 (见 `config-pattern.md`)。
@@ -155,4 +218,5 @@ export const DEFAULT_PAGE: PageId = 'status';
 - 与**配置范式**的关系: 前端表单是 `FIELDS` 派生链的一环, 与原生面板、清洗共享同一描述符; 提交仍经后端 `sanitizeConfig`。见 `config-pattern.md`。
 - 与**帮助输出范式**的关系: 帮助页消费结构化产物 `HELP_PANELS`, 与指令回复用的图片/文本产物同源。见 `help-output-pattern.md`。
 - 与**存储范式**的关系: 会话页背后的会话配置由 store 承载, 默认值语义不在前端重复。见 `store-pattern.md`。
+- 与**监听状态页写操作**的关系: 无鉴权写路由、静默写入与部分成功语义见 ADR 0012; 健康信息不落盘见 ADR 0013; 上限元数据后端下发见 ADR 0014。
 - 与**生命周期铁律**的关系: 路由注册与页面挂载发生在 `plugin_init` 之后。见 `development-pattern.md`。

@@ -15,6 +15,7 @@ import { api_getDynamicFeed } from '../../api/getDynamicFeed';
 import { pluginState } from '../../core/state';
 import { BiliCookieStore } from '../../store/biliCookieStore';
 import { BiliDynMonitorStore } from '../../store/biliDynMonitorStore';
+import { healthSnapshot } from '../health/healthSnapshot';
 import { parseBiliDynamic } from './parserService';
 import { pushDynToTargets } from './pushService';
 import { addDynCachedIds, getDynCachedIds } from './runtimeService';
@@ -75,9 +76,15 @@ async function runFetchAndPush(
     const monitor = dynStore().getByUid(uid);
     if (!monitor) return;
 
+    healthSnapshot.beginDynUidCheck(uid);
+
     try {
         const cookieStore = BiliCookieStore.getInstance();
         if (!cookieStore.has() || cookieStore.isExpired()) {
+            healthSnapshot.failDynUid(
+                uid,
+                'B 站未登录或 Cookie 已失效',
+            );
             pluginState.logger.warn(
                 `B 站未登录或 Cookie 已失效, 跳过主播 ${uid} 动态拉取`,
             );
@@ -95,15 +102,22 @@ async function runFetchAndPush(
         if (resp.code !== 0 || !resp.data?.items) {
             // -101 未登录 / -352 风控: 标记 Cookie 失效并中止
             if (resp.code === -101 || resp.code === -352) {
+                healthSnapshot.failDynUid(
+                    uid,
+                    'B 站登录 Cookie 已失效',
+                );
                 void BiliCookieStore.getInstance().markExpired();
                 return;
             }
+            const message = `动态接口返回 code=${resp.code}`;
+            healthSnapshot.failDynUid(uid, message);
             pluginState.logger.warn(
                 `拉取主播 ${uid} 动态失败: code=${resp.code}, ${resp.message ?? ''}`,
             );
             return;
         }
 
+        healthSnapshot.successDynUid(uid);
         const items = resp.data.items;
         const news = selectNewDynamics(items, cachedIds, firstBind);
 
@@ -134,6 +148,7 @@ async function runFetchAndPush(
             await sleep(PUSH_INTERVAL_MS);
         }
     } catch (err) {
+        healthSnapshot.failDynUid(uid, err);
         pluginState.logger.error(`拉取主播 ${uid} 动态出错:`, err);
     }
 }

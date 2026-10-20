@@ -72,6 +72,14 @@ export function setOnlineLimit(
     BiliLimitStore.getInstance().setLimit(id, type, 'online', max);
 }
 
+/** 删除指定会话的同接上限覆盖 (恢复默认) */
+export function removeOnlineLimit(
+    id: string,
+    type: 'private' | 'group',
+): void {
+    BiliLimitStore.getInstance().removeLimit(id, type, 'online');
+}
+
 /** 列出显式设置过同接上限的会话 (供上限查看指令展示) */
 export function listOnlineLimits(): OnlineLimitEntry[] {
     return BiliLimitStore.getInstance()
