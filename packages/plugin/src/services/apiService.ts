@@ -16,6 +16,7 @@
  * 一般插件自带的 WebUI 页面使用 NoAuth 路由，因为页面本身已在 NapCat WebUI 内嵌展示。
  */
 
+import { existsSync } from 'node:fs';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
 import { pluginState } from '../core/state';
 import { HELP_PANELS } from '../handlers/help/helpData.generated';
@@ -117,6 +118,27 @@ export function registerApiRoutes(ctx: NapCatPluginContext): void {
             code: 0,
             data: loginService.getSnapshot(),
         });
+    });
+
+    /** 刷新二维码: 重启 WebUI 发起的会话 (生成新码) */
+    router.postNoAuth('/login/qrcode/refresh', (_req, res) => {
+        const error = loginService.restart('webui');
+        if (error) {
+            return res.status(409).json({ code: -1, message: error });
+        }
+        res.json({ code: 0, data: loginService.getSnapshot() });
+    });
+
+    /** 二维码图片 (不暴露数据目录, 仅直出当前会话的这一张图) */
+    router.getNoAuth('/login/qrcode/image', (_req, res) => {
+        const filePath = loginService.getQrImagePath();
+        if (!filePath || !existsSync(filePath)) {
+            return res
+                .status(404)
+                .json({ code: -1, message: '二维码不存在' });
+        }
+        res.setHeader('Cache-Control', 'no-store');
+        res.sendFile(filePath);
     });
 
     /** 登出: 清除本地 Cookie */

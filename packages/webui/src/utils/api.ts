@@ -40,6 +40,15 @@ function buildUrl(base: string, path: string): string {
 }
 
 /**
+ * 拼装无鉴权路由的完整地址
+ *
+ * 用于 `<img src>` 等不走 fetch 封装的场景 (如二维码图片)。
+ */
+export function noAuthUrl(path: string): string {
+    return buildUrl(API_BASE_NO_AUTH, path);
+}
+
+/**
  * 无认证 API 请求
  * 用于插件自带 WebUI 页面调用后端 router.getNoAuth / router.postNoAuth 注册的路由
  */

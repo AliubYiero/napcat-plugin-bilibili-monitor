@@ -11,6 +11,7 @@ import {
     groupFields,
 } from './configFields/groupFields';
 import { DisplayField } from './configFields/LayoutFields';
+import LoginField from './configFields/LoginField';
 import MultiSelectField from './configFields/MultiSelectField';
 import NumberField from './configFields/NumberField';
 import PasswordField from './configFields/PasswordField';
@@ -62,6 +63,10 @@ export default function ConfigForm({
     const renderField = (field: ConfigField) => {
         // 分组行由 groupFields 消费, 不会出现在组内
         if (field.kind === 'section') return null;
+        // 登录块: 无 key, 自带取数与交互
+        if (field.kind === 'login') {
+            return <LoginField key="login" field={field} />;
+        }
         // 展示字段: 无 key, 不落盘
         if (!('key' in field)) {
             return (

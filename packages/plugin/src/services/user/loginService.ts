@@ -11,7 +11,14 @@
  * 同一时间只允许一个登录流程。
  */
 
-import QRCode from 'qrcode';
+// 必须引用 server 入口: 包的 browser 字段会把默认入口换成 lib/browser.js,
+// 该入口没有 toFile (打包后表现为 "QRCode.toFile is not a function")。
+import { toFile } from 'qrcode/lib/server.js';
+import {
+    type LoginSessionSnapshot,
+    type LoginSessionSource,
+    LoginSessionStatus,
+} from 'shared';
 import {
     api_generateQR,
     api_pollQR,
@@ -30,33 +37,6 @@ const POLL_INTERVAL_MS = 2000;
 
 /** 二维码失效后自动重新生成的最大次数 */
 const MAX_QR_REFRESH = 3;
-
-/** 扫码登录会话的最终状态 */
-export enum LoginSessionStatus {
-    /** 等待扫码 */
-    Waiting = 'waiting',
-    /** 已扫码未确认 */
-    Scanned = 'scanned',
-    /** 登录成功 */
-    Success = 'success',
-    /** 二维码已失效 (含自动刷新耗尽) */
-    Expired = 'expired',
-    /** 登录流程出错 */
-    Error = 'error',
-}
-
-/** 登录会话状态快照 (供 WebUI API 返回) */
-export interface LoginSessionSnapshot {
-    status: LoginSessionStatus;
-    /** 是否已有会话进行中 */
-    active: boolean;
-    /** 已自动刷新的次数 */
-    refreshed: number;
-    /** 二维码图片本地路径 (会话进行中时有值) */
-    qrImagePath?: string;
-    /** 提示信息 */
-    message: string;
-}
 
 /** 登录会话事件监听器: 状态变化时回调 (指令入口用于回复用户) */
 export type LoginSessionListener = (
@@ -78,13 +58,16 @@ class LoginService {
     private active = false;
 
     /** 当前会话发起来源 */
-    private source: 'instruction' | 'webui' = 'instruction';
+    private source: LoginSessionSource = 'instruction';
 
     /** 指令入口的监听器 (一次会话一个) */
     private listener: LoginSessionListener | null = null;
 
     /** 二维码图片本地路径 */
     private qrImagePath: string | null = null;
+
+    /** 二维码版本号 (每次生成递增, 单调, 供前端破坏图片缓存) */
+    private qrVersion = 0;
 
     /** 已自动刷新次数 */
     private refreshed = 0;
@@ -107,7 +90,7 @@ class LoginService {
      * @returns 成功返回 null; 会话已存在时返回提示文案
      */
     start(
-        source: 'instruction' | 'webui',
+        source: LoginSessionSource,
         listener?: LoginSessionListener,
     ): string | null {
         if (this.active) {
@@ -118,6 +101,7 @@ class LoginService {
         this.source = source;
         this.listener = listener ?? null;
         this.refreshed = 0;
+        this.qrImagePath = null;
         this.lastStatus = LoginSessionStatus.Waiting;
         this.lastMessage = '正在生成登录二维码...';
 
@@ -125,17 +109,38 @@ class LoginService {
         return null;
     }
 
+    /**
+     * 重启 WebUI 发起的会话 (生成新二维码)
+     *
+     * 【必须】指令发起的会话进行中时不允许接管: 否则私聊里已发出的二维码
+     * 会静默作废, 且指令入口收不到终态反馈。
+     *
+     * @returns 成功返回 null; 不允许重启时返回提示文案
+     */
+    restart(source: LoginSessionSource): string | null {
+        if (this.active && this.isFromInstruction()) {
+            return '私聊发起的登录流程进行中, 请等待其结束';
+        }
+        this.stop();
+        return this.start(source);
+    }
+
     /** 获取当前会话状态快照 (WebUI 轮询用) */
     getSnapshot(): LoginSessionSnapshot {
         return {
             status: this.lastStatus,
             active: this.active,
+            source: this.source,
             refreshed: this.refreshed,
-            qrImagePath: this.active
-                ? (this.qrImagePath ?? undefined)
-                : undefined,
+            qrVersion: this.qrVersion,
+            hasQr: this.active && this.qrImagePath !== null,
             message: this.lastMessage,
         };
+    }
+
+    /** 获取二维码图片的本地路径 (仅会话进行中且已生成时) */
+    getQrImagePath(): string | null {
+        return this.active ? this.qrImagePath : null;
     }
 
     /** 停止当前会话 (cleanup 时调用) */
@@ -185,10 +190,12 @@ class LoginService {
         const filePath = pluginState.getDataFilePath(
             'bilibiliLoginQR.png',
         );
-        await QRCode.toFile(filePath, url, {
+        await toFile(filePath, url, {
             width: 512,
             margin: 2,
         });
+        // 每次写入都递增版本号, 前端据此破坏 <img> 缓存
+        this.qrVersion++;
         return filePath;
     }
 

@@ -24,7 +24,7 @@ import type {
     PluginConfigSchema,
     PluginModule,
 } from 'napcat-types/napcat-onebot/network/plugin/types';
-import type { LoginStatusInfo } from './config';
+import type { LoginStatus } from 'shared';
 import { buildConfigSchema } from './config';
 import { pluginState } from './core/state';
 import { handleMessage } from './handlers/messageHandler';
@@ -53,9 +53,11 @@ let cachedCtx: NapCatPluginContext | null = null;
 /** 用当前登录状态重建配置 Schema */
 function rebuildConfigUI(ctx: NapCatPluginContext): void {
     const biliCookieStore = BiliCookieStore.getInstance();
-    const loginStatus: LoginStatusInfo = {
-        user: biliCookieStore.getUser(),
+    const loginStatus: LoginStatus = {
+        loggedIn: biliCookieStore.has(),
         cookieExpired: biliCookieStore.isExpired(),
+        user: biliCookieStore.getUser() ?? null,
+        loginTime: biliCookieStore.getLoginTime() ?? null,
     };
     plugin_config_ui = buildConfigSchema(ctx, loginStatus);
 }

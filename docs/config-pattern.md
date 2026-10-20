@@ -47,6 +47,7 @@ FIELDS ──┬─→ PluginConfig         (类型, 编译期键集一致)
 | `stringList` | 逗号/换行分隔文本或数组 → 去空项 `string[]` | codec 由 `parseStringList` 单源提供, 前后端共用 |
 | `section` | 不落盘, 无 key | 仅布局分组: WebUI 分卡边界 + 原生面板分组标题 |
 | `display` | 不落盘, 无 key | 仅展示 HTML 片段 (可含 `{{...}}` 占位符) |
+| `login` | 不落盘, 无 key | 登录状态展示块: 原生面板渲染静态状态 HTML, WebUI 渲染可交互登录卡 |
 
 两条通用原则:
 
@@ -63,15 +64,17 @@ FIELDS ──┬─→ PluginConfig         (类型, 编译期键集一致)
     - section 的 `description` 存在时渲染为标题下方的灰色小字。
 - **原生面板**: `packages/plugin/src/config.ts` 把 section 渲染为分组标题 (粉色竖条 + 上边框 + 可选副标题), 样式集中在 `buildConfigSchema` 注入的**单份** `<style>` (类名统一 `bili-section-*` 前缀)。
     - 宿主把 `html` 内容直接注入 DOM, 且不会为插件字符串生成 Tailwind `dark:` 规则; 故暗色用 `.dark` / `[data-theme="dark"]` 祖先选择器跟随面板主题 class, 不用 `prefers-color-scheme`。
-    - 登录状态块插在**第一个 section 之后** (无 section 时回退到首项之后)。
+    - 登录状态块由 `FIELDS` 中的 `login` 描述符定位 (当前位于「B 站账号」section 之后), 不再硬编码插入位置。
 
 ## 运行时数据只进展示块
 
-Schema 中允许出现运行时数据 (登录状态、运行统计等), 但只允许进入 `display` 展示块, **不得进入可保存配置项**:
+Schema 中允许出现运行时数据 (登录状态、运行统计等), 但只允许进入 `display` / `login` 展示块, **不得进入可保存配置项**:
 
 1. Schema 构建函数接受可选运行时快照 (`buildConfigSchema(ctx, loginStatus)`), 快照为空时跳过对应展示块。
 2. 运行时状态只渲染为 HTML 展示块; 运行统计 (`stats`) 存于配置文件但位于 FIELDS 之外, 由 `loadConfig`/`saveConfig` 单独透传。
 3. 外部状态变化后通过配置 UI 控制器重建整个 Schema。
+
+`login` 是**带交互的运行时展示块** (区别于纯 HTML 的 `display`): 原生面板只渲染静态登录状态与登录入口提示, WebUI 则渲染扫码 / 刷新 / 登出控件。它同样无 key、不落盘、不参与 `sanitizeConfig`, 位置由 `FIELDS` 声明。决策与后果见 `docs/adr/0011-login-status-config-kind.md`。
 
 ⚠️ Schema 构建函数需要运行时数据时必须参数注入, 禁止配置模块静态 import 业务模块——否则形成循环引用, 默认配置对象在模块加载期即触发 TDZ 错误。见 `docs/adr/0005-config-schema-runtime-data-injection.md`。
 
@@ -102,7 +105,8 @@ Schema 中允许出现运行时数据 (登录状态、运行统计等), 但只�
 - [ ] 需要归入新分组时: 在 `FIELDS` 中插入 `section` 分隔行, 不新增描述符字段
 - [ ] 确认 `sanitizeConfig` 对该 kind 的既有规则已覆盖语义 (数值区间用 `min`/`max`, 不写自定义分支)
 - [ ] 若语义含默认值选择 (尤其启用类开关): 在 `CONTEXT.md` 与 ADR 中声明
-- [ ] 需要 ctx / 运行时数据时: 只加 `display` 展示块, 并保持参数注入
+- [ ] 需要 ctx / 运行时数据时: 只加 `display` / `login` 展示块, 并保持参数注入
+- [ ] 仅布局 / 展示的 kind (`section` / `display` / `login`) 必须无 key, 不进 `PluginConfig`, 不参与 `sanitizeConfig`
 
 ## 与其他范式的关系
 

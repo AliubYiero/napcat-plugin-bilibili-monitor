@@ -40,6 +40,7 @@ export interface ConfigOption {
  * | select        | 必须命中 options, 否则默认 | 下拉单选        | 下拉单选     |
  * | multiSelect   | 过滤非法项, 空数组合法     | 下拉多选        | 下拉多选·胶囊|
  * | stringList    | 逗号/数组 → 去空项数组     | 逗号文本框      | 标签输入     |
+ * | login         | 不落盘, 无 key             | 登录状态块      | 账号卡片     |
  *
  * 【例外】`password` 原生面板无密码控件, 故其 `scope` 收窄至 `webui` / `both`。
  * 【警告】密钥明文落盘 (config.json) 并明文往返自建前端, 仅适用于对安全性要求不高的场景。
@@ -54,7 +55,11 @@ export type ValueFieldKind =
     | 'stringList';
 
 /** 全部 kind (含仅布局/展示、不落盘的字段) */
-export type ConfigFieldKind = ValueFieldKind | 'section' | 'display';
+export type ConfigFieldKind =
+    | ValueFieldKind
+    | 'section'
+    | 'display'
+    | 'login';
 
 /**
  * 字段可见范围:
@@ -149,6 +154,23 @@ export interface DisplayFieldDescriptor {
     scope?: FieldScope;
 }
 
+/**
+ * B 站登录状态块 (无 key, 不落盘)
+ *
+ * 运行时状态 (账号信息 / 扫码会话) 由两侧各自注入:
+ *   - 原生面板: `buildConfigSchema(ctx, loginStatus)` 参数注入, 渲染静态状态块
+ *   - WebUI: `LoginField` 自行拉取 `/login/status` 并承担扫码轮询
+ *
+ * 【必须】description 是未登录时的说明文案的单一来源, 两侧不得各写一份。
+ */
+export interface LoginFieldDescriptor {
+    kind: 'login';
+    /** 未登录时的说明文字 */
+    description?: string;
+    /** 可见范围, 缺省为 both */
+    scope?: FieldScope;
+}
+
 /** 带 key 的有值字段 (key 必须是 PluginConfig 的键) */
 export type ConfigValueField = ValueFieldDescriptor & {
     key: keyof PluginConfig;
@@ -157,7 +179,8 @@ export type ConfigValueField = ValueFieldDescriptor & {
 /** 布局/展示字段 */
 export type ConfigLayoutField =
     | SectionFieldDescriptor
-    | DisplayFieldDescriptor;
+    | DisplayFieldDescriptor
+    | LoginFieldDescriptor;
 
 /** 描述符统一类型 */
 export type ConfigField = ConfigValueField | ConfigLayoutField;
@@ -265,6 +288,14 @@ export const FIELDS = [
     </div>
   </div>
 </div>`,
+    },
+    {
+        kind: 'section',
+        label: 'B 站账号',
+    },
+    {
+        kind: 'login',
+        description: '仅动态 / 视频监听需要登录后使用',
     },
     {
         kind: 'section',

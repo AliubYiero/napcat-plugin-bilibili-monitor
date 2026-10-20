@@ -27,7 +27,7 @@
 ```
 packages/plugin   插件后端 (发布物)
   src/index.ts                 生命周期入口 (plugin_init / plugin_onmessage / plugin_cleanup / 配置钩子)
-  src/config.ts                DEFAULT_CONFIG + buildConfigSchema(ctx, loginStatus) + 登录状态展示块
+  src/config.ts                DEFAULT_CONFIG + buildConfigSchema(ctx, loginStatus) + 面板登录状态块
   src/types.ts                 仅重导出 shared 类型, 不重复定义
   src/onebotEvent.ts           自持 EventType 枚举 (唯一以「值」用的类型)
   src/core/state.ts            pluginState 全局状态单例
@@ -49,9 +49,11 @@ packages/plugin   插件后端 (发布物)
   test/                                vitest 单测 (与 src 纯函数/store 模块对应)
 packages/webui    React SPA (独立构建, 单文件 HTML)
   src/pages/                           StatusPage (内嵌配置表单) / SessionsPage / HelpPage
-  src/components/configFields/         声明式配置表单控件
+  src/components/configFields/         声明式配置表单控件 (含交互式 LoginField)
+  src/utils/loginView.ts               登录卡片视图解析 (纯函数)
 packages/shared   跨包共享 (单一事实来源)
   src/config.ts             FIELDS / PluginConfig / COMMAND_PREFIX / getDefaultConfig / sanitizeConfig / parseStringList
+  src/login.ts              LoginStatus / LoginSessionSnapshot 登录态与扫码会话契约
   src/displayTokens.ts      {{...}} 占位符常量与 resolveDisplayContent
   src/ui.ts                 WebUI 骨架 PAGES / DEFAULT_PAGE
   src/help.ts               帮助面板类型 (与上游渲染服务手工同步)
@@ -117,11 +119,11 @@ pnpm deploy:dev              # dev 部署: 以 <name>-dev 新 id 注册, 不覆�
 
 **配置** ([config-pattern](docs/config-pattern.md))
 - 【必须】新增/修改配置项只改 `packages/shared/src/config.ts` 的 `FIELDS` 描述符一处 (类型/默认值/清洗/原生面板/WebUI 表单随之派生)。
-- 【必须】配置字段集固定为 `adminUsers` / `triggerModes` / `pollIntervalSeconds` / `dynPollIntervalSeconds` / `pushTypes` / `mentionGroupSize`; 不含插件启停与指令前缀 (宿主职责 / 内部常量 `COMMAND_PREFIX = '#bili'`)。
+- 【必须】配置字段集固定为 `adminUsers` / `triggerModes` / `pollIntervalSeconds` / `dynPollIntervalSeconds` / `pushTypes` / `mentionGroupSize`; 不含插件启停与指令前缀 (宿主职责 / 内部常量 `COMMAND_PREFIX = '#bili'`)。仅布局/展示的 `section` / `display` / `login` 不含 key、不落盘、不进 `PluginConfig`。
 - 【必须】一切外部输入 (磁盘、WebUI、旧配置迁移) 的配置写回必经 `sanitizeConfig`; `updateConfig` 仅限内部可信调用方。
 - 【必须】清洗是纯函数且不抛错: 类型不符回退默认, 数值超区间夹到 `min`/`max` (注意 `0` 会被夹到 `min`, 不是回退默认)。
 - 【必须】描述符是 ctx-free 纯数据; 需要 ctx 的 Schema 映射必须参数注入 (`buildConfigSchema(ctx, loginStatus)`), 禁止静态 import 业务模块。
-- 【必须】运行时数据 (如 `stats` 与登录状态) 只允许进入 `display` 展示块, 不得进入可保存配置项。
+- 【必须】运行时数据 (如 `stats` 与登录状态) 只允许进入 `display` / `login` 展示块, 不得进入可保存配置项。
 - 【必须】旧配置迁移一次性完成并留备份 `<configFileName>.YYYYMMDDHHmmss.bak`; 不再支持的键 (`enabled` / `debug` / `commandPrefix` / `groupConfigs` / `adminUser`) 只告警不静默丢弃信息。
 
 **权限** ([instruction-pattern](docs/instruction-pattern.md))
@@ -158,7 +160,7 @@ pnpm deploy:dev              # dev 部署: 以 <name>-dev 新 id 注册, 不覆�
 - 【必须】页面集固定为 `status`(内嵌配置表单) / `sessions` / `help`, 骨架元信息单源在 `shared/src/ui.ts`, URL 用 hash 且为当前页唯一真相源。
 - 【必须】插件自带 WebUI 页面调用无鉴权路由 (`router.getNoAuth` / `postNoAuth`)。
 - 【必须】`POST /config` 走 `pluginState.updateConfig` (内部已清洗); 会话启停走 `sessionConfigService`; 帮助面板直接返回生成产物。
-- 【必须】登录相关 API (`/login/*`, `/logout`) 保留, 但登录入口仍是指令 `#bili user login` (WebUI 不提供登录页)。
+- 【必须】登录卡 (`login` kind) 通过无鉴权路由消费 `/login/*`; 二维码图片走 `GET /login/qrcode/image` (`no-store`), 不在前端内联 base64。登录入口仍是指令 `#bili user login`, WebUI 不提供独立登录页。
 
 ## 代码片段
 
@@ -251,6 +253,7 @@ if (event.post_type !== EventType.MESSAGE) return;  // 只处理消息事件
 - **日志**: 统一 `pluginState.logger` / `ctx.logger`, 方法为 `log`/`debug`/`info`/`warn`/`error`。
 - **生成物**: `*.generated.ts` 与 `src/assets/*.png` 一律由 `pnpm help:generate` 产出并提交, 禁止手改。
 - **外部渲染依赖**: 卡片渲染依赖插件 [napcat-plugin-svg-render](https://github.com/AliubYiero/napcat-plugin-svg-convert) (≥1.1.0, 默认端口 6099); 宿主须安装思源黑体 (Noto Sans CJK SC), 否则尺寸计算偏差会错行溢出。渲染不可用/失败时自动回退纯文本。
+- **二维码依赖**: `qrcode` 的 `browser` 字段会把默认入口换成 `lib/browser.js` (无 `toFile`), 插件侧必须从 `qrcode/lib/server.js` 引入并补本地类型 (`src/qrcodeServer.d.ts`); 否则打包后扫码登录报 "QRCode.toFile is not a function"。
 - **禁止 emoji**: 代码中不使用 Unicode emoji 字符。需要装饰性输出时用颜文字, 例如:
   ```ts
   ctx.logger.info('(｡･ω･｡) 插件初始化完成');

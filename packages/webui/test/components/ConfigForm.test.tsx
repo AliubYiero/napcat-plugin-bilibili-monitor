@@ -16,6 +16,12 @@ import ConfigForm, {
     type FieldRenderProps,
 } from '../../src/components/ConfigForm';
 
+// 登录块会自行取数; 表单测试不关心其网络行为, 统一返回失败以走错误分支
+vi.mock('../../src/utils/api', () => ({
+    noAuthFetch: vi.fn().mockResolvedValue({ code: -1 }),
+    noAuthUrl: (path: string) => path,
+}));
+
 function renderForm(
     overrides?: Record<string, ComponentType<FieldRenderProps>>,
 ) {
@@ -55,14 +61,26 @@ describe('ConfigForm', () => {
         expect(screen.queryByText(/跳转至拓展页面/)).toBeNull();
     });
 
-    it('按 section 切成三张卡片并保持顺序', () => {
+    it('按 section 切成四张卡片并保持顺序', () => {
         const { container } = renderForm();
-        expect(container.querySelectorAll('.card')).toHaveLength(3);
+        expect(container.querySelectorAll('.card')).toHaveLength(4);
         expect(
             screen
                 .getAllByRole('heading', { level: 3 })
                 .map((heading) => heading.textContent),
-        ).toEqual(['基础配置', '直播监听配置', '动态监听配置']);
+        ).toEqual([
+            'B 站账号',
+            '基础配置',
+            '直播监听配置',
+            '动态监听配置',
+        ]);
+    });
+
+    it('login kind 由独立组件渲染 (默认展示账号态失败提示)', async () => {
+        renderForm();
+        expect(
+            await screen.findByText('获取登录状态失败'),
+        ).toBeInTheDocument();
     });
 
     it('卡片标题不触发 onChange', () => {

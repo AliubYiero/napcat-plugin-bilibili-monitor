@@ -60,6 +60,7 @@ export const DEFAULT_PAGE: PageId = 'status';
 | `stringList` | `StringListField` (标签输入) |
 | `section` | 分组卡片边界 (`groupFields` 切分, 标题为卡片 `h3`) |
 | `display` | `DisplayField` (`dangerouslySetInnerHTML` 渲染展示块) |
+| `login` | `LoginField` (登录状态 / 扫码 / 刷新 / 登出) |
 
 要点:
 
@@ -67,6 +68,29 @@ export const DEFAULT_PAGE: PageId = 'status';
 - `overrides` 是扩展点: 按字段 key 覆盖控件, 用于个别字段的特殊交互, 不需要改 `ConfigForm` 本身。
 - 所有控件是受控组件: 只上报 `onChange(key, value)`, 由页面决定何时提交 (`POST /config` 走后端 `sanitizeConfig`)。
 - 新增字段时前端**零改动**——加 `FIELDS` 描述符即可 (见 `config-pattern.md`)。
+
+### 登录卡片 (login kind)
+
+`LoginField` 是唯一的交互式运行时展示控件, 自包含数据获取, 不参与表单提交:
+
+- **数据来源**: `GET /login/status` 取登录态; 二维码会话端点见下表。图片直接用 `noAuthUrl('/login/qrcode/image')` 作 `<img src>`, 不在前端内联 base64。
+- **状态接管**: 挂载时若已有活跃会话 (例如刚由私聊指令发起), 直接接管并继续轮询, 不重复创建。
+- **轮询**: 仅当会话活跃时每 2s 拉一次; 终止 (`success` / `expired` / `error`) 即停止; 页面隐藏时暂停, 恢复可见立即补拉一次。
+- **刷新**: 仅 `source === 'webui'` 的会话允许重启; 指令发起的会话禁用按钮并提示等待其结束。
+- **登出**: 行内二次确认, 5s 未确认自动复位; 成功后回到未登录态。
+- **终止态**: 只在当前页面会话内展示; 重新进入页面回到空闲态, 并重新拉取登录状态。
+- **视觉**: 与原生面板登录块共用粉色卡片语言 (渐变外框、状态胶囊、B 站账号图标); 已登录态展示头像 / 昵称 / UID 与失效徽标, 不展示登录时间。
+
+| 端点 | 方法 | 说明 |
+| --- | --- | --- |
+| `/login/status` | GET | 登录态快照 (含 Cookie 过期标记与用户信息) |
+| `/login/qrcode` | POST | 创建扫码会话 (已有活跃会话时复用) |
+| `/login/qrcode/poll` | GET | 拉取会话快照, WebUI 轮询入口 |
+| `/login/qrcode/refresh` | POST | 重启会话; 非 `webui` 来源返回 409 |
+| `/login/qrcode/image` | GET | 二维码 PNG (`sendFile` + `Cache-Control: no-store`, 缺失 404) |
+| `/logout` | POST | 清除 Cookie 并回到未登录态 |
+
+原生面板的 `login` 块只展示静态状态与入口提示 (WebUI 或 `#bili user login`), 不提供扫码交互。
 
 ## 四、stringList 标签输入
 
@@ -121,9 +145,10 @@ export const DEFAULT_PAGE: PageId = 'status';
 
 新增一个配置控件 kind (少见):
 
-1. `shared/src/config.ts` 的 kind 联合加类型; 清洗分支同步 (见 `config-pattern.md`)。
-2. `packages/webui/src/components/configFields/` 加控件并在 `ConfigForm.tsx` 的 switch 接入。
+1. `shared/src/config.ts` 的 kind 联合加类型; 有 key 的 kind 同步清洗分支 (见 `config-pattern.md`)。
+2. `packages/webui/src/components/configFields/` 加控件并在 `ConfigForm.tsx` 的 kind 分发接入。
 3. 后端 `buildConfigSchema` 同步该 kind 的原生面板映射。
+4. 无 key 的展示 kind (`display` / `login`) 不进 `PluginConfig`、不参与 `sanitizeConfig`; 交互状态由控件自持。
 
 ## 与其他范式的关系
 

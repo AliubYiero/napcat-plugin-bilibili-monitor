@@ -34,6 +34,16 @@ _Avoid_: 指令分类, 指令树
 帮助内容的权威源结构: 一个面板 (`Cmd`) 含 `id`(同时用作图片文件名)、`title` 与若干分组 (`InstructionSet` 指令集 / `ContentHelp` 文本帮助)。全部面板汇总为 `HELP_PANELS` 生成物, 由 `GET /help` 原样返回给 WebUI 帮助页。
 _Avoid_: 帮助数据 (指生成物), 帮助配置
 
+**登录状态 (LoginStatus)**:
+当前 Bilibili 账号的登录态快照, 含 `loggedIn`(是否存在 Cookie)、`cookieExpired`、`user`(昵称/头像/uid) 与 `loginTime`。Cookie 存在但用户信息缺失时仍按已登录处理 (信息待补全)。仅动态/视频监听需要登录, 直播状态与同接监听免登录。
+
+**登录会话 (login session)**:
+一次扫码登录的运行时过程, 由 `loginService` 单例管理, 状态含 `waiting` / `scanned` / `success` / `expired` / `error`; 同一时刻只有一个活跃会话。按来源 (`source`) 区分 `instruction`(私聊指令) 与 `webui`, 仅 `webui` 来源允许从 WebUI 刷新。会话本身不持久化。
+
+**二维码版本 (qrVersion)**:
+登录会话内二维码图片的递增版本号, 仅用于 WebUI 缓存破坏 (`?v=`), 不持久化、不参与登录判定。
+_Avoid_: 二维码 ID, 登录版本
+
 **主播 (uid)**:
 被监控的 Bilibili 用户,以 mid 标识。插件对每个主播记录其直播间状态并推送变化,亦可监听其发布的动态。
 _Avoid_: UP主, 用户, 房间号

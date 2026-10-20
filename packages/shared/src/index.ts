@@ -10,6 +10,8 @@ export * from './config';
 export * from './displayTokens';
 // 帮助面板类型 (与上游 napcat-help-generate 手工同步)
 export * from './help';
+// B 站登录态与扫码会话契约 (面板 / WebUI / 后端共用)
+export * from './login';
 // WebUI 骨架元信息 (页面清单 + PageId)
 export * from './ui';
 

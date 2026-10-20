@@ -6,10 +6,8 @@
 
 import type { OB11Message } from 'napcat-types/napcat-onebot';
 import type { NapCatPluginContext } from 'napcat-types/napcat-onebot/network/plugin/types';
-import {
-    LoginSessionStatus,
-    loginService,
-} from '../../services/user/loginService';
+import { LoginSessionStatus } from 'shared';
+import { loginService } from '../../services/user/loginService';
 import { BiliCookieStore } from '../../store/biliCookieStore';
 import {
     createImageMessage,
@@ -64,15 +62,16 @@ export const loginHandler = async (
     // 等二维码生成完毕后发送图片 (轮询 500ms, 最多 20 次 = 10s)
     for (let i = 0; i < 20; i++) {
         await new Promise((r) => setTimeout(r, 500));
-        const snapshot = loginService.getSnapshot();
-        if (snapshot.qrImagePath) {
+        const qrImagePath = loginService.getQrImagePath();
+        if (qrImagePath) {
             await sendReply(
                 ctx,
                 event,
-                createImageMessage(snapshot.qrImagePath),
+                createImageMessage(qrImagePath),
             );
             return;
         }
+        const snapshot = loginService.getSnapshot();
         if (snapshot.status === LoginSessionStatus.Error) {
             await sendReply(ctx, event, snapshot.message);
             return;

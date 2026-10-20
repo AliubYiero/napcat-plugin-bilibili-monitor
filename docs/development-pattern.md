@@ -70,6 +70,7 @@ ADR 记录"难逆转、无上下文会意外、真实权衡"三类决策, 每份
 | 0008 SVG 渲染字体 | 改用思源黑体, 字体栈由常量统一, 宽度计算传 `fontFamily` 与渲染对齐 | services 渲染链路的字体取值与度量一致性 |
 | 0009 迁移到模板三包架构 | 采用 napcat-plugin-template 的 `packages/plugin` + `packages/shared` + `packages/webui` 布局与范式 (配置单源 FIELDS、帮助结构化产物、模板 WebUI 页面集) | 全仓结构、构建与发布链路 |
 | 0010 配置字段集收敛 | 配置不含插件全局启停与指令前缀 (宿主职责 / 内部常量), 字段集固定为 6 项 | config-pattern 的字段集与清洗 |
+| 0011 登录状态作为声明式配置 kind | 新增无 key 的 `login` kind, 面板静态展示、WebUI 交互扫码; 会话按来源限制刷新 | config-pattern / webui-config-pattern 的登录展示块与端点 |
 
 ## 尚未成文的区域
 
